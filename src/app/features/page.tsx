@@ -4,7 +4,7 @@ import Link from "next/link";
 const features = [
   {
     title: "Smart shopping chat",
-    text: "Describe the recipient, occasion, budget, city, or gift type and Kapruka Genie turns it into live product suggestions with AI replies grounded in the same updated preference context.",
+    text: "Describe the recipient, occasion, budget, city, or gift type and GenieAI turns it into live product suggestions with AI replies grounded in the same updated preference context.",
   },
   {
     title: "Event and gift box planning",
@@ -129,7 +129,7 @@ export default function FeaturesPage() {
               A guided AI shopping desk for Kapruka gifts
             </h1>
             <p className="mt-4 max-w-2xl text-base font-bold leading-7 text-[#675f79]">
-              Kapruka Genie combines chat, live catalog search, delivery checks,
+              GenieAI combines chat, live catalog search, delivery checks,
               comparison, event planning, gift message writing, and checkout
               preparation in one focused workspace.
             </p>

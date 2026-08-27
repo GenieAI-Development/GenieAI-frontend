@@ -237,7 +237,7 @@ const starterMessages: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Hello! ආයුබෝවන්! Ayubowan! I am Kapruka Genie. 💫 Tell me what you are looking for, and I will guide the gift details. 😊",
+      "Hello! ආයුබෝවන්! Ayubowan! I am GenieAI. 💫 Tell me what you are looking for, and I will guide the gift details. 😊",
   },
 ];
 
@@ -271,21 +271,21 @@ const starterMessagesByLanguage: Record<Language, ChatMessage[]> = {
     {
       role: "assistant",
       content:
-        "Ayubowan! මම Kapruka Genie. 💫 ඔබට අවශ්‍ය gift එක කියන්න, මම ඔයාව guide කරන්නම්. 😊",
+        "Ayubowan! මම GenieAI. 💫 ඔබට අවශ්‍ය gift එක කියන්න, මම ඔයාව guide කරන්නම්. 😊",
     },
   ],
   Singlish: [
     {
       role: "assistant",
       content:
-        "Ayubowan! Mama Kapruka Genie. 💫 Oyata ona gift eka kiyanna, mama oyawa guide karannam. 😊",
+        "Ayubowan! Mama GenieAI. 💫 Oyata ona gift eka kiyanna, mama oyawa guide karannam. 😊",
     },
   ],
   Tanglish: [
     {
       role: "assistant",
       content:
-        "Vanakkam! Naan Kapruka Genie. 💫 Neenga thedura gift pathi sollunga, naan unga details guide pannren. 😊",
+        "Vanakkam! Naan GenieAI. 💫 Neenga thedura gift pathi sollunga, naan unga details guide pannren. 😊",
     },
   ],
 };
@@ -4946,15 +4946,12 @@ export function KaprukaGenieApp() {
           <div className="flex min-h-full items-center bg-[radial-gradient(circle_at_12%_20%,rgba(255,223,0,0.32),transparent_28%),radial-gradient(circle_at_88%_16%,rgba(240,106,168,0.28),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(246,244,251,0.82))] px-5 py-6 backdrop-blur md:px-8">
             <div className="mx-auto grid w-full max-w-6xl gap-5">
               <div className="min-w-0 pr-12">
-                <p className="inline-flex rounded-full bg-[#ffdf00] px-3 py-1 text-xs font-black uppercase tracking-normal text-[#1a0f2e] shadow-[0_10px_24px_rgba(44,22,75,0.12)]">
-                  Kapruka Genie is ready
-                </p>
                 <h2 className="mt-3 max-w-4xl text-4xl font-black leading-tight tracking-normal text-[#3f246d] md:text-6xl">
-                  Shop smarter with live AI gifting support
+                  Shop smarter with GenieAI
                 </h2>
                 <p className="mt-3 max-w-3xl text-base font-bold leading-7 text-[#4d4261] md:text-lg">
                   Ask for gifts, compare products, plan events, write gift
-                  messages, and create Kapruka checkout links from one guided
+                  messages, and create checkout links from one guided
                   chat workspace.
                 </p>
               </div>
@@ -4972,7 +4969,7 @@ export function KaprukaGenieApp() {
                   onClick={closeIntroPanel}
                   className="h-12 cursor-pointer rounded-[14px] bg-[#3f246d] px-5 text-sm font-black text-white shadow-[0_12px_26px_rgba(63,36,109,0.28)] transition hover:bg-[#2f1957]"
                 >
-                  Chat now with Kapruka Genie
+                  Chat now with GenieAI
                 </button>
                 <Link
                   href="/features"

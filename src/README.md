@@ -1,6 +1,6 @@
 # MCP AI Shopping Platform
 
-Kapruka Genie is a hosted-AI conversational commerce app styled from `Doc/sample.html` and based on `Doc/Overview.docx`.
+GenieAI is a hosted-AI conversational commerce app styled from `Doc/sample.html` and based on `Doc/Overview.docx`.
 
 - Main shopping chat replies: Hugging Face via Novita, with the existing Groq reply as an automatic fallback
 - First-message context analysis: Groq processing model

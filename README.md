@@ -1,6 +1,6 @@
 # MCP AI Shopping Platform
 
-Kapruka Genie is a multilingual AI-assisted shopping experience built with Next.js. It combines hosted LLMs, a live Kapruka MCP integration, guided shopping flows, delivery checks, product comparison, gift message generation, image-based search hints, and voice input into a single ecommerce workspace.
+GenieAI is a multilingual AI-assisted shopping experience built with Next.js. It combines hosted LLMs, a live Kapruka MCP integration, guided shopping flows, delivery checks, product comparison, gift message generation, image-based search hints, and voice input into a single ecommerce workspace.
 
 The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) directory and is designed around real catalog operations rather than mock product recommendations. The frontend talks to local Next.js API routes, and those routes orchestrate Groq, Hugging Face via Novita, and the Kapruka MCP server.
 
@@ -238,7 +238,7 @@ npm run lint
 
 ### UI Pages
 
-- `/`: main Kapruka Genie workspace
+- `/`: main workspace
 - `/features`: feature overview and mode guide
 - `/demo-video`: embedded demo video page
 - `/ai-chatbot`: loads the same app shell
