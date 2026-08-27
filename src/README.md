@@ -6,7 +6,7 @@ GenieAI is a hosted-AI conversational commerce app styled from `Doc/sample.html`
 - First-message context analysis: Groq processing model
 - Image shopping and voice transcription: Groq vision and STT APIs
 - Assistant read-aloud: browser speech synthesis (no additional AI model)
-- Live products, delivery checks, and tracking: Kapruka MCP at `https://mcp.kapruka.com/mcp`
+- Live products and delivery checks: Kapruka MCP at `https://mcp.kapruka.com/mcp`
 - Ranking, event planning, gift boxes, and comparison: Groq over real MCP results
 - Reply chips: two randomly selected starter chips, generated locally
 - Commerce analytics: generated locally
@@ -69,7 +69,7 @@ routed through Novita. English shopping-chat replies use Groq. Sinhala and Singl
 messages also use Novita first, while English gift messages use Groq directly.
 If a Novita request is rate-limited, unavailable, times out, or returns an empty
 reply, the language-specific Groq response is used automatically. Ranking,
-comparisons, tracking suggestions, context analysis, vision, and voice retain
+comparisons, context analysis, vision, and voice retain
 their existing providers. Reply chips randomly select up to two entries from the
 initial starter-chip pool locally, with no AI call. Commerce analytics remain local.
 

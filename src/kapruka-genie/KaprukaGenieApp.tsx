@@ -40,7 +40,6 @@ type IconName =
   | "speaker"
   | "sparkles"
   | "trash"
-  | "truck"
   | "x";
 
 type CommerceResponse = {
@@ -92,7 +91,6 @@ type CommerceResponse = {
       items_total?: number;
     };
   };
-  tracking?: string;
 };
 
 function getCheckoutResponseMessage(data: CommerceResponse) {
@@ -229,7 +227,6 @@ const modes = [
   { name: "Event Planner", icon: "sparkles" },
   { name: "Gift Box Builder", icon: "gift" },
   { name: "Product Compare", icon: "search" },
-  { name: "Order Tracking", icon: "truck" },
   { name: "Gift Message", icon: "heart" },
 ] satisfies Array<{ icon: IconName; name: string }>;
 
@@ -294,7 +291,6 @@ const modeIcons: Record<string, IconName> = {
   "Event Planner": "sparkles",
   "Gift Box Builder": "gift",
   "Gift Message": "heart",
-  "Order Tracking": "truck",
   "Product Compare": "search",
   "Smart Shopping": "cart",
 };
@@ -926,7 +922,6 @@ const copy: Record<
     sendingContext: string;
     senderName: string;
     subtotal: string;
-    trackingPrompt: string;
     transcribingVoice: string;
     total: string;
     uploadingImage: string;
@@ -980,7 +975,6 @@ const copy: Record<
     sendingContext: "Sending Preferences",
     senderName: "Sender name",
     subtotal: "Subtotal",
-    trackingPrompt: "Enter your Kapruka order number and I will check the latest status.",
     transcribingVoice: "Transcribing voice note...",
     total: "Total",
     uploadingImage: "Processing image...",
@@ -1067,7 +1061,6 @@ const copy: Record<
     sendingContext: "Preferences sending",
     senderName: "Sender name",
     subtotal: "Subtotal",
-    trackingPrompt: "Kapruka order number eka denna. Mama latest status eka balannam.",
     total: "Total",
     useContextCard: "Uda preferences use karanna...",
     userContext: "Preferences",
@@ -1109,7 +1102,6 @@ const copy: Record<
     sendingContext: "Preferences sending",
     senderName: "Sender name",
     subtotal: "Subtotal",
-    trackingPrompt: "Kapruka order number kudunga. Latest status paathuttu sollren.",
     total: "Total",
     useContextCard: "Mela irukka preferences use pannunga...",
     userContext: "Preferences",
@@ -1134,7 +1126,6 @@ const copyOverrides: Record<Language, Partial<Required<(typeof copy)["English"]>
     processing: "Processing...",
     recordingVoice: "Voice record වෙනවා...",
     relatedGiftsReply: "මම ඔබට ගැලපෙන gifts පෙන්වන්නම්.",
-    trackingPrompt: "Kapruka order number එක දෙන්න. මම latest status එක බලන්නම්.",
     transcribingVoice: "Voice note එක text කරනවා...",
     uploadingImage: "Image process වෙනවා...",
     useContextCard: "ඉහළ preferences භාවිතා කරන්න...",
@@ -1463,7 +1454,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Chocolate: "චොකලට්",
     "Colombo delivery": "කොළඹට බෙදාහැරීම",
     "Create order link": "ඇණවුම් සබැඳිය හදන්න",
-    "Enter order number": "Order number එක දාන්න",
     "More like this": "මේ වගේ තවත්",
     "Next item": "ඊළඟ අයිතමය",
     "Open checkout": "Checkout අරින්න",
@@ -1472,8 +1462,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Roses: "රෝස මල්",
     "Search more products": "තව products හොයන්න",
     "Search products": "Products හොයන්න",
-    "Track another order": "තව order එකක් track කරන්න",
-    "Track order": "Order track කරන්න",
     "Suggest more": "තවත් යෝජනා",
     Watch: "ඔරලෝසුව",
   },
@@ -1482,7 +1470,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Chocolate: "Chocolate",
     "Colombo delivery": "Colombo delivery",
     "Create order link": "Order link hadanna",
-    "Enter order number": "Order number eka danna",
     "More like this": "Me wage thawa",
     "Next item": "Ilanga item eka",
     "Open checkout": "Open checkout",
@@ -1491,8 +1478,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Roses: "Roses",
     "Search more products": "Thawa products hoyanna",
     "Search products": "Products hoyanna",
-    "Track another order": "Thawa order ekak track karanna",
-    "Track order": "Order track karanna",
     "Suggest more": "Thawa yojana",
     Watch: "Watch",
   },
@@ -1501,7 +1486,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Chocolate: "Chocolate",
     "Colombo delivery": "Colombo delivery",
     "Create order link": "Order link create pannunga",
-    "Enter order number": "Order number kudunga",
     "More like this": "Idhu maadhiri innum",
     "Next item": "Next item",
     "Open checkout": "Open checkout",
@@ -1510,8 +1494,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Roses: "Roses",
     "Search more products": "Innum products thedunga",
     "Search products": "Products thedunga",
-    "Track another order": "Innum oru order track pannunga",
-    "Track order": "Order track pannunga",
     "Suggest more": "Innum suggest pannunga",
     Watch: "Watch",
   },
@@ -1537,7 +1519,6 @@ const iconPaths: Record<IconName, string> = {
   sparkles:
     "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm6 12 1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3ZM5 3l.8 2.2L8 6l-2.2.8L5 9l-.8-2.2L2 6l2.2-.8L5 3Z",
   trash: "M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3",
-  truck: "M3 6h11v9H3V6Zm11 3h4l3 3v3h-7V9ZM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   x: "M6 6l12 12M18 6 6 18",
 };
 
@@ -1775,14 +1756,10 @@ export function KaprukaGenieApp() {
   const [compareIds, setCompareIds] = useState({ first: "", second: "" });
   const [compareRows, setCompareRows] = useState<CompareRow[]>([]);
   const [compareSuggestion, setCompareSuggestion] = useState("");
-  const [trackingId, setTrackingId] = useState("");
-  const [trackingResult, setTrackingResult] = useState("");
-  const [trackingSuggestion, setTrackingSuggestion] = useState("");
   const [guidedPlanItems, setGuidedPlanItems] = useState<GuidedPlanItem[]>([]);
   const [guidedPlanIndex, setGuidedPlanIndex] = useState(0);
   const [guidedMoreCount, setGuidedMoreCount] = useState(0);
   const [isCompareSubmitting, setIsCompareSubmitting] = useState(false);
-  const [isTrackingSubmitting, setIsTrackingSubmitting] = useState(false);
   const [isCheckoutCreating, setIsCheckoutCreating] = useState(false);
   const [checkoutWarning, setCheckoutWarning] = useState("");
   const [giftMessagePreferences, setGiftMessagePreferences] =
@@ -1844,11 +1821,10 @@ export function KaprukaGenieApp() {
         ? "Anthima message eka kiyawanna"
         : "Read latest message aloud";
   const isCompareMode = activeMode.includes("Compare");
-  const isTrackingMode = activeMode.includes("Tracking");
   const isGiftMessageMode = activeMode.includes("Message");
   const isGuidedMode =
     activeMode.includes("Event") || activeMode.includes("Gift Box");
-  const isFormToolMode = isCompareMode || isTrackingMode || isGiftMessageMode;
+  const isFormToolMode = isCompareMode || isGiftMessageMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
 
   useEffect(() => {
@@ -1899,7 +1875,7 @@ export function KaprukaGenieApp() {
   }
 
   function isRemovedGenericReplyChip(chip: string) {
-    return /\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products|track order)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
+    return /\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
       chip,
     );
   }
@@ -1940,7 +1916,6 @@ export function KaprukaGenieApp() {
     if (mode.includes("Event")) return localizedText.eventPrompt;
     if (mode.includes("Gift Box")) return localizedText.giftBoxPrompt;
     if (mode.includes("Compare")) return localizedText.comparePrompt;
-    if (mode.includes("Tracking")) return localizedText.trackingPrompt;
     return starterMessagesByLanguage[selectedLanguage][0].content;
   }
 
@@ -2027,8 +2002,6 @@ export function KaprukaGenieApp() {
   function resetToolPanels() {
     setCompareRows([]);
     setCompareSuggestion("");
-    setTrackingResult("");
-    setTrackingSuggestion("");
     setGuidedPlanItems([]);
     setGuidedPlanIndex(0);
   }
@@ -2602,59 +2575,6 @@ export function KaprukaGenieApp() {
                   </tr>
                 </tbody>
               </table>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  function renderTrackingTool() {
-    return (
-      <div className="grid gap-4">
-        <form
-          onSubmit={(event) => void handleTrackingSubmit(event)}
-          className="grid gap-3 rounded-[18px] border border-[#e8e2f2] bg-white p-4"
-        >
-          <div>
-            <h2 className="text-lg font-black text-[#3f246d]">
-              Order Tracking
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-[#675f79]">
-              Enter the Kapruka order or tracking ID.
-            </p>
-          </div>
-          <label className="grid gap-1 text-sm font-bold text-[#675f79]">
-            Tracking ID
-            <input
-              value={trackingId}
-              onChange={(event) => setTrackingId(event.target.value)}
-              className="h-12 rounded-[14px] border border-[#e8e2f2] px-3 text-[#161226] outline-none"
-              placeholder="Enter tracking ID"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isTrackingSubmitting || !trackingId.trim()}
-            className="h-12 rounded-[14px] bg-[#ffdf00] px-5 text-sm font-black text-[#1a0f2e] disabled:opacity-50"
-          >
-            {isTrackingSubmitting ? "Checking..." : "Track order"}
-          </button>
-        </form>
-
-        {trackingResult ? (
-          <div className="grid gap-3 rounded-[18px] border border-[#e8e2f2] bg-white p-4">
-            <div>
-              <h3 className="text-sm font-black uppercase text-[#3f246d]">
-                Tracking output
-              </h3>
-              <div className="mt-2 text-sm leading-6 text-[#161226]">
-                {renderChatMessage(trackingResult)}
-              </div>
-            </div>
-            <div className="rounded-[14px] bg-[#f6f4fb] p-3 text-sm leading-6 text-[#675f79]">
-              <strong className="text-[#3f246d]">AI suggestion: </strong>
-              {trackingSuggestion || "No AI suggestion returned."}
             </div>
           </div>
         ) : null}
@@ -4256,49 +4176,6 @@ export function KaprukaGenieApp() {
     }
   }
 
-  async function handleTrackingSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const id = trackingId.trim();
-
-    if (!id || isTrackingSubmitting) {
-      return;
-    }
-
-    setIsTrackingSubmitting(true);
-    setTrackingResult("");
-    setTrackingSuggestion("");
-    setStatus("Kapruka MCP is checking the order status.");
-
-    try {
-      const response = await fetch("/api/ai/commerce", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          language,
-          mode: "Order Tracking",
-          profile: normalizeShoppingProfile(profile),
-          query: id,
-          task: "track",
-        }),
-      });
-      const data = (await response.json()) as CommerceResponse & { error?: string };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Order tracking failed.");
-      }
-
-      setTrackingResult(data.tracking || "");
-      setTrackingSuggestion(data.reply || "");
-      setStatus("Order tracking result ready.");
-    } catch (error) {
-      setStatus(getErrorMessage(error));
-    } finally {
-      setIsTrackingSubmitting(false);
-    }
-  }
-
   async function generateGiftMessage(suggestions?: string) {
     if (isGiftMessageGenerating) {
       return;
@@ -5606,8 +5483,6 @@ export function KaprukaGenieApp() {
             >
               {isCompareMode ? (
                 renderCompareTool()
-              ) : isTrackingMode ? (
-                renderTrackingTool()
               ) : isGiftMessageMode ? (
                 renderGiftMessageTool()
               ) : (

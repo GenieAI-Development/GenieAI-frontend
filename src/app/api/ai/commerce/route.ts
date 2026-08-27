@@ -230,6 +230,15 @@ const PRODUCT_SEARCH_CACHE_TTL_MS = 45_000;
 const CITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PRODUCT_SEARCH_CACHE_ENTRIES = 100;
 const MAX_CITY_CACHE_ENTRIES = 100;
+const SUPPORTED_TASKS = new Set([
+  "checkout",
+  "compare",
+  "eventPlan",
+  "giftBox",
+  "giftMessage",
+  "initial",
+  "recommend",
+]);
 const productSearchCache = new Map<string, CacheEntry<ProductSearchResult>>();
 const cityCache = new Map<string, CacheEntry<string>>();
 
@@ -249,7 +258,6 @@ type CommerceResponse = {
   mode: string;
   recommendations: CommerceRecommendation[];
   reply: string;
-  tracking: string;
 };
 
 function getSubmittedPreferenceRecord(bodyRecord: Record<string, unknown> | null | undefined, mode: string) {
@@ -305,7 +313,6 @@ const fallbackResponse: CommerceResponse = {
   mode: "Smart Shopping",
   recommendations: [],
   reply: "",
-  tracking: "",
 };
 
 function getCachedValue<T>(
@@ -508,7 +515,7 @@ function parseChipArray(value: unknown, maxItems: number) {
   return parseStringArray(value, maxItems)
     .filter(
       (chip) =>
-        !/\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products|track order)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
+        !/\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
           chip,
         ),
     )
@@ -1433,7 +1440,6 @@ function parseCommerceResponse(
       mode: getString(parsed, "mode") ?? mode,
       recommendations: parseRecommendations(parsed?.recommendations, products),
       reply: stripModelThinking(getString(parsed, "reply") ?? ""),
-      tracking: getString(parsed, "tracking") ?? "",
     };
   } catch {
     return {
@@ -1850,10 +1856,6 @@ async function createCheckoutOrder(
   return normalizeCheckoutOrderResponse(order);
 }
 
-function getOrderNumber(query: string) {
-  return query.match(/\b[A-Z0-9][A-Z0-9_-]{4,48}[A-Z0-9]\b/i)?.[0] ?? null;
-}
-
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return Promise.race([
     promise,
@@ -2008,7 +2010,6 @@ async function getGroqCommerce(
                 },
               ],
               reply: "concise direct answer to this specific user message",
-              tracking: "optional order tracking update",
             },
             activePreferences: {
               budget: profile.budget,
@@ -2096,54 +2097,6 @@ async function getGroqCommerce(
     ...commerce,
     reply: sanitizeChatReply(reply, products, language),
   };
-}
-
-async function getGroqTrackingSuggestion(
-  apiKey: string,
-  language: string,
-  tracking: string,
-) {
-  const { response } = await fetchGroqChatWithFallback(apiKey, {
-    model:
-      process.env.GROQ_PROCESSING_MODEL ??
-      process.env.GROQ_COMMERCE_MODEL ??
-      DEFAULT_MODEL,
-    messages: [
-        {
-          role: "system",
-          content:
-            "You give one concise post-order shopping support suggestion. Do not invent tracking facts. Reply in the requested language. Singlish means natural conversational Sinhala written entirely with Latin letters, not English; understand informal Singlish spelling and never use Sinhala script for a Singlish reply. Tanglish means natural conversational Tamil mixed with simple English words written entirely with Latin letters; never use Tamil script and do not answer fully in English. Return JSON only.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            expectedSchema: { suggestion: "one short next-step suggestion" },
-            language,
-            tracking,
-          }),
-        },
-    ],
-    temperature: 0.2,
-    max_completion_tokens: 180,
-    response_format: { type: "json_object" },
-  });
-
-  if (!response.ok) {
-    return "";
-  }
-
-  const content = getAssistantContent((await response.json()) as unknown);
-  const jsonText = content ? extractJsonObject(content) : null;
-
-  if (!jsonText) {
-    return "";
-  }
-
-  try {
-    return getString(asRecord(JSON.parse(jsonText) as unknown), "suggestion") ?? "";
-  } catch {
-    return "";
-  }
 }
 
 async function getGroqCompareSuggestion(
@@ -2261,6 +2214,11 @@ export async function POST(request: Request) {
   const bodyRecord = asRecord(body);
   const task = getString(bodyRecord, "task") ?? "recommend";
   const mode = getString(bodyRecord, "mode") ?? "Smart Shopping";
+
+  if (!SUPPORTED_TASKS.has(task)) {
+    return NextResponse.json({ error: "Unsupported commerce task." }, { status: 400 });
+  }
+
   const language = normalizeDetectedLanguage(
     getString(bodyRecord, "language"),
     "English",
@@ -2366,50 +2324,6 @@ export async function POST(request: Request) {
         reply: order.checkout_url
           ? "Kapruka created a guest-checkout link."
           : (order.result ?? "Kapruka returned checkout details."),
-      });
-    }
-
-    if (task === "track") {
-      const mcp = await mcpPromise;
-      const orderNumber = getOrderNumber(query);
-
-      if (!orderNumber) {
-        return NextResponse.json({
-          ...fallbackResponse,
-          chips: [],
-          mode,
-          products: [],
-          tracking:
-            "Enter the Kapruka order number from the confirmation email or order complete page.",
-        });
-      }
-
-      const tracking = await mcp.callTool<{ result?: string }>(
-        "kapruka_track_order",
-        {
-          order_number: orderNumber,
-          response_format: "markdown",
-        },
-      );
-      const trackingResult = tracking.result ?? "No tracking update returned.";
-      const apiKey = getGroqApiKey();
-      const aiSuggestion = apiKey
-        ? await getGroqTrackingSuggestion(apiKey, language, trackingResult)
-        : "";
-
-      return NextResponse.json({
-        ...fallbackResponse,
-        analytics: {
-          buyBoxHealth: "Tracking lookup complete",
-          conversionSignal: "Post-order support",
-          nextBestAction: "Share the latest delivery status",
-          risk: "Order data depends on paid order number",
-        },
-        chips: [],
-        mode,
-        products: [],
-        reply: aiSuggestion,
-        tracking: trackingResult,
       });
     }
 

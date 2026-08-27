@@ -47,7 +47,6 @@ The app supports `English`, `Sinhala`, `Singlish`, and `Tanglish` in different p
 - `Event Planner`: structured planning flow for birthdays, office events, and gatherings
 - `Gift Box Builder`: guided multi-item gift box creation
 - `Product Compare`: compare two real Kapruka products using their product IDs
-- `Order Tracking`: track an existing Kapruka order and generate a short next-step suggestion
 - `Gift Message`: generate or refine gift-card copy in multiple supported language styles
 - `Buy Box`: lightweight cart-style sidebar for selected products and checkout preparation
 - `Delivery Checks`: asks Kapruka MCP for city/date availability when the user requests delivery details
@@ -338,7 +337,7 @@ Based on the repository's current code and config files:
 - `/api/ai/voice-messages`: Groq Whisper
 - `/api/ai/chatbot`: Groq by default, with Novita used for Tanglish when configured
 - `/api/ai/commerce`:
-  - live search, delivery checks, tracking lookup, and order creation come from Kapruka MCP
+  - live search, delivery checks, and order creation come from Kapruka MCP
   - comparison, ranking, reasoning, and most commerce responses come from Groq
   - gift-message generation may use Novita first for non-English variants, then Groq fallback
 
@@ -370,7 +369,6 @@ The commerce route uses MCP for operations such as:
 - product detail retrieval
 - delivery checks
 - order creation
-- order tracking
 
 ## User Flows
 
@@ -408,12 +406,6 @@ The commerce route uses MCP for operations such as:
 2. User provides recipient, sender, city, date, and address details.
 3. The app validates required checkout fields.
 4. Kapruka MCP creates a guest checkout link.
-
-### Order Tracking
-
-1. User enters a Kapruka order number.
-2. MCP returns the latest tracking result.
-3. AI optionally converts that result into a short next-step suggestion.
 
 ## Architecture Notes
 

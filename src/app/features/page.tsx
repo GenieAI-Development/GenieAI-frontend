@@ -53,12 +53,6 @@ const modeGuides = [
       "Copy product IDs from Smart Shopping product cards, paste them into Product ID 1 and Product ID 2, then compare price, category, description, stock, and AI recommendation.",
   },
   {
-    mode: "Order Tracking",
-    purpose: "Check an existing Kapruka order status.",
-    howTo:
-      "Enter the Kapruka order number from the confirmation email or order completion page. The app returns tracking output and a concise next-step suggestion.",
-  },
-  {
     mode: "Gift Message",
     purpose: "Write or refine a gift card message.",
     howTo:

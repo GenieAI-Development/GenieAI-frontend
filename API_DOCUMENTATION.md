@@ -240,9 +240,9 @@ A task-based endpoint for the live Kapruka catalog.
 | Field | Type | Notes |
 |---|---|---|
 | `task` | string | Defaults to `recommend`. |
-| `mode` | string | Common values: `Smart Shopping`, `Event Planner`, `Gift Box Builder`, `Product Compare`, `Order Tracking`, `Gift Message`. |
+| `mode` | string | Common values: `Smart Shopping`, `Event Planner`, `Gift Box Builder`, `Product Compare`, `Gift Message`. |
 | `language` | string | Defaults to `English`. |
-| `query` | string | Search text, order number, or task input. |
+| `query` | string | Search text or task input. |
 | `userMessage` | string | Exact conversational message; defaults to `query`. |
 | `profile` | object | `budget`, `category`, `city`, `date`, `occasion`, `recipient`. |
 | `extendedPreferences` | object | `budget`, `giftType`, `occasion`, `recipient`. |
@@ -266,7 +266,6 @@ A task-based endpoint for the live Kapruka catalog.
   "delivery": null,
   "eventPlan": [],
   "giftMessage": "",
-  "tracking": "",
   "analytics": {
     "buyBoxHealth": "Ranked live products ready",
     "conversionSignal": "Active shopping request",
@@ -290,18 +289,6 @@ Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `sto
 ```
 
 At least two valid product IDs are needed for the exact comparison flow. Unavailable products are omitted; comparison may use a local fallback.
-
-### Track
-
-```json
-{
-  "task": "track",
-  "mode": "Order Tracking",
-  "query": "ORDER_123456"
-}
-```
-
-The response places the raw order status in `tracking`. AI-generated next-step text in `reply` is optional.
 
 ### Checkout
 
@@ -372,9 +359,9 @@ The generated text is returned in `giftMessage`.
 |---:|---|
 | `400` | Checkout data is incomplete. |
 | `500` | A required AI credential is missing. |
-| `502` | Catalog, tracking, checkout, or provider operation failed. |
+| `502` | Catalog, checkout, or provider operation failed. |
 
-Some degraded states intentionally return `200`, including local recommendations, comparison fallback, tracking without an AI suggestion, and gift-message fallback.
+Some degraded states intentionally return `200`, including local recommendations, comparison fallback, and gift-message fallback.
 
 ## Command-line examples
 
