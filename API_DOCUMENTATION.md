@@ -23,7 +23,7 @@ Use your deployed application origin as the base URL:
 - JSON endpoints require `Content-Type: application/json`.
 - Upload endpoints require `multipart/form-data`. Let the HTTP client set the boundary.
 - All responses are JSON.
-- Supported languages: `English`, `Sinhala`, `Singlish`, and `Tanglish`.
+- Supported languages: `English`, `Sinhala`, and `Singlish`.
 - Commerce prices use `LKR`; dates use `YYYY-MM-DD`.
 - Incoming requests are currently unauthenticated.
 

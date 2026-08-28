@@ -39,7 +39,7 @@ This project implements an AI shopping assistant for Kapruka-style gifting and c
 - generating gift card messages
 - using images and voice as shopping inputs
 
-The app supports `English`, `Sinhala`, `Singlish`, and `Tanglish` in different parts of the experience, with explicit prompt logic to preserve the intended language style.
+The app supports `English`, `Sinhala`, and `Singlish` in different parts of the experience, with explicit prompt logic to preserve the intended language style.
 
 ## Core Features
 
@@ -335,7 +335,7 @@ Based on the repository's current code and config files:
 - `/api/ai/context-analysis`: Groq
 - `/api/ai/image-analysis`: Groq vision
 - `/api/ai/voice-messages`: Groq Whisper
-- `/api/ai/chatbot`: Groq by default, with Novita used for Tanglish when configured
+- `/api/ai/chatbot`: Groq
 - `/api/ai/commerce`:
   - live search, delivery checks, and order creation come from Kapruka MCP
   - comparison, ranking, reasoning, and most commerce responses come from Groq

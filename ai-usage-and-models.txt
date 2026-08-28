@@ -31,7 +31,7 @@ Where each model is used
 - `/api/ai/context-analysis`
   First-message preference extraction: Groq
 - `/api/ai/chatbot`
-  Standalone test chatbot: Groq by default, Hugging Face via Novita only for Tanglish
+  Standalone test chatbot: Groq
 - `/api/ai/image-analysis`
   Image understanding: Groq vision
 - `/api/ai/voice-messages`

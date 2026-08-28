@@ -22,7 +22,10 @@ import { KaprukaSearchProduct, Product, toProduct } from "@/lib/productCatalog";
 export const runtime = "nodejs";
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const DEFAULT_GIFT_MESSAGE_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_COMPARE_MODEL = "openai/gpt-oss-20b";
+const COMPARE_FALLBACK_MODELS = ["openai/gpt-oss-120b"];
+const DEFAULT_GIFT_MESSAGE_MODEL = "openai/gpt-oss-20b";
+const ENGLISH_GIFT_MESSAGE_FALLBACK_MODELS = ["openai/gpt-oss-120b"];
 const DEFAULT_SINHALA_GIFT_MESSAGE_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_SINHALA_CHAT_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_SINGLISH_CHAT_MODEL = "llama-3.3-70b-versatile";
@@ -43,7 +46,7 @@ type CommerceRecommendation = {
 };
 
 type MessageIntent = "command" | "conversation" | "question";
-type DetectedLanguage = "English" | "Sinhala" | "Singlish" | "Tanglish";
+type DetectedLanguage = "English" | "Sinhala" | "Singlish";
 
 type PreferenceSnapshot = {
   budget: string | null;
@@ -250,6 +253,7 @@ type CommerceResponse = {
     risk: string;
   };
   chips: string[];
+  comparisonInsights: ProductComparisonInsights[];
   eventPlan: string[];
   eventUserPreference?: ExtendedPreferences;
   extendedPreferences?: ExtendedPreferences;
@@ -258,6 +262,16 @@ type CommerceResponse = {
   mode: string;
   recommendations: CommerceRecommendation[];
   reply: string;
+};
+
+type ComparisonInsight = {
+  label: string;
+  percentage: number;
+};
+
+type ProductComparisonInsights = {
+  id: string;
+  insights: ComparisonInsight[];
 };
 
 function getSubmittedPreferenceRecord(bodyRecord: Record<string, unknown> | null | undefined, mode: string) {
@@ -308,6 +322,7 @@ const fallbackResponse: CommerceResponse = {
     risk: "Catalog results may change",
   },
   chips: [],
+  comparisonInsights: [],
   eventPlan: [],
   giftMessage: "",
   mode: "Smart Shopping",
@@ -762,6 +777,60 @@ function getDeterministicCompareSummary(products: Product[]) {
   return `${categorySentence} ${priceSentence} ${stockSentence} Choose ${preferred.name} if you want the safer pick because it has ${preferred.id === first.id ? "the better price or availability balance" : "the better availability or value balance"} for this comparison. Choose ${alternative.name} instead if its ${alternative.category} category and description match the recipient better, but do not choose it over ${preferred.name} unless that fit matters more than ${preferred.id === first.id ? second.name : first.name}'s price or stock advantage.`;
 }
 
+function getDeterministicComparisonInsights(
+  products: Product[],
+  profile: ShoppingProfile,
+): ProductComparisonInsights[] {
+  const positivePrices = products
+    .map((product) => product.price)
+    .filter((price) => price > 0);
+  const lowestPrice = Math.min(...positivePrices);
+
+  function getContextMatch(product: Product, context: string) {
+    if (!context.trim()) {
+      return 72;
+    }
+
+    const searchableText = `${product.name} ${product.category} ${product.description}`.toLowerCase();
+    const contextTerms = context
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 2);
+    const matchingTerms = contextTerms.filter((term) =>
+      searchableText.includes(term),
+    ).length;
+
+    return Math.min(94, 68 + matchingTerms * 10);
+  }
+
+  return products.slice(0, 2).map((product) => {
+    const valuePercentage =
+      Number.isFinite(lowestPrice) && product.price > 0
+        ? Math.max(55, Math.min(96, Math.round((lowestPrice / product.price) * 92)))
+        : 70;
+    const qualityPercentage = Math.min(
+      92,
+      64 + Math.round(Math.min(product.description.length, 240) / 12),
+    );
+
+    return {
+      id: product.id,
+      insights: [
+        { label: "Value", percentage: valuePercentage },
+        { label: "Quality", percentage: qualityPercentage },
+        {
+          label: "Occasion Match",
+          percentage: getContextMatch(product, profile.occasion ?? ""),
+        },
+        {
+          label: "Recipient Match",
+          percentage: getContextMatch(product, profile.recipient ?? ""),
+        },
+      ],
+    };
+  });
+}
+
 function isProductInsideBudget(product: Product, filter: BudgetFilter) {
   if (product.currency.toUpperCase() !== "LKR") {
     return false;
@@ -1084,9 +1153,7 @@ function normalizeDetectedLanguage(
   fallback: DetectedLanguage,
 ): DetectedLanguage {
   return value === "English" ||
-    value === "Sinhala" ||
-    value === "Singlish" ||
-    value === "Tanglish"
+    value === "Sinhala" || value === "Singlish"
     ? value
     : fallback;
 }
@@ -1281,7 +1348,7 @@ async function getGroqMessageAnalysis(
         {
           role: "system",
           content:
-            "Analyze only the latest user request; selectedLanguage is authoritative. Return two preference layers. preferences contains only normalized visible preset changes explicitly stated now. extendedPreferences contains the exact, specific English search meaning explicitly stated now for budget, recipient, occasion, and giftType; return null for every field not changed in the latest request. Translate Sinhala, Singlish, or Tanglish preference meaning into concise English search text. Never copy older preferences from recentConversation into an update. Classify intent as question, command, or conversation. Normalize visible budgets and categories only to the supplied preset options. Return JSON only and do not answer the user.",
+            "Analyze only the latest user request; selectedLanguage is authoritative. Return two preference layers. preferences contains only normalized visible preset changes explicitly stated now. extendedPreferences contains the exact, specific English search meaning explicitly stated now for budget, recipient, occasion, and giftType; return null for every field not changed in the latest request. Translate Sinhala or Singlish preference meaning into concise English search text. Never copy older preferences from recentConversation into an update. Classify intent as question, command, or conversation. Normalize visible budgets and categories only to the supplied preset options. Return JSON only and do not answer the user.",
         },
         {
           role: "user",
@@ -1435,6 +1502,7 @@ function parseCommerceResponse(
         risk: getString(analytics, "risk") ?? fallbackResponse.analytics.risk,
       },
       chips: parseChipArray(parsed?.chips, 6),
+      comparisonInsights: [],
       eventPlan: parseStringArray(parsed?.eventPlan, 8),
       giftMessage: getString(parsed, "giftMessage") ?? "",
       mode: getString(parsed, "mode") ?? mode,
@@ -1458,10 +1526,6 @@ function getReplyLanguageInstruction(language: DetectedLanguage) {
 
   if (language === "Singlish") {
     return "CRITICAL LANGUAGE RULE: Reply only in natural conversational Sinhala written with Latin letters. Ignore the language used in the query. Every sentence must use Sinhala vocabulary and grammar such as oyage, mata, ona, puluwan, hoyala, balanna, or kiyanna. Do not write an English sentence and do not use Sinhala script.";
-  }
-
-  if (language === "Tanglish") {
-    return "CRITICAL LANGUAGE RULE: Reply only in natural conversational Tanglish written with Latin letters. Ignore the language used in the query. Every sentence must primarily use Tamil vocabulary with light English mixing such as unga, enakku, venum, paakanum, kudunga, and pannunga. Do not write Tamil script and do not answer fully in English.";
   }
 
   return "CRITICAL LANGUAGE RULE: Reply only in English.";
@@ -1492,19 +1556,6 @@ function isReplyInSelectedLanguage(
     return new Set(singlishWords.map((word) => word.toLowerCase())).size >= 2;
   }
 
-  if (language === "Tanglish") {
-    if (/[\u0B80-\u0BFF]/u.test(reply) || /[\u0D80-\u0DFF]/u.test(reply)) {
-      return false;
-    }
-
-    const tanglishWords =
-      reply.match(
-        /\b(?:anna|appadi|budget|enna|enakku|enga|evalo|gift|illa|indha|inga|innaikku|irukku|kaami|kaamikiren|kidaichu|kudunga|ku|naan|neenga|paakanum|pannalaam|pannunga|pathi|thedunga|unga|venum)\b/gi,
-      ) ?? [];
-
-    return new Set(tanglishWords.map((word) => word.toLowerCase())).size >= 2;
-  }
-
   return true;
 }
 
@@ -1518,7 +1569,6 @@ function getLanguageSafeReply(
 function sanitizeChatReply(
   reply: string,
   products: Product[],
-  language: DetectedLanguage,
 ) {
   const productReferences = products.flatMap((product) => [
     product.id.trim().toLowerCase(),
@@ -2055,7 +2105,6 @@ async function getGroqCommerce(
       reply: sanitizeChatReply(
         getLanguageSafeReply(language, directReply),
         products,
-        language,
       ),
     };
   }
@@ -2070,7 +2119,6 @@ async function getGroqCommerce(
       reply: sanitizeChatReply(
         getLanguageSafeReply(language, directReply),
         products,
-        language,
       ),
     };
   }
@@ -2095,61 +2143,125 @@ async function getGroqCommerce(
 
   return {
     ...commerce,
-    reply: sanitizeChatReply(reply, products, language),
+    reply: sanitizeChatReply(reply, products),
   };
 }
 
-async function getGroqCompareSuggestion(
+async function getGroqComparisonInsights(
   apiKey: string,
   language: string,
   products: Product[],
+  profile: ShoppingProfile,
 ) {
   const { response } = await fetchGroqChatWithFallback(apiKey, {
-    model:
-      process.env.GROQ_PROCESSING_MODEL ??
-      process.env.GROQ_COMMERCE_MODEL ??
-      DEFAULT_MODEL,
+    model: process.env.GROQ_COMPARE_MODEL ?? DEFAULT_COMPARE_MODEL,
     messages: [
         {
           role: "system",
           content:
-            "Give one detailed final comparison paragraph using only the supplied products. Compare product 1 and product 2 tradeoffs, price/value, use case, strengths, weaknesses, and say which is better for which buyer and why. Reply in the requested language. Singlish means natural conversational Sinhala written entirely with Latin letters, not English; understand informal Singlish spelling and never use Sinhala script for a Singlish reply. Tanglish means natural conversational Tamil mixed with simple English words written entirely with Latin letters; never use Tamil script and do not answer fully in English. Return JSON only.",
+            "Score each supplied product using only the supplied facts and shopping context. Return no more than four short insight dimensions per product. Prefer Value, Quality, Occasion Match, and Recipient Match when the context supports them. Percentages must be integers from 0 to 100 and should meaningfully distinguish the products. Do not invent materials, durability, reviews, or other facts absent from the descriptions. Keep insight labels in the requested language. Return JSON only.",
         },
         {
           role: "user",
           content: JSON.stringify({
-            expectedSchema: { suggestion: "one long final comparison paragraph for both products" },
+            expectedSchema: {
+              productInsights: [
+                {
+                  id: "exact supplied product id",
+                  insights: [
+                    {
+                      label: "short insight label",
+                      percentage: 0,
+                    },
+                  ],
+                },
+              ],
+            },
             language,
+            shoppingContext: {
+              budget: profile.budget,
+              occasion: profile.occasion,
+              recipient: profile.recipient,
+            },
             products: products.map((product) => ({
               category: product.category,
+              description: product.description,
               id: product.id,
               name: product.name,
               price: product.price,
-              stock: product.stockLabel,
             })),
           }),
         },
     ],
     temperature: 0.2,
     max_completion_tokens: 420,
+    reasoning_effort: "low",
     response_format: { type: "json_object" },
-  });
+  }, COMPARE_FALLBACK_MODELS);
 
   if (!response.ok) {
-    return "";
+    return [];
   }
 
   const content = getAssistantContent((await response.json()) as unknown);
   const jsonText = content ? extractJsonObject(content) : null;
 
   if (!jsonText) {
-    return "";
+    return [];
   }
 
   try {
-    return getString(asRecord(JSON.parse(jsonText) as unknown), "suggestion") ?? "";
+    const parsed = asRecord(JSON.parse(jsonText) as unknown);
+    const rawProductInsights = parsed?.productInsights;
+    const productIds = new Set(products.map((product) => product.id));
+
+    if (!Array.isArray(rawProductInsights)) {
+      return [];
+    }
+
+    return rawProductInsights
+      .map((item): ProductComparisonInsights | null => {
+        const record = asRecord(item);
+        const id = getString(record, "id")?.trim();
+        const rawInsights = record?.insights;
+
+        if (!id || !productIds.has(id) || !Array.isArray(rawInsights)) {
+          return null;
+        }
+
+        const seenLabels = new Set<string>();
+        const insights = rawInsights
+          .map((insight): ComparisonInsight | null => {
+            const insightRecord = asRecord(insight);
+            const label = getString(insightRecord, "label")?.trim();
+            const percentage = getNumber(insightRecord, "percentage");
+            const normalizedLabel = label?.toLowerCase();
+
+            if (
+              !label ||
+              !normalizedLabel ||
+              seenLabels.has(normalizedLabel) ||
+              percentage === null
+            ) {
+              return null;
+            }
+
+            seenLabels.add(normalizedLabel);
+            return {
+              label,
+              percentage: Math.max(0, Math.min(100, Math.round(percentage))),
+            };
+          })
+          .filter((insight): insight is ComparisonInsight => Boolean(insight))
+          .slice(0, 4);
+
+        return insights.length > 0 ? { id, insights } : null;
+      })
+      .filter(
+        (item): item is ProductComparisonInsights => Boolean(item),
+      );
   } catch {
-    return "";
+    return [];
   }
 }
 
@@ -2160,7 +2272,7 @@ async function getGroqGiftMessage(
 ) {
   const isSinhala = preferences.language?.trim().toLowerCase() === "sinhala";
   const isSinglish = preferences.language?.trim().toLowerCase() === "singlish";
-  const isTanglish = preferences.language?.trim().toLowerCase() === "tanglish";
+  const isEnglish = preferences.language?.trim().toLowerCase() === "english";
   const { response } = await fetchGroqChatWithFallback(apiKey, {
     model: isSinhala
       ? process.env.GROQ_SINHALA_GIFT_MESSAGE_MODEL ??
@@ -2168,15 +2280,12 @@ async function getGroqGiftMessage(
       : isSinglish
         ? process.env.GROQ_SINGLISH_GIFT_MESSAGE_MODEL ??
           DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL
-      : isTanglish
-        ? process.env.GROQ_SINGLISH_GIFT_MESSAGE_MODEL ??
-          DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL
       : process.env.GROQ_GIFT_MESSAGE_MODEL ?? DEFAULT_GIFT_MESSAGE_MODEL,
     messages: [
         {
           role: "system",
           content:
-            `${isSinhala ? "" : "/no_think\n"}You are a native Sri Lankan gift-card writer. Generate one fresh, polished message in the explicitly requested language. Sinhala must use fluent, idiomatic Sinhala script rather than a literal word-for-word translation. Singlish must be natural conversational Sinhala written entirely with Latin letters, never English prose or Sinhala script. Tanglish must be natural conversational Tamil mixed with simple English words, written entirely with Latin letters and never Tamil script. Natural Singlish style includes 'Obata subama suba upandinayak wewa!' and 'Oyata godak adarei. Hemadama sathutin saha nirogiwa inna.' Do not copy these examples. Respect the requested size, tone, relationship, occasion, and suggestions. Return exactly one JSON object containing a giftMessage string and no other text.`,
+            `${isSinhala ? "" : "/no_think\n"}You are a native Sri Lankan gift-card writer. Generate one fresh, polished message in the explicitly requested language. Sinhala must use fluent, idiomatic Sinhala script rather than a literal word-for-word translation. Singlish must be natural conversational Sinhala written entirely with Latin letters, never English prose or Sinhala script. Natural Singlish style includes 'Obata subama suba upandinayak wewa!' and 'Oyata godak adarei. Hemadama sathutin saha nirogiwa inna.' Do not copy these examples. Respect the requested size, tone, relationship, occasion, and suggestions. Return exactly one JSON object containing a giftMessage string and no other text.`,
         },
         {
           role: "user",
@@ -2189,7 +2298,13 @@ async function getGroqGiftMessage(
     ],
     temperature: 0.45,
     max_completion_tokens: 400,
-  });
+    ...(isEnglish
+      ? {
+          reasoning_effort: "low",
+          response_format: { type: "json_object" },
+        }
+      : {}),
+  }, isEnglish ? ENGLISH_GIFT_MESSAGE_FALLBACK_MODELS : undefined);
 
   if (!response.ok) {
     return "";
@@ -2253,7 +2368,7 @@ export async function POST(request: Request) {
                 {
                   role: "system",
                   content:
-                    "Write one fresh, polished gift-card message in the explicitly requested language. Sinhala must use natural Sinhala script. Singlish must be natural conversational Sinhala written only with Latin letters. Tanglish must be natural conversational Tamil with light English mixing, written only with Latin letters. Respect the requested size, tone, recipient, occasion, and suggestions. Return only the finished gift message with no label, JSON, quotation marks, or explanation.",
+                    "Write one fresh, polished gift-card message in the explicitly requested language. Sinhala must use natural Sinhala script. Singlish must be natural conversational Sinhala written only with Latin letters. Respect the requested size, tone, recipient, occasion, and suggestions. Return only the finished gift message with no label, JSON, quotation marks, or explanation.",
                 },
                 {
                   role: "user",
@@ -2496,14 +2611,24 @@ export async function POST(request: Request) {
       }
 
       const apiKey = getGroqApiKey();
-      const aiSuggestion = apiKey
+      const aiInsights = apiKey
         ? await withTimeout(
-            getGroqCompareSuggestion(apiKey, language, products.slice(0, 3)),
+            getGroqComparisonInsights(
+              apiKey,
+              language,
+              products.slice(0, 2),
+              profile,
+            ),
             6000,
-          ).catch(() => "")
-        : "";
-      const finalComparison =
-        aiSuggestion || getDeterministicCompareSummary(products.slice(0, 2));
+          ).catch(() => [])
+        : [];
+      const comparisonInsights =
+        aiInsights.length === products.slice(0, 2).length
+          ? aiInsights
+          : getDeterministicComparisonInsights(products, profile);
+      const finalComparison = getDeterministicCompareSummary(
+        products.slice(0, 2),
+      );
 
       return NextResponse.json({
         ...fallbackResponse,
@@ -2514,6 +2639,7 @@ export async function POST(request: Request) {
           risk: products.length < 2 ? "Some product IDs did not return matches" : "Live catalog can change",
         },
         chips: [],
+        comparisonInsights,
         mode,
         products: products.slice(0, 3),
         recommendations: products.slice(0, 3).map((product) => ({

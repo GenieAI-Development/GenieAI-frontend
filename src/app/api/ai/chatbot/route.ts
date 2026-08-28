@@ -7,22 +7,15 @@ import {
   getMissingGroqKeyMessage,
   readGroqError,
 } from "@/lib/groqHosted";
-import {
-  getHuggingFaceApiKey,
-  getHuggingFaceNovitaReply,
-  getHuggingFaceNovitaReplyModel,
-} from "@/lib/huggingFaceNovita";
 
 export const runtime = "nodejs";
 
 const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const MAX_CONTEXT_MESSAGES = 10;
-type SelectedLanguage = "English" | "Sinhala" | "Singlish" | "Tanglish";
+type SelectedLanguage = "English" | "Sinhala" | "Singlish";
 
 function getSelectedLanguage(value: string | null): SelectedLanguage {
-  return value === "Sinhala" ||
-    value === "Singlish" ||
-    value === "Tanglish"
+  return value === "Sinhala" || value === "Singlish"
     ? value
     : "English";
 }
@@ -101,27 +94,10 @@ export async function POST(request: Request) {
   }
 
   const apiKey = getGroqApiKey();
-  const huggingFaceApiKey = getHuggingFaceApiKey();
-  const useNovita = selectedLanguage === "Tanglish" && Boolean(huggingFaceApiKey);
   const systemMessage: ChatMessage = {
     role: "system",
-    content: `You are a concise multilingual shopping assistant for testing an ecommerce AI website. Help with product discovery, comparisons, sizing, returns, and checkout questions. Always reply in the selected language: ${selectedLanguage}. Never detect or switch language based on the user's message. Understand Singlish as natural Sinhala meaning written informally with Latin letters, including spelling variations. Use Sinhala script for selected Sinhala. For selected Singlish, write natural conversational Sinhala entirely with Latin letters; do not answer in English and do not use Sinhala script. For selected Tanglish, write natural conversational Tamil mixed with simple English words in Latin letters only; do not answer fully in English and do not use Tamil script. English product terms may appear only when necessary. Do not reveal reasoning, analysis, scratchpad text, or <think> blocks. Reply with one short paragraph only: no bullets, numbered lists, product names, product IDs, prices, or written product recommendations because the UI shows products separately as cards.`,
+    content: `You are a concise multilingual shopping assistant for testing an ecommerce AI website. Help with product discovery, comparisons, sizing, returns, and checkout questions. Always reply in the selected language: ${selectedLanguage}. Never detect or switch language based on the user's message. Understand Singlish as natural Sinhala meaning written informally with Latin letters, including spelling variations. Use Sinhala script for selected Sinhala. For selected Singlish, write natural conversational Sinhala entirely with Latin letters; do not answer in English and do not use Sinhala script. English product terms may appear only when necessary. Do not reveal reasoning, analysis, scratchpad text, or <think> blocks. Reply with one short paragraph only: no bullets, numbered lists, product names, product IDs, prices, or written product recommendations because the UI shows products separately as cards.`,
   };
-
-  if (useNovita && huggingFaceApiKey) {
-    const reply = await getHuggingFaceNovitaReply(huggingFaceApiKey, {
-      messages: [systemMessage, ...messages],
-      max_tokens: 900,
-      temperature: 0.4,
-    });
-
-    if (reply) {
-      return NextResponse.json({
-        reply,
-        model: getHuggingFaceNovitaReplyModel(),
-      });
-    }
-  }
 
   if (!apiKey) {
     return NextResponse.json(
