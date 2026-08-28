@@ -8,21 +8,124 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-inter);
+  --font-mono: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), sans-serif;
+  font-synthesis: none;
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-inter), sans-serif;
+}
+
+code,
+kbd,
+samp,
+pre,
+.mono {
+  font-family: var(--font-inter), sans-serif;
+}
+
+.genie-wordmark {
+  font-family: var(--font-inter), sans-serif;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.genie-nav-item {
+  font-size: 8px !important;
+}
+
+@media (min-width: 768px) {
+  .genie-nav-item {
+    font-size: 10px !important;
+  }
+}
+
+.genie-shell[data-theme="dark"] {
+    color-scheme: dark;
+    background: #071a30;
+    color: #eef4fb;
+}
+
+.genie-shell[data-theme="light"] {
+  color-scheme: light;
+}
+
+.genie-shell[data-theme="dark"] .bg-white {
+    background-color: #102d4d;
+  }
+
+.genie-shell[data-theme="dark"] .bg-\[\#FAF7F1\],
+.genie-shell[data-theme="dark"] .bg-\[\#F5F8FC\] {
+    background-color: #0b2340;
+  }
+
+.genie-shell[data-theme="dark"] .bg-\[\#E7EEF7\] {
+    background-color: #163a60;
+  }
+
+.genie-shell[data-theme="dark"] .bg-\[\#FFF8E7\],
+.genie-shell[data-theme="dark"] .bg-\[\#F6ECD3\] {
+    background-color: #332b1b;
+  }
+
+.genie-shell[data-theme="dark"] .border-\[\#E4E1D8\],
+.genie-shell[data-theme="dark"] .border-\[\#D7E2EF\] {
+    border-color: #294967;
+  }
+
+.genie-shell[data-theme="dark"] .border-\[\#E6D5A7\] {
+    border-color: #6f5727;
+  }
+
+.genie-shell[data-theme="dark"] .text-\[\#16202B\],
+.genie-shell[data-theme="dark"] .text-\[\#3E4A56\],
+.genie-shell[data-theme="dark"] .text-\[\#0A1F3A\] {
+    color: #eef4fb;
+  }
+
+.genie-shell[data-theme="dark"] .text-\[\#5B6B7A\],
+.genie-shell[data-theme="dark"] .text-\[\#9AA7B2\] {
+    color: #afc8e5;
+  }
+
+.genie-shell[data-theme="dark"] .text-\[\#1E4D8C\],
+.genie-shell[data-theme="dark"] .text-\[\#31577F\],
+.genie-shell[data-theme="dark"] .text-\[\#123661\] {
+    color: #8fc1f5;
+  }
+
+.genie-shell[data-theme="dark"] .bg-\[\#D6A936\].text-\[\#071A30\],
+.genie-shell[data-theme="dark"] .bg-\[\#C89B3C\].text-\[\#0A1F3A\],
+.genie-shell[data-theme="dark"] [class*="bg-[linear-gradient(#C89B3C"] {
+    color: #071a30;
+  }
+
+.genie-shell[data-theme="dark"] .genie-composer {
+    background: linear-gradient(transparent, #071a30 28%);
+  }
+
+.genie-shell[data-theme="dark"] input,
+.genie-shell[data-theme="dark"] textarea,
+.genie-shell[data-theme="dark"] select {
+    color: #eef4fb;
+  }
+
+.genie-shell[data-theme="dark"] input::placeholder,
+.genie-shell[data-theme="dark"] textarea::placeholder {
+    color: #7f9bb8;
 }
 
 * {
@@ -31,6 +134,8 @@ body {
 
 button,
 input,
-textarea {
-  font: inherit;
+textarea,
+select,
+option {
+  font-family: inherit;
 }

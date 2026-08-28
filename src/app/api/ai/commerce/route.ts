@@ -1660,7 +1660,7 @@ async function getAiProductReply(
 }
 
 function fallbackRecommendations(products: Product[]) {
-  return products.slice(0, 3).map((product, index) => ({
+  return products.slice(0, 4).map((product, index) => ({
     id: product.id,
     fitScore: 92 - index * 4,
     reason: "Matched by live product search.",
@@ -1672,14 +1672,19 @@ function orderProductsByRecommendation(
   recommendations: CommerceRecommendation[],
 ) {
   if (recommendations.length === 0) {
-    return products.slice(0, 3);
+    return products.slice(0, 4);
   }
 
   const byId = new Map(products.map((product) => [product.id, product]));
-  return recommendations
+  const rankedProducts = recommendations
     .map((recommendation) => byId.get(recommendation.id))
-    .filter((product): product is Product => Boolean(product))
-    .slice(0, 3);
+    .filter((product): product is Product => Boolean(product));
+  const rankedIds = new Set(rankedProducts.map((product) => product.id));
+
+  return [
+    ...rankedProducts,
+    ...products.filter((product) => !rankedIds.has(product.id)),
+  ].slice(0, 4);
 }
 
 function getBudgetSearchReply(search: ProductSearchResult, productCount: number) {
@@ -1740,7 +1745,7 @@ async function searchCatalogProductsUncached(
   const baseParams = {
     currency: "LKR",
     in_stock_only: true,
-    limit: 8,
+    limit: 4,
     response_format: "json",
     sort: "relevance",
   };
@@ -1773,7 +1778,12 @@ async function searchCatalogProductsUncached(
 
     const rawResults =
       query === COMMON_GIFT_SEARCH_QUERY
-        ? responses.flatMap((response) => (response.results?.[0] ? [response.results[0]] : []))
+        ? [
+            ...responses.flatMap((response) =>
+              response.results?.[0] ? [response.results[0]] : [],
+            ),
+            ...responses.flatMap((response) => response.results?.slice(1) ?? []),
+          ]
         : responses.flatMap((response) => response.results ?? []);
 
     return rawResults
@@ -1790,7 +1800,7 @@ async function searchCatalogProductsUncached(
       .filter((product) =>
         isProductRelevantToPreferences(product, query, profile),
       )
-      .slice(0, 8);
+      .slice(0, 4);
   }
 
   if (!hasBudgetFilter(budgetFilter)) {
@@ -2589,7 +2599,7 @@ export async function POST(request: Request) {
           tools: [commerceTools.searchProducts],
         },
         mode,
-        products: products.slice(0, 3),
+        products: products.slice(0, 4),
         recommendations,
         reply: "GenieAI loaded products.",
       });
@@ -2722,7 +2732,7 @@ export async function POST(request: Request) {
       recommendations,
     );
     const responseProducts =
-      task === "compare" ? products.slice(0, 3) : recommendationProducts;
+      task === "compare" ? products.slice(0, 3) : recommendationProducts.slice(0, 4);
     return NextResponse.json({
       ...commerce,
       analytics: getLocalAnalytics({

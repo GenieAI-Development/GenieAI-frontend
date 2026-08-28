@@ -96,7 +96,7 @@ export default function FeaturesPage() {
             href="/"
             className="text-2xl font-black tracking-normal text-[#3f246d]"
           >
-            <span className="text-[#ffdf00]">GenieAI</span>
+            <span className="genie-wordmark text-[#ffdf00]">GenieAI</span>
           </Link>
           <div className="flex flex-wrap gap-2">
             <Link
