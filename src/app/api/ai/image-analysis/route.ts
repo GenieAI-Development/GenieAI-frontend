@@ -184,7 +184,7 @@ function buildVisionRequest(model: string, imageUrl: string, useJsonMode: boolea
           {
             type: "text" as const,
             text:
-              'Analyze this shopping-related image for Kapruka Genie. Reply with a single JSON object only using this exact schema: {"summary":"one concise sentence","labels":[{"label":"short visual label","score":0.0}],"visibleText":["short text seen in the image"],"productHints":["products to search"],"searchQuery":"short product search query"}. Keep labels and productHints short. Use scores from 0 to 1. Include up to five labels.',
+              'Analyze this shopping-related image for GenieAI. Reply with a single JSON object only using this exact schema: {"summary":"one concise sentence","labels":[{"label":"short visual label","score":0.0}],"visibleText":["short text seen in the image"],"productHints":["products to search"],"searchQuery":"short product search query"}. Keep labels and productHints short. Use scores from 0 to 1. Include up to five labels.',
           },
           {
             type: "image_url" as const,

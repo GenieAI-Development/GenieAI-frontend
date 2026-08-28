@@ -31,7 +31,7 @@ export default function DemoVideoPage() {
             href="/"
             className="text-2xl font-black tracking-normal text-[#3f246d]"
           >
-            Kapruka <span className="text-[#ffdf00]">Genie</span>
+            <span className="genie-wordmark text-[#ffdf00]">GenieAI</span>
           </Link>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -55,7 +55,7 @@ export default function DemoVideoPage() {
               Demo video
             </p>
             <h1 className="mt-1.5 max-w-3xl text-3xl font-black tracking-normal text-[#3f246d] md:mt-2 md:text-6xl">
-              Watch Kapruka Genie in action
+              Watch GenieAI in action
             </h1>
             <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-[#675f79] md:mt-4 md:text-base md:leading-7">
               See how a shopping request becomes product cards, guided context,
@@ -79,7 +79,7 @@ export default function DemoVideoPage() {
               {demoVideoUrl ? (
                 <iframe
                   src={demoVideoUrl}
-                  title="Kapruka Genie demo video"
+                  title="GenieAI demo video"
                   allow="autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen
                   className="h-full w-full rounded-[18px] border-0 bg-black"

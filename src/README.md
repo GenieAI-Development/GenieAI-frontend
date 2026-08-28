@@ -1,12 +1,12 @@
 # MCP AI Shopping Platform
 
-Kapruka Genie is a hosted-AI conversational commerce app styled from `Doc/sample.html` and based on `Doc/Overview.docx`.
+GenieAI is a hosted-AI conversational commerce app styled from `Doc/sample.html` and based on `Doc/Overview.docx`.
 
 - Main shopping chat replies: Hugging Face via Novita, with the existing Groq reply as an automatic fallback
 - First-message context analysis: Groq processing model
 - Image shopping and voice transcription: Groq vision and STT APIs
 - Assistant read-aloud: browser speech synthesis (no additional AI model)
-- Live products, delivery checks, and tracking: Kapruka MCP at `https://mcp.kapruka.com/mcp`
+- Live products and delivery checks: commerce MCP
 - Ranking, event planning, gift boxes, and comparison: Groq over real MCP results
 - Reply chips: two randomly selected starter chips, generated locally
 - Commerce analytics: generated locally
@@ -47,14 +47,20 @@ GROQ_COMMERCE_MODEL=llama-3.3-70b-versatile
 GROQ_ENGLISH_CHAT_MODEL=openai/gpt-oss-120b
 GROQ_SINHALA_CHAT_MODEL=openai/gpt-oss-120b
 GROQ_SINGLISH_CHAT_MODEL=llama-3.3-70b-versatile
-GROQ_GIFT_MESSAGE_MODEL=llama-3.3-70b-versatile
+GROQ_GIFT_MESSAGE_MODEL=openai/gpt-oss-20b
 GROQ_SINHALA_GIFT_MESSAGE_MODEL=openai/gpt-oss-120b
 GROQ_SINGLISH_GIFT_MESSAGE_MODEL=llama-3.3-70b-versatile
 GROQ_BACKUP_MODEL=qwen/qwen3.6-27b
 GROQ_REQUEST_TIMEOUT_MS=5000
 GROQ_TOTAL_TIMEOUT_MS=10000
 MCP_REQUEST_TIMEOUT_MS=4000
-KAPRUKA_MCP_URL=https://mcp.kapruka.com/mcp
+# Optional commerce provider overrides:
+# COMMERCE_MCP_URL=https://your-commerce-mcp.example/mcp
+# COMMERCE_SEARCH_PRODUCTS_TOOL=search_products
+# COMMERCE_GET_PRODUCT_TOOL=get_product
+# COMMERCE_LIST_DELIVERY_CITIES_TOOL=list_delivery_cities
+# COMMERCE_CHECK_DELIVERY_TOOL=check_delivery
+# COMMERCE_CREATE_ORDER_TOOL=create_order
 GROQ_VISION_MODEL=qwen/qwen3.6-27b
 GROQ_VISION_BACKUP_MODEL=qwen/qwen3.6-27b
 ```
@@ -69,7 +75,7 @@ routed through Novita. English shopping-chat replies use Groq. Sinhala and Singl
 messages also use Novita first, while English gift messages use Groq directly.
 If a Novita request is rate-limited, unavailable, times out, or returns an empty
 reply, the language-specific Groq response is used automatically. Ranking,
-comparisons, tracking suggestions, context analysis, vision, and voice retain
+comparisons, context analysis, vision, and voice retain
 their existing providers. Reply chips randomly select up to two entries from the
 initial starter-chip pool locally, with no AI call. Commerce analytics remain local.
 
@@ -102,7 +108,7 @@ Restart `npm run dev` after changing env values.
 - Provider test pages: `/ai-chatbot`, `/image-analysis`, `/voice-messages`
 - API: `/api/ai/chatbot`, `/api/ai/image-analysis`, `/api/ai/voice-messages`, `/api/ai/commerce`
 
-The commerce API uses the real Kapruka MCP streamable HTTP transport. It reuses
+The commerce API uses a real MCP streamable HTTP transport. It reuses
 short-lived MCP sessions, caches product searches for 45 seconds and normalized
 cities for 24 hours, and bounds MCP calls to 4 seconds by default. Delivery is
 checked only when the user's current message asks about delivery. Independent

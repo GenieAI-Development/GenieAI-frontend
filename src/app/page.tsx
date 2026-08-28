@@ -1,5 +1,5 @@
-import { KaprukaGenieApp } from "@/kapruka-genie/KaprukaGenieApp";
+import { GenieAIApp } from "@/genie-ai/GenieAIApp";
 
 export default function Home() {
-  return <KaprukaGenieApp />;
+  return <GenieAIApp />;
 }

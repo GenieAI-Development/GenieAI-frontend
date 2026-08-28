@@ -101,7 +101,7 @@ async function transcribeAudio(request: Request) {
 
   const model = STT_MODEL;
   const groqFormData = new FormData();
-  groqFormData.append("file", file, file.name || "kapruka-voice.webm");
+  groqFormData.append("file", file, file.name || "genie-ai-voice.webm");
   groqFormData.append("model", model);
   groqFormData.append("response_format", "verbose_json");
 

@@ -18,7 +18,7 @@ export type ProductApiDetail = {
   value: string;
 };
 
-export type KaprukaSearchProduct = {
+export type CatalogSearchProduct = {
   id?: unknown;
   name?: unknown;
   summary?: unknown;
@@ -43,9 +43,9 @@ export const starterProducts: Product[] = [
     currency: "LKR",
     stock: 1,
     stockLabel: "In stock",
-    eta: "Delivery checked by Kapruka MCP",
+    eta: "Delivery checked by the live commerce service",
     description: "A ready-to-gift chocolate selection for birthdays and thanks.",
-    url: "https://www.kapruka.com",
+    url: "#",
   },
   {
     id: "starter-rose-bouquet",
@@ -56,9 +56,9 @@ export const starterProducts: Product[] = [
     currency: "LKR",
     stock: 1,
     stockLabel: "In stock",
-    eta: "Delivery checked by Kapruka MCP",
+    eta: "Delivery checked by the live commerce service",
     description: "Fresh roses for romantic, anniversary, and celebration moments.",
-    url: "https://www.kapruka.com",
+    url: "#",
   },
   {
     id: "starter-perfume-set",
@@ -69,9 +69,9 @@ export const starterProducts: Product[] = [
     currency: "LKR",
     stock: 1,
     stockLabel: "In stock",
-    eta: "Delivery checked by Kapruka MCP",
+    eta: "Delivery checked by the live commerce service",
     description: "A premium fragrance pick when the recipient likes personal gifts.",
-    url: "https://www.kapruka.com",
+    url: "#",
   },
   {
     id: "starter-chocolate-cake",
@@ -82,9 +82,9 @@ export const starterProducts: Product[] = [
     currency: "LKR",
     stock: 1,
     stockLabel: "In stock",
-    eta: "Delivery checked by Kapruka MCP",
+    eta: "Delivery checked by the live commerce service",
     description: "A classic cake option for birthdays, office treats, and family events.",
-    url: "https://www.kapruka.com",
+    url: "#",
   },
   {
     id: "starter-watch",
@@ -95,9 +95,9 @@ export const starterProducts: Product[] = [
     currency: "LKR",
     stock: 1,
     stockLabel: "In stock",
-    eta: "Delivery checked by Kapruka MCP",
+    eta: "Delivery checked by the live commerce service",
     description: "A polished everyday accessory for fashion-forward gifting.",
-    url: "https://www.kapruka.com",
+    url: "#",
   },
   {
     id: "starter-party-pack",
@@ -108,9 +108,9 @@ export const starterProducts: Product[] = [
     currency: "LKR",
     stock: 1,
     stockLabel: "In stock",
-    eta: "Delivery checked by Kapruka MCP",
+    eta: "Delivery checked by the live commerce service",
     description: "A practical party bundle for quick celebration planning.",
-    url: "https://www.kapruka.com",
+    url: "#",
   },
 ];
 
@@ -130,7 +130,7 @@ function getNumber(value: unknown) {
 
 function getCategoryName(value: unknown) {
   const category = getRecord(value);
-  return getString(category?.name) ?? "Kapruka";
+  return getString(category?.name) ?? "General";
 }
 
 function getPrice(value: unknown) {
@@ -141,7 +141,7 @@ function getPrice(value: unknown) {
   };
 }
 
-function getStockLabel(product: KaprukaSearchProduct) {
+function getStockLabel(product: CatalogSearchProduct) {
   const inStock = product.in_stock === true;
   const stockLevel = getString(product.stock_level);
 
@@ -182,13 +182,13 @@ function flattenApiDetails(
   );
 }
 
-function getApiDetails(product: KaprukaSearchProduct) {
+function getApiDetails(product: CatalogSearchProduct) {
   return Object.entries(product).flatMap(([key, value]) =>
     flattenApiDetails(value, key),
   );
 }
 
-export function toProduct(product: KaprukaSearchProduct): Product | null {
+export function toProduct(product: CatalogSearchProduct): Product | null {
   const id = getString(product.id);
   const name = getString(product.name);
 
@@ -207,9 +207,9 @@ export function toProduct(product: KaprukaSearchProduct): Product | null {
     currency: price.currency,
     stock: product.in_stock === true ? 1 : 0,
     stockLabel: getStockLabel(product),
-    eta: "Delivery checked by Kapruka MCP",
-    description: getString(product.summary) ?? "Live Kapruka catalog item.",
-    url: getString(product.url) ?? "https://www.kapruka.com",
+    eta: "Delivery checked by the live commerce service",
+    description: getString(product.summary) ?? "Live catalog item.",
+    url: getString(product.url) ?? "#",
     apiDetails: getApiDetails(product),
   };
 }

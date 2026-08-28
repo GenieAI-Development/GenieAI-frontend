@@ -1,8 +1,8 @@
 # MCP AI Shopping Platform
 
-Kapruka Genie is a multilingual AI-assisted shopping experience built with Next.js. It combines hosted LLMs, a live Kapruka MCP integration, guided shopping flows, delivery checks, product comparison, gift message generation, image-based search hints, and voice input into a single ecommerce workspace.
+GenieAI is a multilingual AI-assisted shopping experience built with Next.js. It combines hosted LLMs, a live commerce MCP integration, guided shopping flows, delivery checks, product comparison, gift message generation, image-based search hints, and voice input into a single ecommerce workspace.
 
-The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) directory and is designed around real catalog operations rather than mock product recommendations. The frontend talks to local Next.js API routes, and those routes orchestrate Groq, Hugging Face via Novita, and the Kapruka MCP server.
+The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) directory and is designed around real catalog operations rather than mock product recommendations. The frontend talks to local Next.js API routes, and those routes orchestrate Groq, Hugging Face via Novita, and the commerce MCP server.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) direct
 - [Pages and Routes](#pages-and-routes)
 - [API Reference](#api-reference)
 - [AI Model Routing](#ai-model-routing)
-- [Kapruka MCP Integration](#kapruka-mcp-integration)
+- [Commerce MCP Integration](#commerce-mcp-integration)
 - [User Flows](#user-flows)
 - [Architecture Notes](#architecture-notes)
 - [Operational Behavior and Safeguards](#operational-behavior-and-safeguards)
@@ -28,10 +28,10 @@ The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) direct
 
 ## Project Overview
 
-This project implements an AI shopping assistant for Kapruka-style gifting and commerce use cases. Instead of offering only chat, it supports the full journey:
+This project implements the GenieAI shopping assistant for gifting and commerce use cases. Instead of offering only chat, it supports the full journey:
 
 - understanding shopping intent and user context
-- retrieving live products from the Kapruka MCP backend
+- retrieving live products from the commerce MCP backend
 - ranking and explaining product matches
 - checking delivery feasibility for a city and date
 - comparing real products by product ID
@@ -39,18 +39,17 @@ This project implements an AI shopping assistant for Kapruka-style gifting and c
 - generating gift card messages
 - using images and voice as shopping inputs
 
-The app supports `English`, `Sinhala`, `Singlish`, and `Tanglish` in different parts of the experience, with explicit prompt logic to preserve the intended language style.
+The app supports `English`, `Sinhala`, and `Singlish` in different parts of the experience, with explicit prompt logic to preserve the intended language style.
 
 ## Core Features
 
 - `Smart Shopping`: conversational product discovery with guided context collection
 - `Event Planner`: structured planning flow for birthdays, office events, and gatherings
 - `Gift Box Builder`: guided multi-item gift box creation
-- `Product Compare`: compare two real Kapruka products using their product IDs
-- `Order Tracking`: track an existing Kapruka order and generate a short next-step suggestion
+- `Product Compare`: compare two real catalog products
 - `Gift Message`: generate or refine gift-card copy in multiple supported language styles
 - `Buy Box`: lightweight cart-style sidebar for selected products and checkout preparation
-- `Delivery Checks`: asks Kapruka MCP for city/date availability when the user requests delivery details
+- `Delivery Checks`: asks the commerce MCP for city/date availability when the user requests delivery details
 - `Image Analysis`: analyzes an uploaded image and turns it into shopping hints and a search query
 - `Voice Input`: speech-to-text for English shopping input
 - `Read Aloud`: browser speech synthesis for the latest English assistant reply
@@ -59,13 +58,13 @@ The app supports `English`, `Sinhala`, `Singlish`, and `Tanglish` in different p
 
 At a high level:
 
-1. The user interacts with the UI rendered by [`src/kapruka-genie/KaprukaGenieApp.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/kapruka-genie/KaprukaGenieApp.tsx).
+1. The user interacts with the UI rendered by [`src/genie-ai/GenieAIApp.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/genie-ai/GenieAIApp.tsx).
 2. The app collects chat history, selected mode, shopping profile, cart state, and language choice.
 3. The frontend calls local API routes under [`src/app/api/ai`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/app/api/ai).
 4. Those routes call one or more of:
    - Groq hosted models
    - Hugging Face Inference Providers via Novita
-   - Kapruka MCP tools at `https://mcp.kapruka.com/mcp`
+   - commerce MCP tools
 5. The backend returns a normalized JSON response containing reply text, products, recommendations, delivery status, chips, analytics, or task-specific results.
 6. The UI updates product cards, chat bubbles, guided chips, the buy box, and any delivery or checkout information.
 
@@ -78,7 +77,7 @@ At a high level:
 - `ESLint 9`
 - `Groq API` for chat, reasoning, image analysis, and speech-to-text
 - `Hugging Face Inference Providers` via Novita for selected reply generation
-- `Kapruka MCP` for live commerce operations
+- `Commerce MCP` for live commerce operations
 
 ## Repository Structure
 
@@ -107,14 +106,14 @@ MCP-AI-Shopping-Platform/
     |   |-- globals.css
     |   |-- layout.tsx
     |   `-- page.tsx
-    |-- kapruka-genie/
-    |   `-- KaprukaGenieApp.tsx
+    |-- genie-ai/
+    |   `-- GenieAIApp.tsx
     |-- lib/
     |   |-- aiPayload.ts
     |   |-- deliveryLocations.ts
     |   |-- groqHosted.ts
     |   |-- huggingFaceNovita.ts
-    |   |-- kaprukaMcp.ts
+    |   |-- commerceMcp.ts
     |   `-- productCatalog.ts
     |-- public/
     |-- env.local.example
@@ -127,7 +126,7 @@ MCP-AI-Shopping-Platform/
 - `npm`
 - a `Groq API key`
 - a `Hugging Face token` with Inference Providers permission
-- network access to the Kapruka MCP endpoint
+- network access to the commerce MCP endpoint
 
 ## Local Setup
 
@@ -167,7 +166,12 @@ The default template is [`src/env.local.example`](D:/Projects/AI/MCP-AI-Shopping
 
 ### Commerce and Provider Configuration
 
-- `KAPRUKA_MCP_URL`
+- `COMMERCE_MCP_URL`
+- `COMMERCE_SEARCH_PRODUCTS_TOOL`
+- `COMMERCE_GET_PRODUCT_TOOL`
+- `COMMERCE_LIST_DELIVERY_CITIES_TOOL`
+- `COMMERCE_CHECK_DELIVERY_TOOL`
+- `COMMERCE_CREATE_ORDER_TOOL`
 - `MCP_REQUEST_TIMEOUT_MS`
 - `GROQ_REQUEST_TIMEOUT_MS`
 - `GROQ_TOTAL_TIMEOUT_MS`
@@ -238,7 +242,7 @@ npm run lint
 
 ### UI Pages
 
-- `/`: main Kapruka Genie workspace
+- `/`: main workspace
 - `/features`: feature overview and mode guide
 - `/demo-video`: embedded demo video page
 - `/ai-chatbot`: loads the same app shell
@@ -264,7 +268,7 @@ Supports multiple tasks, including:
 - `initial`: initial live product load
 - `recommend`: general shopping reply and product recommendation flow
 - `compare`: compare product IDs
-- `checkout`: create a Kapruka checkout link
+- `checkout`: create a GenieAI checkout link
 - `track`: track an order
 - `giftMessage`: generate gift card text
 
@@ -272,7 +276,7 @@ Typical responsibilities:
 
 - analyzes the message and preferences
 - builds a product search query
-- fetches live products from Kapruka MCP
+- fetches live products from the commerce MCP
 - filters by budget when needed
 - requests delivery checks when the user asks for delivery
 - ranks or compares products with AI
@@ -327,7 +331,7 @@ The routing behavior in code is task-specific rather than a single-model setup.
 - `Groq` handles most analysis, ranking, comparison, context extraction, vision, and speech-to-text tasks
 - `Hugging Face via Novita` is used for selected direct reply generation, especially non-English style-sensitive responses
 - `Browser speech synthesis` handles read-aloud locally with no server model
-- `Kapruka MCP` handles live commerce data and operations
+- `Commerce MCP` handles live commerce data and operations
 
 ### Current Default Routing Notes
 
@@ -336,9 +340,9 @@ Based on the repository's current code and config files:
 - `/api/ai/context-analysis`: Groq
 - `/api/ai/image-analysis`: Groq vision
 - `/api/ai/voice-messages`: Groq Whisper
-- `/api/ai/chatbot`: Groq by default, with Novita used for Tanglish when configured
+- `/api/ai/chatbot`: Groq
 - `/api/ai/commerce`:
-  - live search, delivery checks, tracking lookup, and order creation come from Kapruka MCP
+  - live search, delivery checks, and order creation come from the commerce MCP
   - comparison, ranking, reasoning, and most commerce responses come from Groq
   - gift-message generation may use Novita first for non-English variants, then Groq fallback
 
@@ -350,13 +354,13 @@ Because model selection is environment-driven, check:
 
 for the current documented defaults.
 
-## Kapruka MCP Integration
+## Commerce MCP Integration
 
-The MCP client implementation is in [`src/lib/kaprukaMcp.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/kaprukaMcp.ts).
+The MCP client implementation is in [`src/lib/commerceMcp.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/commerceMcp.ts).
 
 Important behavior:
 
-- uses the Kapruka MCP endpoint `https://mcp.kapruka.com/mcp` by default
+- uses the configured commerce MCP endpoint
 - initializes an MCP session and sends `notifications/initialized`
 - reuses a short-lived session for performance
 - expires sessions after 10 minutes
@@ -370,7 +374,6 @@ The commerce route uses MCP for operations such as:
 - product detail retrieval
 - delivery checks
 - order creation
-- order tracking
 
 ## User Flows
 
@@ -379,7 +382,7 @@ The commerce route uses MCP for operations such as:
 1. User enters a natural request.
 2. Context analysis extracts budget, recipient, occasion, and gift type.
 3. The app asks for missing fields using guided chips.
-4. The backend fetches matching live products from Kapruka MCP.
+4. The backend fetches matching live products from the commerce MCP.
 5. AI ranks and explains the product matches.
 6. The user adds products to the buy box or asks for more suggestions.
 
@@ -399,7 +402,7 @@ The commerce route uses MCP for operations such as:
 ### Product Compare
 
 1. User copies real product IDs from product cards.
-2. The app fetches those products from Kapruka.
+2. The app fetches those products from the live catalog.
 3. AI generates a concise comparison or falls back to a deterministic local summary.
 
 ### Checkout
@@ -407,19 +410,13 @@ The commerce route uses MCP for operations such as:
 1. User adds products to the buy box.
 2. User provides recipient, sender, city, date, and address details.
 3. The app validates required checkout fields.
-4. Kapruka MCP creates a guest checkout link.
-
-### Order Tracking
-
-1. User enters a Kapruka order number.
-2. MCP returns the latest tracking result.
-3. AI optionally converts that result into a short next-step suggestion.
+4. The commerce MCP creates a guest checkout link.
 
 ## Architecture Notes
 
 ### Frontend
 
-- Main app shell: [`src/kapruka-genie/KaprukaGenieApp.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/kapruka-genie/KaprukaGenieApp.tsx)
+- Main app shell: [`src/genie-ai/GenieAIApp.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/genie-ai/GenieAIApp.tsx)
 - App entry page: [`src/app/page.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/app/page.tsx)
 - Shared UI logic includes:
   - multilingual copy and mode switching
@@ -467,8 +464,8 @@ Check:
 
 Check:
 
-- network access to `https://mcp.kapruka.com/mcp`
-- `KAPRUKA_MCP_URL` if you overrode it
+- network access to the configured commerce MCP endpoint
+- `COMMERCE_MCP_URL` if you overrode it
 - timeout settings if the MCP backend is slow
 
 ### Voice input does not work

@@ -40,7 +40,6 @@ type IconName =
   | "speaker"
   | "sparkles"
   | "trash"
-  | "truck"
   | "x";
 
 type CommerceResponse = {
@@ -51,6 +50,10 @@ type CommerceResponse = {
     risk?: string;
   };
   chips?: string[];
+  comparisonInsights?: Array<{
+    id: string;
+    insights: ComparisonInsight[];
+  }>;
   detectedLanguage?: Language;
   eventPlan?: string[];
   extendedPreferences?: ExtendedPreferences;
@@ -92,20 +95,24 @@ type CommerceResponse = {
       items_total?: number;
     };
   };
-  tracking?: string;
 };
 
 function getCheckoutResponseMessage(data: CommerceResponse) {
   return (
     data.checkout?.result ??
     data.reply ??
-    "Kapruka returned checkout details without a checkout link."
+    "GenieAI returned checkout details without a checkout link."
   );
 }
 
 type CompareRow = {
+  insights: ComparisonInsight[];
   product: Product;
-  suggestion: string;
+};
+
+type ComparisonInsight = {
+  label: string;
+  percentage: number;
 };
 
 type GuidedPlanItem = {
@@ -157,7 +164,7 @@ type ContextField =
 
 type ContextDraft = Record<ContextField, string>;
 
-type Language = "English" | "Sinhala" | "Singlish" | "Tanglish";
+type Language = "English" | "Sinhala" | "Singlish";
 
 type ShoppingProfile = {
   budget: string;
@@ -229,7 +236,6 @@ const modes = [
   { name: "Event Planner", icon: "sparkles" },
   { name: "Gift Box Builder", icon: "gift" },
   { name: "Product Compare", icon: "search" },
-  { name: "Order Tracking", icon: "truck" },
   { name: "Gift Message", icon: "heart" },
 ] satisfies Array<{ icon: IconName; name: string }>;
 
@@ -237,7 +243,7 @@ const starterMessages: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Hello! ආයුබෝවන්! Ayubowan! I am Kapruka Genie. 💫 Tell me what you are looking for, and I will guide the gift details. 😊",
+      "Hello! ආයුබෝවන්! Ayubowan! I am GenieAI. 💫 Tell me what you are looking for, and I will guide the gift details. 😊",
   },
 ];
 
@@ -256,13 +262,12 @@ const starterChipGiftTypes: Record<string, string> = {
   "Find perfume": "Perfumes",
 };
 
-const languageOptions: Language[] = ["English", "Sinhala", "Singlish", "Tanglish"];
+const languageOptions: Language[] = ["English", "Sinhala", "Singlish"];
 
 const languageLabels: Record<Language, string> = {
   English: "English",
   Sinhala: "සිංහල",
   Singlish: "Singlish",
-  Tanglish: "Tanglish",
 };
 
 const starterMessagesByLanguage: Record<Language, ChatMessage[]> = {
@@ -271,21 +276,14 @@ const starterMessagesByLanguage: Record<Language, ChatMessage[]> = {
     {
       role: "assistant",
       content:
-        "Ayubowan! මම Kapruka Genie. 💫 ඔබට අවශ්‍ය gift එක කියන්න, මම ඔයාව guide කරන්නම්. 😊",
+        "Ayubowan! මම GenieAI. 💫 ඔබට අවශ්‍ය gift එක කියන්න, මම ඔයාව guide කරන්නම්. 😊",
     },
   ],
   Singlish: [
     {
       role: "assistant",
       content:
-        "Ayubowan! Mama Kapruka Genie. 💫 Oyata ona gift eka kiyanna, mama oyawa guide karannam. 😊",
-    },
-  ],
-  Tanglish: [
-    {
-      role: "assistant",
-      content:
-        "Vanakkam! Naan Kapruka Genie. 💫 Neenga thedura gift pathi sollunga, naan unga details guide pannren. 😊",
+        "Ayubowan! Mama GenieAI. 💫 Oyata ona gift eka kiyanna, mama oyawa guide karannam. 😊",
     },
   ],
 };
@@ -294,7 +292,6 @@ const modeIcons: Record<string, IconName> = {
   "Event Planner": "sparkles",
   "Gift Box Builder": "gift",
   "Gift Message": "heart",
-  "Order Tracking": "truck",
   "Product Compare": "search",
   "Smart Shopping": "cart",
 };
@@ -336,53 +333,6 @@ const venueOptions = ["Home", "Office", "Hotel", "Outdoor"];
 const giftBoxThemeOptions = ["Chocolate", "Flowers", "Perfume", "Wellness", "Party"];
 
 const itemCountOptions = ["2 items", "3 items", "4 items", "5+ items"];
-
-const genericCompareSuggestion = "Compare price, stock, and category values.";
-
-function isGenericCompareSuggestion(value: string) {
-  const normalized = value.trim().toLowerCase();
-
-  return (
-    normalized === genericCompareSuggestion.toLowerCase() ||
-    normalized === "compare price, description, and stock before choosing."
-  );
-}
-
-function hasAvailableStock(product: Product) {
-  return product.stock > 0 || /in stock/i.test(product.stockLabel);
-}
-
-function getLocalCompareSummary(first?: Product, second?: Product) {
-  if (!first || !second) {
-    return "";
-  }
-
-  const sameCategory =
-    first.category.trim().toLowerCase() === second.category.trim().toLowerCase();
-  const firstAvailable = hasAvailableStock(first);
-  const secondAvailable = hasAvailableStock(second);
-  const priceLine =
-    first.price === second.price
-      ? `Both products are priced the same at ${formatPrice(first.price, first.currency)}.`
-      : `${first.price < second.price ? first.name : second.name} is cheaper by ${formatPrice(Math.abs(first.price - second.price), first.currency)}.`;
-  const categoryLine = sameCategory
-    ? `Both are in ${first.category}, so compare them by value, availability, and gift fit.`
-    : `${first.name} is a ${first.category} option, while ${second.name} is a ${second.category} option, so they suit different needs.`;
-  const stockLine =
-    firstAvailable === secondAvailable
-      ? `${first.name} is ${first.stockLabel.toLowerCase()}, and ${second.name} is ${second.stockLabel.toLowerCase()}.`
-      : `${firstAvailable ? first.name : second.name} is the safer availability pick because it is ${firstAvailable ? first.stockLabel.toLowerCase() : second.stockLabel.toLowerCase()}.`;
-  const preferred = firstAvailable && !secondAvailable
-    ? first
-    : secondAvailable && !firstAvailable
-      ? second
-      : first.price <= second.price
-        ? first
-        : second;
-  const alternative = preferred.id === first.id ? second : first;
-
-  return `${categoryLine} ${priceLine} ${stockLine} Choose ${preferred.name} if you want the stronger price and availability balance. Choose ${alternative.name} instead if its category, style, or description is a better match for the recipient, but skip it if that fit does not outweigh ${preferred.name}'s value advantage.`;
-}
 
 const shoppingContextFields: ContextField[] = [
   "budget",
@@ -428,25 +378,13 @@ const contextQuestions: Record<
     boxRecipient: "Gift box eka kaatada?",
     budget: "Budget eka keeyada?",
     category: "Mokak wage gift type ekakda balanne?",
-    eventType: "Event type eka mokakda?",
+    eventType: "Event type eka?",
     giftBoxTheme: "Gift box theme eka mokakda?",
     itemCount: "Box ekata items keeyak oneda?",
     occasion: "Me gift eka mona occasion ekakatada?",
     participants: "Participants keedenek innawada?",
     recipient: "Gift eka denna one kaatada?",
     venue: "Event eka koheda thiyenne?",
-  },
-  Tanglish: {
-    boxRecipient: "Indha gift box yaarukkaga?",
-    budget: "Budget evlo?",
-    category: "Enna mathiri gift type paakanum?",
-    eventType: "Event type enna?",
-    giftBoxTheme: "Gift box theme enna?",
-    itemCount: "Box la evalo items venum?",
-    occasion: "Indha gift enna occasion ku?",
-    participants: "Participants evalo per varuvaanga?",
-    recipient: "Gift yaarukku kudukkanum?",
-    venue: "Event enga nadakkudhu?",
   },
 };
 
@@ -467,20 +405,11 @@ const contextQuestionOverrides: Record<
   Singlish: {
     boxRecipient: "Gift box eka kaatada?",
     category: "Mona wage gift type ekakda balanne?",
-    eventType: "Event type eka mokakda?",
+    eventType: "Event type eka?",
     giftBoxTheme: "Gift box theme eka mokakda?",
     itemCount: "Box ekata items keeyak oneda?",
     participants: "Participants keedenek innawada?",
     venue: "Event eka koheda thiyenne?",
-  },
-  Tanglish: {
-    boxRecipient: "Gift box yaarukkaga?",
-    category: "Enna gift type paakanum?",
-    eventType: "Event type enna?",
-    giftBoxTheme: "Gift box theme enna?",
-    itemCount: "Box ku evalo items venum?",
-    participants: "Participants evalo per?",
-    venue: "Event enga irukku?",
   },
 };
 
@@ -488,7 +417,6 @@ const giftTypeMessages: Record<Language, string> = {
   English: "Thanks. What type of gift would you like to explore?",
   Sinhala: "ස්තුතියි. ඔබ බලන්න කැමති තෑගි වර්ගය තෝරන්න.",
   Singlish: "Thanks. mokak wage gift type ekak balannada?",
-  Tanglish: "Thanks. Enna gift type paakanum?",
 };
 
 const contextFieldOptions: Record<ContextField, string[]> = {
@@ -546,18 +474,6 @@ const contextFieldLabelsByLanguage: Record<
     recipient: "Recipient",
     venue: "Venue",
   },
-  Tanglish: {
-    boxRecipient: "Recipient",
-    budget: "Budget",
-    category: "Gift type",
-    eventType: "Event type",
-    giftBoxTheme: "Theme",
-    itemCount: "Items",
-    occasion: "Occasion",
-    participants: "Participants",
-    recipient: "Recipient",
-    venue: "Venue",
-  },
 };
 
 const contextFieldLabelOverrides: Record<
@@ -578,18 +494,6 @@ const contextFieldLabelOverrides: Record<
     venue: "ස්ථානය",
   },
   Singlish: {
-    boxRecipient: "Recipient",
-    budget: "Budget",
-    category: "Gift type",
-    eventType: "Event type",
-    giftBoxTheme: "Theme",
-    itemCount: "Items",
-    occasion: "Occasion",
-    participants: "Participants",
-    recipient: "Recipient",
-    venue: "Venue",
-  },
-  Tanglish: {
     boxRecipient: "Recipient",
     budget: "Budget",
     category: "Gift type",
@@ -926,7 +830,6 @@ const copy: Record<
     sendingContext: string;
     senderName: string;
     subtotal: string;
-    trackingPrompt: string;
     transcribingVoice: string;
     total: string;
     uploadingImage: string;
@@ -962,7 +865,7 @@ const copy: Record<
     eventPrompt: "Let us plan the event. Add the event details below.",
     giftBoxPrompt: "Let us build the gift box. Add the gift box details below.",
     giftMessageLabel: "Gift message",
-    initialEmpty: "Kapruka products will appear here after a search.",
+    initialEmpty: "GenieAI products will appear here after a search.",
     initialLoading: "Loading products...",
     imageLooksLike: "Your image looks like",
     language: "Language",
@@ -980,7 +883,6 @@ const copy: Record<
     sendingContext: "Sending Preferences",
     senderName: "Sender name",
     subtotal: "Subtotal",
-    trackingPrompt: "Enter your Kapruka order number and I will check the latest status.",
     transcribingVoice: "Transcribing voice note...",
     total: "Total",
     uploadingImage: "Processing image...",
@@ -1011,7 +913,7 @@ const copy: Record<
     detectedContext: "හමු වූ preferences",
     delivery: "Delivery",
     deliveryInstructions: "Delivery instructions",
-    initialEmpty: "සෙවීමට පස්සේ Kapruka products මෙතැන පෙන්වයි.",
+    initialEmpty: "සෙවීමට පස්සේ GenieAI products මෙතැන පෙන්වයි.",
     initialLoading: "Products load වෙනවා...",
     language: "භාෂාව",
     modes: "Agent Modes",
@@ -1052,7 +954,7 @@ const copy: Record<
     eventPrompt: "Event eka plan karamu. Pahala details tika denna.",
     giftBoxPrompt: "Gift box eka hadamu. Pahala details tika denna.",
     giftMessageLabel: "Gift message",
-    initialEmpty: "Seweemakata passe Kapruka products methana pennanawa.",
+    initialEmpty: "Seweemakata passe GenieAI products methana pennanawa.",
     initialLoading: "Products load wenawa...",
     language: "Language",
     modes: "Agent Modes",
@@ -1067,51 +969,8 @@ const copy: Record<
     sendingContext: "Preferences sending",
     senderName: "Sender name",
     subtotal: "Subtotal",
-    trackingPrompt: "Kapruka order number eka denna. Mama latest status eka balannam.",
     total: "Total",
     useContextCard: "Uda preferences use karanna...",
-    userContext: "Preferences",
-  },
-  Tanglish: {
-    active: "Active",
-    addProducts: "Order build panna products add pannunga.",
-    addToBuyBox: "Cart ku add pannunga",
-    allContextDetected: "Unga message la preferences detect aayiduchu.",
-    askPlaceholder: "Genie kitta search, compare, plan, checkout kekkalaam...",
-    buyBox: "Cart",
-    checkout: "Delivery address",
-    city: "City",
-    clearHistory: "History clear pannunga",
-    comparePrompt: "2 illa 3 product IDs kudunga. Naan compare pannren.",
-    continueWithoutContext: "Preferences illama continue pannunga",
-    contextIntro: "Unga message la irundhu details detect panniten.",
-    contextTitle: "Shopping preferences set pannunga",
-    createOrderLink: "Create Order Link",
-    date: "Date",
-    detectedContext: "Detected preferences",
-    delivery: "Delivery",
-    deliveryInstructions: "Delivery instructions",
-    eventPrompt: "Event plan pannalaam. Keezha details kudunga.",
-    giftBoxPrompt: "Gift box build pannalaam. Keezha details kudunga.",
-    giftMessageLabel: "Gift message",
-    initialEmpty: "Search panna apram Kapruka products inga kaattappadum.",
-    initialLoading: "Products load aagudhu...",
-    language: "Language",
-    modes: "Agent Modes",
-    openCheckout: "Open Checkout",
-    productView: "Paarkka",
-    recipientName: "Recipient name",
-    recipientPhone: "Recipient phone",
-    relatedGiftsReply: "Unga request ku related gifts kaamikiren.",
-    send: "Send",
-    sendContext: "Preferences send pannunga",
-    sending: "Sending",
-    sendingContext: "Preferences sending",
-    senderName: "Sender name",
-    subtotal: "Subtotal",
-    trackingPrompt: "Kapruka order number kudunga. Latest status paathuttu sollren.",
-    total: "Total",
-    useContextCard: "Mela irukka preferences use pannunga...",
     userContext: "Preferences",
   },
 };
@@ -1134,7 +993,6 @@ const copyOverrides: Record<Language, Partial<Required<(typeof copy)["English"]>
     processing: "Processing...",
     recordingVoice: "Voice record වෙනවා...",
     relatedGiftsReply: "මම ඔබට ගැලපෙන gifts පෙන්වන්නම්.",
-    trackingPrompt: "Kapruka order number එක දෙන්න. මම latest status එක බලන්නම්.",
     transcribingVoice: "Voice note එක text කරනවා...",
     uploadingImage: "Image process වෙනවා...",
     useContextCard: "ඉහළ preferences භාවිතා කරන්න...",
@@ -1158,21 +1016,6 @@ const copyOverrides: Record<Language, Partial<Required<(typeof copy)["English"]>
     voiceEnglishOnly: "Voice search support karanne English witharai.",
     voiceRetry:
       "Voice message eka hariyata handunaganna bari una. English walin aye try karanna.",
-    voiceResume: "Resume",
-    voiceStop: "Stop",
-  },
-  Tanglish: {
-    deliveryInstructions: "Delivery instructions",
-    giftMessageLabel: "Gift message",
-    imageLooksLike: "Unga image la theriyardhu",
-    processing: "Processing...",
-    recordingVoice: "Voice record aagudhu...",
-    transcribingVoice: "Voice note text aagudhu...",
-    uploadingImage: "Image process aagudhu...",
-    voicePause: "Pause",
-    voiceEnglishOnly: "Voice search ippo English mattum support pannudhu.",
-    voiceRetry:
-      "Voice message clear aa puriyala. Dayavu seithu English la innum oru thadava try pannunga.",
     voiceResume: "Resume",
     voiceStop: "Stop",
   },
@@ -1221,20 +1064,6 @@ const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
       text: "Nathnam oyage custom message eka type karanna.",
     },
   ],
-  Tanglish: [
-    {
-      action: "fill",
-      text: "En girlfriend oda birthday ku Rs. 2500 - 5000 range la red roses kaamikkunga.",
-    },
-    {
-      action: "fill",
-      text: "Naalaikku Colombo ku delivery panna mudiyuma?",
-    },
-    {
-      action: "custom",
-      text: "Illenna unga custom message type pannunga.",
-    },
-  ],
 };
 
 const starterChipLabels: Record<Language, Record<string, string>> = {
@@ -1255,14 +1084,6 @@ const starterChipLabels: Record<Language, Record<string, string>> = {
     "Track an order": "Order track karanna",
     "Write a gift message": "Gift message liyanna",
   },
-  Tanglish: {
-    "Build a gift box": "Gift box build pannunga",
-    "Compare products": "Products compare pannunga",
-    "Find a gift": "Gift thedunga",
-    "Plan an event": "Event plan pannunga",
-    "Track an order": "Order track pannunga",
-    "Write a gift message": "Gift message ezhudhunga",
-  },
 };
 
 const starterChipOverrides: Record<Language, Record<string, string>> = {
@@ -1280,13 +1101,6 @@ const starterChipOverrides: Record<Language, Record<string, string>> = {
     "Find flowers": "Flowers hoyanna",
     "Find perfume": "Perfume hoyanna",
     "Same-day delivery": "Ada delivery",
-  },
-  Tanglish: {
-    "Find a cake": "Cake thedunga",
-    "Find chocolates": "Chocolates thedunga",
-    "Find flowers": "Flowers thedunga",
-    "Find perfume": "Perfume thedunga",
-    "Same-day delivery": "Innaikku delivery",
   },
 };
 
@@ -1327,33 +1141,12 @@ const optionLabels: Record<Language, Record<string, string>> = {
     Flowers: "Mal",
     Graduation: "Upadhi pradanaya",
     Male: "Male",
-    Other: "Wenas",
+    Other: "Wenath",
     Perfumes: "Perfume",
     "Rs. 2,500 - 5,000": "Rs. 2,500 - 5,000",
     "Rs. 5,000 - 10,000": "Rs. 5,000 - 10,000",
     "Under Rs. 2,500": "Rs. 2,500 ta adu",
     Wedding: "Vivahaya",
-  },
-  Tanglish: {
-    "Above Rs. 10,000": "Rs. 10,000 mela",
-    Anniversary: "Anniversary",
-    Birthday: "Birthday",
-    Child: "Child",
-    Chocolate: "Chocolate",
-    Couple: "Couple",
-    Cakes: "Cakes",
-    Electronics: "Electronics",
-    Fashion: "Fashion",
-    Female: "Female",
-    Flowers: "Flowers",
-    Graduation: "Graduation",
-    Male: "Male",
-    Other: "Other",
-    Perfumes: "Perfumes",
-    "Rs. 2,500 - 5,000": "Rs. 2,500 - 5,000",
-    "Rs. 5,000 - 10,000": "Rs. 5,000 - 10,000",
-    "Under Rs. 2,500": "Rs. 2,500 keela",
-    Wedding: "Wedding",
   },
 };
 
@@ -1397,25 +1190,6 @@ const contextOptionLabels: Record<Language, Record<string, string>> = {
     "Under 10": "10 ta adu",
     Wellness: "Wellness",
   },
-  Tanglish: {
-    "2 items": "2 items",
-    "3 items": "3 items",
-    "4 items": "4 items",
-    "5+ items": "5+ items",
-    "10 - 25": "10 - 25",
-    "25 - 50": "25 - 50",
-    "Above 50": "50 ku mela",
-    "Family gathering": "Family gathering",
-    Home: "Home",
-    Hotel: "Hotel",
-    Office: "Office",
-    "Office party": "Office party",
-    Outdoor: "Outdoor",
-    Party: "Party",
-    Perfume: "Perfume",
-    "Under 10": "10 ku keela",
-    Wellness: "Wellness",
-  },
 };
 
 const dynamicChipLabels: Record<Language, Record<string, string>> = {
@@ -1440,16 +1214,6 @@ const dynamicChipLabels: Record<Language, Record<string, string>> = {
     Roses: "Roses",
     Watch: "Watch",
   },
-  Tanglish: {
-    "Check delivery": "Delivery check pannunga",
-    Chocolate: "Chocolate",
-    "Colombo delivery": "Colombo delivery",
-    "Create order link": "Order link create pannunga",
-    "More like this": "Idhu maadhiri innum",
-    Perfume: "Perfume",
-    Roses: "Roses",
-    Watch: "Watch",
-  },
 };
 
 const commonChipLabels: Record<Language, Record<string, string>> = {
@@ -1463,7 +1227,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Chocolate: "චොකලට්",
     "Colombo delivery": "කොළඹට බෙදාහැරීම",
     "Create order link": "ඇණවුම් සබැඳිය හදන්න",
-    "Enter order number": "Order number එක දාන්න",
     "More like this": "මේ වගේ තවත්",
     "Next item": "ඊළඟ අයිතමය",
     "Open checkout": "Checkout අරින්න",
@@ -1472,8 +1235,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Roses: "රෝස මල්",
     "Search more products": "තව products හොයන්න",
     "Search products": "Products හොයන්න",
-    "Track another order": "තව order එකක් track කරන්න",
-    "Track order": "Order track කරන්න",
     "Suggest more": "තවත් යෝජනා",
     Watch: "ඔරලෝසුව",
   },
@@ -1482,7 +1243,6 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Chocolate: "Chocolate",
     "Colombo delivery": "Colombo delivery",
     "Create order link": "Order link hadanna",
-    "Enter order number": "Order number eka danna",
     "More like this": "Me wage thawa",
     "Next item": "Ilanga item eka",
     "Open checkout": "Open checkout",
@@ -1491,28 +1251,7 @@ const commonChipLabels: Record<Language, Record<string, string>> = {
     Roses: "Roses",
     "Search more products": "Thawa products hoyanna",
     "Search products": "Products hoyanna",
-    "Track another order": "Thawa order ekak track karanna",
-    "Track order": "Order track karanna",
     "Suggest more": "Thawa yojana",
-    Watch: "Watch",
-  },
-  Tanglish: {
-    "Check delivery": "Delivery check pannunga",
-    Chocolate: "Chocolate",
-    "Colombo delivery": "Colombo delivery",
-    "Create order link": "Order link create pannunga",
-    "Enter order number": "Order number kudunga",
-    "More like this": "Idhu maadhiri innum",
-    "Next item": "Next item",
-    "Open checkout": "Open checkout",
-    "Previous item": "Previous item",
-    Perfume: "Perfume",
-    Roses: "Roses",
-    "Search more products": "Innum products thedunga",
-    "Search products": "Products thedunga",
-    "Track another order": "Innum oru order track pannunga",
-    "Track order": "Order track pannunga",
-    "Suggest more": "Innum suggest pannunga",
     Watch: "Watch",
   },
 };
@@ -1537,15 +1276,14 @@ const iconPaths: Record<IconName, string> = {
   sparkles:
     "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm6 12 1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3ZM5 3l.8 2.2L8 6l-2.2.8L5 9l-.8-2.2L2 6l2.2-.8L5 3Z",
   trash: "M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3",
-  truck: "M3 6h11v9H3V6Zm11 3h4l3 3v3h-7V9ZM7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   x: "M6 6l12 12M18 6 6 18",
 };
 
-const CHAT_DB_NAME = "kapruka-genie-chat";
+const CHAT_DB_NAME = "genie-ai-chat";
 const CHAT_STORE_NAME = "chat-state";
 const CHAT_STATE_KEY = "current";
-const CHAT_STORAGE_KEY = "kapruka-genie-chat-state";
-const INTRO_PANEL_STORAGE_KEY = "kapruka-genie-intro-panel-date";
+const CHAT_STORAGE_KEY = "genie-ai-chat-state";
+const INTRO_PANEL_STORAGE_KEY = "genie-ai-intro-panel-date";
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
 }
@@ -1668,34 +1406,27 @@ const rotatingActivityMessages: Record<Language, string[]> = {
   English: [
     "Understanding your request...",
     "Checking your preferences...",
-    "Searching Kapruka products...",
+    "Searching GenieAI products...",
     "Matching the best options...",
     "Preparing your reply...",
   ],
   Sinhala: [
     "ඔබේ ඉල්ලීම තේරුම් ගනිමින්...",
     "Preferences පරීක්ෂා කරමින්...",
-    "Kapruka products සොයමින්...",
+    "GenieAI products සොයමින්...",
     "හොඳම ගැළපීම් තෝරමින්...",
     "පිළිතුර සකස් කරමින්...",
   ],
   Singlish: [
     "Oyage request eka balamin...",
     "Preferences check karamin...",
-    "Kapruka products hoyamin...",
+    "GenieAI products hoyamin...",
     "Galapena options thoramin...",
     "Reply eka hadamin...",
   ],
-  Tanglish: [
-    "Unga request paathuttu irukken...",
-    "Preferences check pannittu irukken...",
-    "Kapruka products thedittu irukken...",
-    "Best options match pannittu irukken...",
-    "Reply ready pannittu irukken...",
-  ],
 };
 
-export function KaprukaGenieApp() {
+export function GenieAIApp() {
   const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const latestMessageRef = useRef<HTMLDivElement | null>(null);
   const compareTableTopScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1752,7 +1483,7 @@ export function KaprukaGenieApp() {
     "Wishing you a wonderful day filled with love and appreciation.",
   );
   const [status, setStatus] = useState(
-    "Groq chat and media ready. Kapruka MCP commerce ready.",
+    "Groq chat and media ready. Live commerce service ready.",
   );
   const [canScrollProductCarouselLeft, setCanScrollProductCarouselLeft] =
     useState(false);
@@ -1772,17 +1503,13 @@ export function KaprukaGenieApp() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modeSessions, setModeSessions] = useState<Record<string, ModeSession>>({});
-  const [compareIds, setCompareIds] = useState({ first: "", second: "" });
+  const [compareSelectionIds, setCompareSelectionIds] = useState<string[]>([]);
   const [compareRows, setCompareRows] = useState<CompareRow[]>([]);
   const [compareSuggestion, setCompareSuggestion] = useState("");
-  const [trackingId, setTrackingId] = useState("");
-  const [trackingResult, setTrackingResult] = useState("");
-  const [trackingSuggestion, setTrackingSuggestion] = useState("");
   const [guidedPlanItems, setGuidedPlanItems] = useState<GuidedPlanItem[]>([]);
   const [guidedPlanIndex, setGuidedPlanIndex] = useState(0);
   const [guidedMoreCount, setGuidedMoreCount] = useState(0);
   const [isCompareSubmitting, setIsCompareSubmitting] = useState(false);
-  const [isTrackingSubmitting, setIsTrackingSubmitting] = useState(false);
   const [isCheckoutCreating, setIsCheckoutCreating] = useState(false);
   const [checkoutWarning, setCheckoutWarning] = useState("");
   const [giftMessagePreferences, setGiftMessagePreferences] =
@@ -1821,9 +1548,6 @@ export function KaprukaGenieApp() {
   const visibleProducts = recommendedProducts.slice(0, 3);
   const shouldShowProductSuggestions =
     conversationStage !== "collecting-context";
-  const isSelectedProductInCart = selectedProduct
-    ? buyBox.some((product) => product.id === selectedProduct.id)
-    : false;
   const hasUserMessages = messages.some((message) => message.role === "user");
   const visibleReplyChips =
     activeMode === "Smart Shopping" && hasUserMessages
@@ -1844,11 +1568,10 @@ export function KaprukaGenieApp() {
         ? "Anthima message eka kiyawanna"
         : "Read latest message aloud";
   const isCompareMode = activeMode.includes("Compare");
-  const isTrackingMode = activeMode.includes("Tracking");
   const isGiftMessageMode = activeMode.includes("Message");
   const isGuidedMode =
     activeMode.includes("Event") || activeMode.includes("Gift Box");
-  const isFormToolMode = isCompareMode || isTrackingMode || isGiftMessageMode;
+  const isFormToolMode = isCompareMode || isGiftMessageMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
 
   useEffect(() => {
@@ -1899,7 +1622,7 @@ export function KaprukaGenieApp() {
   }
 
   function isRemovedGenericReplyChip(chip: string) {
-    return /\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products|track order)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
+    return /\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
       chip,
     );
   }
@@ -1940,7 +1663,6 @@ export function KaprukaGenieApp() {
     if (mode.includes("Event")) return localizedText.eventPrompt;
     if (mode.includes("Gift Box")) return localizedText.giftBoxPrompt;
     if (mode.includes("Compare")) return localizedText.comparePrompt;
-    if (mode.includes("Tracking")) return localizedText.trackingPrompt;
     return starterMessagesByLanguage[selectedLanguage][0].content;
   }
 
@@ -2027,8 +1749,6 @@ export function KaprukaGenieApp() {
   function resetToolPanels() {
     setCompareRows([]);
     setCompareSuggestion("");
-    setTrackingResult("");
-    setTrackingSuggestion("");
     setGuidedPlanItems([]);
     setGuidedPlanIndex(0);
   }
@@ -2052,10 +1772,6 @@ export function KaprukaGenieApp() {
       return "Meඅa thamai oyata ona wenne.";
     }
 
-    if (language === "Tanglish") {
-      return "Idhu dhan neenga wanted pannadhu.";
-    }
-
     return "This is what you need.";
   }
 
@@ -2076,10 +1792,6 @@ export function KaprukaGenieApp() {
 
     if (language === "Singlish") {
       return "Model quota limit eka iwara wela. Ayeth try karanna nathnam English walata maru wenna.";
-    }
-
-    if (language === "Tanglish") {
-      return "Model quota limit reach aayiduchu. Retry pannunga illenna English ku maathunga.";
     }
 
     return "Model quota limit reached. Please try again or switch to English.";
@@ -2111,14 +1823,12 @@ export function KaprukaGenieApp() {
   function getTryAgainLabel() {
     if (language === "Sinhala") return "නැවත උත්සාහ කරන්න";
     if (language === "Singlish") return "Ayeth try karanna";
-    if (language === "Tanglish") return "Retry pannunga";
     return "Try again";
   }
 
   function getSwitchToEnglishLabel() {
     if (language === "Sinhala") return "English walata maru wenna";
     if (language === "Singlish") return "English walata maru wenna";
-    if (language === "Tanglish") return "English ku maathunga";
     return "Switch to English";
   }
 
@@ -2128,9 +1838,6 @@ export function KaprukaGenieApp() {
     }
     if (selectedLanguage === "Singlish") {
       return "Create Order Link click karanna kalin cart ekata item ekak add karanna.";
-    }
-    if (selectedLanguage === "Tanglish") {
-      return "Create Order Link click pannurathukku munnaadi cart ku oru item add pannunga.";
     }
     return "Please add at least one item to the cart before creating the order link.";
   }
@@ -2275,10 +1982,6 @@ export function KaprukaGenieApp() {
       return `Yojitha item list eka:\n${itemList}\n\nMulinnama ${nextItem} walata options pennannam. Ilanga item ekata yanna Next item obanna.`;
     }
 
-    if (replyLanguage === "Tanglish") {
-      return `Suggested item list:\n${itemList}\n\nMudhal la ${nextItem} ku options kaamikiren. Adutha item ku poganum na Next item use pannunga.`;
-    }
-
     return `Suggested item list:\n${itemList}\n\nI will start by showing options for ${nextItem}. Use Next item to move through the list.`;
   }
 
@@ -2288,20 +1991,17 @@ export function KaprukaGenieApp() {
     if (isMore) {
       if (language === "Sinhala") return `${label} walata thawa options pennanawa.`;
       if (language === "Singlish") return `${label} walata thawa options pennanawa.`;
-      if (language === "Tanglish") return `${label} ku innum sila options kaamikiren.`;
       return `I will show more options for ${label}.`;
     }
 
     if (typeof item !== "string") {
       if (language === "Sinhala") return `Dan ${label} walata cards pennanawa.`;
       if (language === "Singlish") return `Dan ${label} walata cards pennanawa.`;
-      if (language === "Tanglish") return `Ippo ${label} ku cards kaatturen.`;
       return `Now I will suggest ${label}.`;
     }
 
     if (language === "Sinhala") return `දැන් ${item} සඳහා cards පෙන්වනවා.`;
     if (language === "Singlish") return `Dan ${item} walata cards pennanawa.`;
-    if (language === "Tanglish") return `Ippo ${item} ku cards kaatturen.`;
     return `Now I will suggest ${item}.`;
   }
 
@@ -2461,15 +2161,30 @@ export function KaprukaGenieApp() {
   }
 
   function renderCompareTool() {
-    const productOne = compareRows[0]?.product;
-    const productTwo = compareRows[1]?.product;
-    const finalComparison =
-      compareSuggestion && !isGenericCompareSuggestion(compareSuggestion)
-        ? compareSuggestion
-        : getLocalCompareSummary(productOne, productTwo);
-    const criteriaRows = productOne && productTwo
+    const firstCompareRow = compareRows[0];
+    const secondCompareRow = compareRows[1];
+    const productOne = firstCompareRow?.product;
+    const productTwo = secondCompareRow?.product;
+    const renderInsights = (insights: ComparisonInsight[]) => (
+      <div className="grid gap-3">
+        {insights.slice(0, 4).map((insight) => (
+          <div key={insight.label} className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-3 text-xs font-black">
+              <span>{insight.label}</span>
+              <span className="text-[#7b3fb1]">{insight.percentage}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#eee9f5]">
+              <div
+                className="h-full rounded-full bg-[#7b3fb1]"
+                style={{ width: `${insight.percentage}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+    const criteriaRows: Array<[string, ReactNode, ReactNode]> = productOne && productTwo
       ? [
-          ["ID", productOne.id, productTwo.id],
           ["Name", productOne.name, productTwo.name],
           [
             "Price",
@@ -2477,65 +2192,26 @@ export function KaprukaGenieApp() {
             formatPrice(productTwo.price, productTwo.currency),
           ],
           ["Description", productOne.description, productTwo.description],
+          [
+            "AI insights",
+            renderInsights(firstCompareRow?.insights ?? []),
+            renderInsights(secondCompareRow?.insights ?? []),
+          ],
         ]
       : [];
 
     return (
       <div className="grid gap-4">
-        <form
-          onSubmit={(event) => void handleCompareSubmit(event)}
-          className="grid gap-3 rounded-[18px] border border-[#e8e2f2] bg-white p-4"
-        >
+        <div className="rounded-[18px] border border-[#e8e2f2] bg-white p-4">
           <div>
             <h2 className="text-lg font-black text-[#3f246d]">
               Product Compare
             </h2>
             <p className="mt-1 text-sm leading-6 text-[#675f79]">
-              Get product IDs from product cards in Smart Shopping mode.
+              Select two products from Smart Shopping to compare them here.
             </p>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm font-bold text-[#675f79]">
-              Product ID 1
-              <input
-                value={compareIds.first}
-                onChange={(event) =>
-                  setCompareIds((current) => ({
-                    ...current,
-                    first: event.target.value,
-                  }))
-                }
-                className="h-12 rounded-[14px] border border-[#e8e2f2] px-3 text-base text-[#161226] outline-none"
-                placeholder="Enter product ID"
-              />
-            </label>
-            <label className="grid gap-1 text-sm font-bold text-[#675f79]">
-              Product ID 2
-              <input
-                value={compareIds.second}
-                onChange={(event) =>
-                  setCompareIds((current) => ({
-                    ...current,
-                    second: event.target.value,
-                  }))
-                }
-                className="h-12 rounded-[14px] border border-[#e8e2f2] px-3 text-base text-[#161226] outline-none"
-                placeholder="Enter product ID"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            disabled={
-              isCompareSubmitting ||
-              !compareIds.first.trim() ||
-              !compareIds.second.trim()
-            }
-            className="h-12 rounded-[14px] bg-[#ffdf00] px-5 text-sm font-black text-[#1a0f2e] disabled:opacity-50"
-          >
-            {isCompareSubmitting ? "Comparing..." : "Compare products"}
-          </button>
-        </form>
+        </div>
 
         {(!productOne || !productTwo) && compareSuggestion ? (
           <div className="rounded-[18px] border border-[#e8e2f2] bg-white p-4 text-sm leading-6 text-[#675f79]">
@@ -2589,72 +2265,8 @@ export function KaprukaGenieApp() {
                       </td>
                     </tr>
                   ))}
-                  <tr className="border-t border-[#e8e2f2]">
-                    <td className="p-3 align-top font-black text-[#3f246d]">
-                      Final comparison
-                    </td>
-                    <td
-                      colSpan={2}
-                      className="p-3 align-top leading-6 text-[#161226]"
-                    >
-                      {finalComparison}
-                    </td>
-                  </tr>
                 </tbody>
               </table>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  function renderTrackingTool() {
-    return (
-      <div className="grid gap-4">
-        <form
-          onSubmit={(event) => void handleTrackingSubmit(event)}
-          className="grid gap-3 rounded-[18px] border border-[#e8e2f2] bg-white p-4"
-        >
-          <div>
-            <h2 className="text-lg font-black text-[#3f246d]">
-              Order Tracking
-            </h2>
-            <p className="mt-1 text-sm leading-6 text-[#675f79]">
-              Enter the Kapruka order or tracking ID.
-            </p>
-          </div>
-          <label className="grid gap-1 text-sm font-bold text-[#675f79]">
-            Tracking ID
-            <input
-              value={trackingId}
-              onChange={(event) => setTrackingId(event.target.value)}
-              className="h-12 rounded-[14px] border border-[#e8e2f2] px-3 text-[#161226] outline-none"
-              placeholder="Enter tracking ID"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isTrackingSubmitting || !trackingId.trim()}
-            className="h-12 rounded-[14px] bg-[#ffdf00] px-5 text-sm font-black text-[#1a0f2e] disabled:opacity-50"
-          >
-            {isTrackingSubmitting ? "Checking..." : "Track order"}
-          </button>
-        </form>
-
-        {trackingResult ? (
-          <div className="grid gap-3 rounded-[18px] border border-[#e8e2f2] bg-white p-4">
-            <div>
-              <h3 className="text-sm font-black uppercase text-[#3f246d]">
-                Tracking output
-              </h3>
-              <div className="mt-2 text-sm leading-6 text-[#161226]">
-                {renderChatMessage(trackingResult)}
-              </div>
-            </div>
-            <div className="rounded-[14px] bg-[#f6f4fb] p-3 text-sm leading-6 text-[#675f79]">
-              <strong className="text-[#3f246d]">AI suggestion: </strong>
-              {trackingSuggestion || "No AI suggestion returned."}
             </div>
           </div>
         ) : null}
@@ -2706,7 +2318,6 @@ export function KaprukaGenieApp() {
                 <option>English</option>
                 <option>Sinhala</option>
                 <option>Singlish</option>
-                <option>Tanglish</option>
               </select>
             </label>
             <label className="grid gap-1 text-sm font-bold text-[#675f79]">
@@ -3036,12 +2647,12 @@ export function KaprukaGenieApp() {
           };
 
           if (!response.ok) {
-            throw new Error(data.error ?? "Kapruka MCP product load failed.");
+            throw new Error(data.error ?? "Live product load failed.");
           }
 
           if (!data.products || data.products.length === 0) {
             throw new Error(
-              `Kapruka MCP returned no starter products on attempt ${attempt}.`,
+              `The live catalog returned no starter products on attempt ${attempt}.`,
             );
           }
 
@@ -3061,8 +2672,8 @@ export function KaprukaGenieApp() {
 
           setStatus(
             attempt === 1
-              ? "Kapruka MCP is loading live starter products."
-              : `Kapruka MCP returned empty/error. Retrying ${attempt}/${maxAttempts}.`,
+              ? "The live catalog is loading starter products."
+              : `The live catalog returned empty/error. Retrying ${attempt}/${maxAttempts}.`,
           );
 
           try {
@@ -3111,12 +2722,12 @@ export function KaprukaGenieApp() {
           }));
         }
 
-        setStatus("Kapruka products ready.");
+        setStatus("GenieAI products ready.");
       } catch (error) {
         if (isMounted) {
           const message =
             error instanceof DOMException && error.name === "AbortError"
-              ? "Kapruka products timed out after automatic retries."
+              ? "Live products timed out after automatic retries."
               : getErrorMessage(error);
           setStatus(message);
         }
@@ -3456,7 +3067,7 @@ export function KaprukaGenieApp() {
         }
 
         if (!response.ok) {
-          throw new Error(errorMessage || "Kapruka MCP commerce request failed.");
+          throw new Error(errorMessage || "Commerce request failed.");
         }
 
         if (
@@ -3630,7 +3241,7 @@ export function KaprukaGenieApp() {
     setConversationStage("ready");
     setChips(starterChips);
     setStatus(
-      "Groq is answering with the collected context. Kapruka MCP is searching products.",
+      "Groq is answering with the collected context. The live catalog is searching products.",
     );
     const commerceData = await runCommerce(
       `${request}\n${buildContextSummary(requestDraft)}\nBudget: ${requestProfile.budget}\nRecipient: ${requestProfile.recipient}\nOccasion: ${requestProfile.occasion}\nGift type: ${requestProfile.category}`,
@@ -3669,7 +3280,7 @@ export function KaprukaGenieApp() {
       getCommerceReply(commerceData),
       requestExtendedPreferences,
     );
-    setStatus("Groq reply complete. Kapruka MCP commerce panels updated.");
+    setStatus("Groq reply complete. GenieAI commerce panels updated.");
   }
 
   async function handleFirstMessage(content: string) {
@@ -3802,7 +3413,7 @@ export function KaprukaGenieApp() {
     extendedPreferencesOverride = extendedPreferences,
     enforceReplyCount = false,
   ) {
-    setStatus("Groq is answering. Kapruka MCP is searching products.");
+    setStatus("Groq is answering. The live catalog is searching products.");
     const commerceData = await runCommerce(
       content,
       activeMode,
@@ -3821,7 +3432,7 @@ export function KaprukaGenieApp() {
     } else {
       appendAssistantMessage(getCommerceReply(commerceData));
     }
-    setStatus("Groq chat complete. Kapruka MCP commerce panels updated.");
+    setStatus("Groq chat complete. GenieAI commerce panels updated.");
   }
 
   async function handleSidebarPreferenceSubmit() {
@@ -4007,8 +3618,6 @@ export function KaprukaGenieApp() {
         content:
           language === "Singlish"
             ? "Thawa budget ekata galapena options pennanawa."
-            : language === "Tanglish"
-              ? "Unga budget ku set aagara innum sila options inga irukku."
             : language === "Sinhala"
               ? "ඔබේ අයවැයට ගැළපෙන තවත් විකල්ප පෙන්වන්නම්."
               : "Here are more options within your budget.",
@@ -4188,10 +3797,7 @@ export function KaprukaGenieApp() {
     composerInputRef.current?.focus();
   }
 
-  async function handleCompareSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const ids = [compareIds.first.trim(), compareIds.second.trim()].filter(Boolean);
-
+  async function compareProducts(ids: string[]) {
     if (ids.length < 2 || isCompareSubmitting) {
       return;
     }
@@ -4199,7 +3805,7 @@ export function KaprukaGenieApp() {
     setIsCompareSubmitting(true);
     setCompareRows([]);
     setCompareSuggestion("");
-    setStatus("Kapruka MCP is loading product data for comparison.");
+    setStatus("The live catalog is loading product data for comparison.");
 
     try {
       const controller = new AbortController();
@@ -4226,15 +3832,15 @@ export function KaprukaGenieApp() {
         throw new Error(data.error ?? "Product comparison failed.");
       }
 
-      const recommendations = new Map(
-        (data.recommendations ?? []).map((recommendation) => [
-          recommendation.id,
-          recommendation.reason,
+      const comparisonInsights = new Map(
+        (data.comparisonInsights ?? []).map((productInsights) => [
+          productInsights.id,
+          productInsights.insights.slice(0, 4),
         ]),
       );
       const rows = (data.products ?? []).slice(0, 2).map((product) => ({
+        insights: comparisonInsights.get(product.id) ?? [],
         product,
-        suggestion: recommendations.get(product.id) || data.reply || "",
       }));
 
       setCompareRows(rows);
@@ -4256,47 +3862,37 @@ export function KaprukaGenieApp() {
     }
   }
 
-  async function handleTrackingSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const id = trackingId.trim();
+  function toggleCompareSelection(productId: string) {
+    setCompareSelectionIds((current) => {
+      if (current.includes(productId)) {
+        return current.filter((id) => id !== productId);
+      }
 
-    if (!id || isTrackingSubmitting) {
+      return current.length < 2 ? [...current, productId] : current;
+    });
+  }
+
+  async function handleCompareSelectionDone() {
+    if (compareSelectionIds.length !== 2 || isCompareSubmitting) {
       return;
     }
 
-    setIsTrackingSubmitting(true);
-    setTrackingResult("");
-    setTrackingSuggestion("");
-    setStatus("Kapruka MCP is checking the order status.");
+    const ids = [...compareSelectionIds];
+    const currentMode = activeMode;
+    const currentSession = getCurrentModeSession();
+    const compareMode = "Product Compare";
+    const compareSession = modeSessions[compareMode] ?? getDefaultModeSession(compareMode);
 
-    try {
-      const response = await fetch("/api/ai/commerce", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          language,
-          mode: "Order Tracking",
-          profile: normalizeShoppingProfile(profile),
-          query: id,
-          task: "track",
-        }),
-      });
-      const data = (await response.json()) as CommerceResponse & { error?: string };
+    setModeSessions((current) => ({
+      ...current,
+      [currentMode]: currentSession,
+    }));
+    setCompareSelectionIds([]);
+    setActiveMode(compareMode);
+    applyModeSession(compareSession);
+    setIsLeftPanelOpen(false);
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Order tracking failed.");
-      }
-
-      setTrackingResult(data.tracking || "");
-      setTrackingSuggestion(data.reply || "");
-      setStatus("Order tracking result ready.");
-    } catch (error) {
-      setStatus(getErrorMessage(error));
-    } finally {
-      setIsTrackingSubmitting(false);
-    }
+    await compareProducts(ids);
   }
 
   async function generateGiftMessage(suggestions?: string) {
@@ -4368,6 +3964,7 @@ export function KaprukaGenieApp() {
       [currentMode]: currentSession,
     }));
     setActiveMode(mode);
+    setCompareSelectionIds([]);
     applyModeSession(nextSession);
     setIsLeftPanelOpen(false);
     setStatus(`${mode} ready.`);
@@ -4401,7 +3998,7 @@ export function KaprukaGenieApp() {
   function openCheckoutModal() {
     if (buyBox.length === 0) {
       setCheckoutWarning(getEmptyCartWarning());
-      setStatus("Add at least one live Kapruka product before checkout.");
+      setStatus("Add at least one live product before checkout.");
       return;
     }
 
@@ -4419,7 +4016,7 @@ export function KaprukaGenieApp() {
 
     if (buyBox.length === 0) {
       setCheckoutWarning(getEmptyCartWarning());
-      setStatus("Add at least one live Kapruka product before checkout.");
+      setStatus("Add at least one live product before checkout.");
       return;
     }
 
@@ -4436,7 +4033,7 @@ export function KaprukaGenieApp() {
     setIsCheckoutCreating(true);
     setCheckoutWarning("");
     setCheckoutUrl("");
-    setStatus("Kapruka MCP is creating a guest-checkout link.");
+    setStatus("GenieAI is creating a guest-checkout link.");
 
     try {
       const response = await fetch("/api/ai/commerce", {
@@ -4454,7 +4051,7 @@ export function KaprukaGenieApp() {
           language,
           mode: activeMode,
           profile: normalizeShoppingProfile(profile),
-          query: "Create Kapruka guest checkout link",
+          query: "Create GenieAI guest checkout link",
           task: "checkout",
         }),
       });
@@ -4463,12 +4060,12 @@ export function KaprukaGenieApp() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Kapruka checkout failed.");
+        throw new Error(data.error ?? "GenieAI checkout failed.");
       }
 
       applyCommerceResponse(data);
       if (data.checkout?.checkout_url) {
-        setStatus("Kapruka MCP checkout link created.");
+        setStatus("GenieAI checkout link created.");
         setCheckoutWarning("");
       } else {
         const message = getCheckoutResponseMessage(data);
@@ -4517,8 +4114,8 @@ export function KaprukaGenieApp() {
       await runCommerce(query, activeMode, profile, false);
       setStatus(
         data.fallback
-          ? "Image upload used a best-effort fallback search. Kapruka MCP products updated."
-          : "Groq image analysis complete. Kapruka MCP products updated.",
+          ? "Image upload used a best-effort fallback search. GenieAI products updated."
+          : "Groq image analysis complete. GenieAI products updated.",
       );
     } catch (error) {
       const message = getErrorMessage(error);
@@ -4567,7 +4164,7 @@ export function KaprukaGenieApp() {
         const blob = new Blob(audioChunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
-        const file = new File([blob], "kapruka-voice.webm", {
+        const file = new File([blob], "genie-ai-voice.webm", {
           type: recorder.mimeType || "audio/webm",
         });
         mediaRecorderRef.current = null;
@@ -4946,15 +4543,12 @@ export function KaprukaGenieApp() {
           <div className="flex min-h-full items-center bg-[radial-gradient(circle_at_12%_20%,rgba(255,223,0,0.32),transparent_28%),radial-gradient(circle_at_88%_16%,rgba(240,106,168,0.28),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(246,244,251,0.82))] px-5 py-6 backdrop-blur md:px-8">
             <div className="mx-auto grid w-full max-w-6xl gap-5">
               <div className="min-w-0 pr-12">
-                <p className="inline-flex rounded-full bg-[#ffdf00] px-3 py-1 text-xs font-black uppercase tracking-normal text-[#1a0f2e] shadow-[0_10px_24px_rgba(44,22,75,0.12)]">
-                  Kapruka Genie is ready
-                </p>
                 <h2 className="mt-3 max-w-4xl text-4xl font-black leading-tight tracking-normal text-[#3f246d] md:text-6xl">
-                  Shop smarter with live AI gifting support
+                  Shop smarter with GenieAI
                 </h2>
                 <p className="mt-3 max-w-3xl text-base font-bold leading-7 text-[#4d4261] md:text-lg">
                   Ask for gifts, compare products, plan events, write gift
-                  messages, and create Kapruka checkout links from one guided
+                  messages, and create checkout links from one guided
                   chat workspace.
                 </p>
               </div>
@@ -4972,7 +4566,7 @@ export function KaprukaGenieApp() {
                   onClick={closeIntroPanel}
                   className="h-12 cursor-pointer rounded-[14px] bg-[#3f246d] px-5 text-sm font-black text-white shadow-[0_12px_26px_rgba(63,36,109,0.28)] transition hover:bg-[#2f1957]"
                 >
-                  Chat now with Kapruka Genie
+                  Chat now with GenieAI
                 </button>
                 <Link
                   href="/features"
@@ -5041,44 +4635,11 @@ export function KaprukaGenieApp() {
                 />
               </div>
               <div className="grid content-start gap-4">
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-[14px] bg-[#f6f4fb] p-3">
-                    <dt className="font-bold text-[#8a8299]">Product ID</dt>
-                    <dd className="mt-1 break-all font-black text-[#3f246d]">
-                      {selectedProduct.id}
-                    </dd>
-                  </div>
-                  <div className="rounded-[14px] bg-[#f6f4fb] p-3">
-                    <dt className="font-bold text-[#8a8299]">Category</dt>
-                    <dd className="mt-1 font-black text-[#3f246d]">
-                      {selectedProduct.category}
-                    </dd>
-                  </div>
+                <dl className="text-sm">
                   <div className="rounded-[14px] bg-[#f6f4fb] p-3">
                     <dt className="font-bold text-[#8a8299]">Price</dt>
                     <dd className="mt-1 font-black text-[#3f246d]">
-                      {formatPrice(
-                        selectedProduct.price,
-                        selectedProduct.currency,
-                      )}
-                    </dd>
-                  </div>
-                  <div className="rounded-[14px] bg-[#f6f4fb] p-3">
-                    <dt className="font-bold text-[#8a8299]">Availability</dt>
-                    <dd className="mt-1 font-black text-[#3f246d]">
-                      {selectedProduct.stockLabel}
-                    </dd>
-                  </div>
-                  <div className="rounded-[14px] bg-[#f6f4fb] p-3">
-                    <dt className="font-bold text-[#8a8299]">Stock count</dt>
-                    <dd className="mt-1 font-black text-[#3f246d]">
-                      {selectedProduct.stock}
-                    </dd>
-                  </div>
-                  <div className="rounded-[14px] bg-[#f6f4fb] p-3">
-                    <dt className="font-bold text-[#8a8299]">Delivery</dt>
-                    <dd className="mt-1 font-black text-[#3f246d]">
-                      {selectedProduct.eta}
+                      {formatPrice(selectedProduct.price, selectedProduct.currency)}
                     </dd>
                   </div>
                 </dl>
@@ -5089,26 +4650,6 @@ export function KaprukaGenieApp() {
                   <p className="mt-2 text-sm font-bold leading-6 text-[#675f79]">
                     {selectedProduct.description}
                   </p>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    disabled={isSelectedProductInCart}
-                    onClick={() => addToBuyBox(selectedProduct)}
-                    className="h-11 rounded-[12px] bg-[#ffdf00] px-4 text-sm font-black text-[#1a0f2e] disabled:cursor-default disabled:opacity-60"
-                  >
-                    {isSelectedProductInCart
-                      ? "Added to Cart"
-                      : text.addToBuyBox}
-                  </button>
-                  <a
-                    href={selectedProduct.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="grid h-11 place-items-center rounded-[12px] border border-[#e8e2f2] px-4 text-sm font-black text-[#3f246d] transition hover:bg-[#f6f4fb]"
-                  >
-                    Open on Kapruka
-                  </a>
                 </div>
               </div>
             </div>
@@ -5131,7 +4672,7 @@ export function KaprukaGenieApp() {
                 </h2>
                 <p className="mt-1 text-sm font-bold text-[#675f79]">
                   Confirm delivery and recipient details before creating the
-                  Kapruka checkout link.
+                  GenieAI checkout link.
                 </p>
               </div>
               <button
@@ -5151,7 +4692,7 @@ export function KaprukaGenieApp() {
                     Checkout link ready
                   </p>
                   <p className="mt-2 text-sm font-bold leading-6 text-[#675f79]">
-                    Open the Kapruka checkout page to complete payment.
+                    Open the GenieAI checkout page to complete payment.
                   </p>
                 </div>
                 <a
@@ -5317,9 +4858,8 @@ export function KaprukaGenieApp() {
       <section className="flex h-full w-full flex-col gap-3 px-4 py-4">
         <div className="flex flex-none flex-col justify-between gap-1.5 md:flex-row md:items-end md:gap-3">
           <div className="flex w-full items-center justify-between gap-2 md:w-auto">
-            <h1 className="mt-1 text-3xl font-black tracking-normal sm:text-4xl">
-              <span className="text-[#3f246d]">Kapruka</span>{" "}
-              <span className="text-[#d6a900] drop-shadow-[0_1px_0_rgba(26,15,46,0.32)]">Genie</span>
+            <h1 className="mt-1 text-3xl font-black tracking-normal text-[#3f246d] sm:text-4xl">
+              GenieAI
             </h1>
             <button
               type="button"
@@ -5562,6 +5102,20 @@ export function KaprukaGenieApp() {
             <div className="flex items-center justify-between border-b border-[#e8e2f2] p-5 font-black">
               <span>{activeMode}</span>
               <div className="ml-auto flex items-center justify-end gap-1.5 md:gap-3 [&>span.text-sm]:hidden">
+                {compareSelectionIds.length > 0 ? (
+                  <button
+                    type="button"
+                    disabled={
+                      compareSelectionIds.length !== 2 || isCompareSubmitting
+                    }
+                    onClick={() => void handleCompareSelectionDone()}
+                    className="h-9 rounded-[12px] bg-[#ffdf00] px-3 text-xs font-black text-[#1a0f2e] disabled:cursor-not-allowed disabled:bg-[#ece7f5] disabled:text-[#8a8299] md:h-10 md:px-4 md:text-sm"
+                  >
+                    {isCompareSubmitting
+                      ? "Comparing..."
+                      : `Done (${compareSelectionIds.length}/2)`}
+                  </button>
+                ) : null}
                 <span className="sr-only">{text.language}</span>
                 <label className="sr-only" htmlFor="chat-language">
                   {text.language}
@@ -5609,8 +5163,6 @@ export function KaprukaGenieApp() {
             >
               {isCompareMode ? (
                 renderCompareTool()
-              ) : isTrackingMode ? (
-                renderTrackingTool()
               ) : isGiftMessageMode ? (
                 renderGiftMessageTool()
               ) : (
@@ -5777,6 +5329,11 @@ export function KaprukaGenieApp() {
                   const isProductInCart = buyBox.some(
                     (item) => item.id === product.id,
                   );
+                  const isSelectedForCompare = compareSelectionIds.includes(
+                    product.id,
+                  );
+                  const isCompareSelectionFull =
+                    compareSelectionIds.length >= 2 && !isSelectedForCompare;
 
                   return (
                     <article
@@ -5792,6 +5349,23 @@ export function KaprukaGenieApp() {
                           sizes="(min-width: 768px) 33vw, 100vw"
                           className="object-cover"
                         />
+                        <button
+                          type="button"
+                          aria-pressed={isSelectedForCompare}
+                          disabled={isCompareSelectionFull}
+                          onClick={() => toggleCompareSelection(product.id)}
+                          className={`absolute right-2 top-2 z-10 rounded-[10px] border px-3 py-1.5 text-xs font-black shadow-[0_8px_18px_rgba(26,15,46,0.18)] backdrop-blur-sm transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                            isSelectedForCompare
+                              ? "border-[#ffdf00] bg-[#ffdf00] text-[#1a0f2e]"
+                              : "border-white/70 bg-white/90 text-[#3f246d] hover:bg-white"
+                          }`}
+                        >
+                          {isSelectedForCompare
+                            ? "Selected"
+                            : compareSelectionIds.length > 0
+                              ? "Select"
+                              : "Compare"}
+                        </button>
                       </div>
                       <div className="flex flex-1 flex-col p-3">
                         <div className="flex items-start justify-between gap-2">
@@ -5800,9 +5374,6 @@ export function KaprukaGenieApp() {
                             {product.category}
                           </span>
                         </div>
-                        <p className="mt-1 font-mono text-[11px] font-bold text-[#8a8299]">
-                          ID: {product.id}
-                        </p>
                         <p className="mt-2 h-[60px] overflow-hidden text-xs leading-5 text-[#675f79]">
                           {product.description}
                         </p>

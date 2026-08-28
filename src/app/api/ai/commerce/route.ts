@@ -15,14 +15,21 @@ import {
   getHuggingFaceApiKey,
   getHuggingFaceNovitaReply,
 } from "@/lib/huggingFaceNovita";
-import { createKaprukaMcpClient } from "@/lib/kaprukaMcp";
-import { toKaprukaLocationType } from "@/lib/deliveryLocations";
-import { KaprukaSearchProduct, Product, toProduct } from "@/lib/productCatalog";
+import {
+  commerceTools,
+  createCommerceMcpClient,
+  getCommerceMcpUrl,
+} from "@/lib/commerceMcp";
+import { toCommerceLocationType } from "@/lib/deliveryLocations";
+import { CatalogSearchProduct, Product, toProduct } from "@/lib/productCatalog";
 
 export const runtime = "nodejs";
 
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
-const DEFAULT_GIFT_MESSAGE_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_COMPARE_MODEL = "openai/gpt-oss-20b";
+const COMPARE_FALLBACK_MODELS = ["openai/gpt-oss-120b"];
+const DEFAULT_GIFT_MESSAGE_MODEL = "openai/gpt-oss-20b";
+const ENGLISH_GIFT_MESSAGE_FALLBACK_MODELS = ["openai/gpt-oss-120b"];
 const DEFAULT_SINHALA_GIFT_MESSAGE_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_SINHALA_CHAT_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_SINGLISH_CHAT_MODEL = "llama-3.3-70b-versatile";
@@ -43,7 +50,7 @@ type CommerceRecommendation = {
 };
 
 type MessageIntent = "command" | "conversation" | "question";
-type DetectedLanguage = "English" | "Sinhala" | "Singlish" | "Tanglish";
+type DetectedLanguage = "English" | "Sinhala" | "Singlish";
 
 type PreferenceSnapshot = {
   budget: string | null;
@@ -84,14 +91,14 @@ type ShoppingProfile = {
   recipient?: string;
 };
 
-type KaprukaSearchResponse = {
+type CatalogSearchResponse = {
   applied_filters?: unknown;
   next_cursor?: string | null;
   result?: string;
-  results?: KaprukaSearchProduct[];
+  results?: CatalogSearchProduct[];
 };
 
-type KaprukaProductDetailResponse = {
+type CatalogProductDetailResponse = {
   category?: {
     id?: string;
     name?: string;
@@ -112,14 +119,14 @@ type KaprukaProductDetailResponse = {
   url?: string;
 };
 
-type KaprukaCityResponse = {
+type CatalogCityResponse = {
   cities?: Array<{
     aliases?: string[];
     name?: string;
   }>;
 };
 
-type KaprukaDeliveryResponse = {
+type CatalogDeliveryResponse = {
   available?: boolean;
   checked_date?: string;
   city?: string;
@@ -131,7 +138,7 @@ type KaprukaDeliveryResponse = {
   result?: string;
 };
 
-type KaprukaOrderResponse = {
+type CatalogOrderResponse = {
   checkout_url?: string;
   checkoutUrl?: string;
   click_to_pay_url?: string;
@@ -156,10 +163,10 @@ function getFirstUrl(value: string | undefined) {
 }
 
 function normalizeCheckoutOrderResponse(
-  order: KaprukaOrderResponse | null | undefined,
+  order: CatalogOrderResponse | null | undefined,
 ) {
   if (!order) {
-    return { result: "" } as KaprukaOrderResponse;
+    return { result: "" } as CatalogOrderResponse;
   }
 
   const checkoutUrl =
@@ -217,7 +224,7 @@ type ProductSearchResult = {
   exactBudgetMatched: boolean;
   nearbyBudgetLabel?: string;
   requestedBudgetLabel?: string;
-  results: KaprukaSearchProduct[];
+  results: CatalogSearchProduct[];
   usedNearbyBudgetFallback: boolean;
 };
 
@@ -230,6 +237,15 @@ const PRODUCT_SEARCH_CACHE_TTL_MS = 45_000;
 const CITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PRODUCT_SEARCH_CACHE_ENTRIES = 100;
 const MAX_CITY_CACHE_ENTRIES = 100;
+const SUPPORTED_TASKS = new Set([
+  "checkout",
+  "compare",
+  "eventPlan",
+  "giftBox",
+  "giftMessage",
+  "initial",
+  "recommend",
+]);
 const productSearchCache = new Map<string, CacheEntry<ProductSearchResult>>();
 const cityCache = new Map<string, CacheEntry<string>>();
 
@@ -241,6 +257,7 @@ type CommerceResponse = {
     risk: string;
   };
   chips: string[];
+  comparisonInsights: ProductComparisonInsights[];
   eventPlan: string[];
   eventUserPreference?: ExtendedPreferences;
   extendedPreferences?: ExtendedPreferences;
@@ -249,7 +266,16 @@ type CommerceResponse = {
   mode: string;
   recommendations: CommerceRecommendation[];
   reply: string;
-  tracking: string;
+};
+
+type ComparisonInsight = {
+  label: string;
+  percentage: number;
+};
+
+type ProductComparisonInsights = {
+  id: string;
+  insights: ComparisonInsight[];
 };
 
 function getSubmittedPreferenceRecord(bodyRecord: Record<string, unknown> | null | undefined, mode: string) {
@@ -294,18 +320,18 @@ type GiftMessagePreferences = {
 
 const fallbackResponse: CommerceResponse = {
   analytics: {
-    buyBoxHealth: "Kapruka ready",
+    buyBoxHealth: "Live catalog ready",
     conversionSignal: "Waiting for a catalog match",
     nextBestAction: "Search the catalog",
     risk: "Catalog results may change",
   },
   chips: [],
+  comparisonInsights: [],
   eventPlan: [],
   giftMessage: "",
   mode: "Smart Shopping",
   recommendations: [],
   reply: "",
-  tracking: "",
 };
 
 function getCachedValue<T>(
@@ -367,7 +393,7 @@ function getLocalAnalytics({
   profile,
   recommendations,
 }: {
-  delivery: KaprukaDeliveryResponse | null;
+  delivery: CatalogDeliveryResponse | null;
   deliveryRequested: boolean;
   intent: MessageIntent;
   products: Product[];
@@ -508,7 +534,7 @@ function parseChipArray(value: unknown, maxItems: number) {
   return parseStringArray(value, maxItems)
     .filter(
       (chip) =>
-        !/\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products|track order)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
+        !/\b(check delivery|delivery check|create order link|order link|open checkout|more like this|search products)\b|බෙදාහැරීම|ඇණවුම්\s+සබැඳිය/iu.test(
           chip,
         ),
     )
@@ -755,6 +781,60 @@ function getDeterministicCompareSummary(products: Product[]) {
   return `${categorySentence} ${priceSentence} ${stockSentence} Choose ${preferred.name} if you want the safer pick because it has ${preferred.id === first.id ? "the better price or availability balance" : "the better availability or value balance"} for this comparison. Choose ${alternative.name} instead if its ${alternative.category} category and description match the recipient better, but do not choose it over ${preferred.name} unless that fit matters more than ${preferred.id === first.id ? second.name : first.name}'s price or stock advantage.`;
 }
 
+function getDeterministicComparisonInsights(
+  products: Product[],
+  profile: ShoppingProfile,
+): ProductComparisonInsights[] {
+  const positivePrices = products
+    .map((product) => product.price)
+    .filter((price) => price > 0);
+  const lowestPrice = Math.min(...positivePrices);
+
+  function getContextMatch(product: Product, context: string) {
+    if (!context.trim()) {
+      return 72;
+    }
+
+    const searchableText = `${product.name} ${product.category} ${product.description}`.toLowerCase();
+    const contextTerms = context
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 2);
+    const matchingTerms = contextTerms.filter((term) =>
+      searchableText.includes(term),
+    ).length;
+
+    return Math.min(94, 68 + matchingTerms * 10);
+  }
+
+  return products.slice(0, 2).map((product) => {
+    const valuePercentage =
+      Number.isFinite(lowestPrice) && product.price > 0
+        ? Math.max(55, Math.min(96, Math.round((lowestPrice / product.price) * 92)))
+        : 70;
+    const qualityPercentage = Math.min(
+      92,
+      64 + Math.round(Math.min(product.description.length, 240) / 12),
+    );
+
+    return {
+      id: product.id,
+      insights: [
+        { label: "Value", percentage: valuePercentage },
+        { label: "Quality", percentage: qualityPercentage },
+        {
+          label: "Occasion Match",
+          percentage: getContextMatch(product, profile.occasion ?? ""),
+        },
+        {
+          label: "Recipient Match",
+          percentage: getContextMatch(product, profile.recipient ?? ""),
+        },
+      ],
+    };
+  });
+}
+
 function isProductInsideBudget(product: Product, filter: BudgetFilter) {
   if (product.currency.toUpperCase() !== "LKR") {
     return false;
@@ -896,7 +976,7 @@ function getPreferenceRelevanceTerms(
 }
 
 function isProductRelevantToPreferences(
-  product: KaprukaSearchProduct,
+  product: CatalogSearchProduct,
   query: string,
   profile: ShoppingProfile,
 ) {
@@ -941,7 +1021,7 @@ function getSearchQuery(query: string, profile: ShoppingProfile, mode: string) {
 
   const cleaned = query
     .replace(
-      /\b(find|can|you|me|a|an|gift|for|please|kapruka|budget|recipient|occasion)\b/gi,
+      /\b(find|can|you|me|a|an|gift|for|please|genieai|budget|recipient|occasion)\b/gi,
       " ",
     )
     .replace(/\b(between|from|to|and|under|below|less|than|above|over|higher|greater|more|rupees?|rs\.?|lkr)\b/gi, " ")
@@ -1077,9 +1157,7 @@ function normalizeDetectedLanguage(
   fallback: DetectedLanguage,
 ): DetectedLanguage {
   return value === "English" ||
-    value === "Sinhala" ||
-    value === "Singlish" ||
-    value === "Tanglish"
+    value === "Sinhala" || value === "Singlish"
     ? value
     : fallback;
 }
@@ -1274,7 +1352,7 @@ async function getGroqMessageAnalysis(
         {
           role: "system",
           content:
-            "Analyze only the latest user request; selectedLanguage is authoritative. Return two preference layers. preferences contains only normalized visible preset changes explicitly stated now. extendedPreferences contains the exact, specific English search meaning explicitly stated now for budget, recipient, occasion, and giftType; return null for every field not changed in the latest request. Translate Sinhala, Singlish, or Tanglish preference meaning into concise English search text. Never copy older preferences from recentConversation into an update. Classify intent as question, command, or conversation. Normalize visible budgets and categories only to the supplied preset options. Return JSON only and do not answer the user.",
+            "Analyze only the latest user request; selectedLanguage is authoritative. Return two preference layers. preferences contains only normalized visible preset changes explicitly stated now. extendedPreferences contains the exact, specific English search meaning explicitly stated now for budget, recipient, occasion, and giftType; return null for every field not changed in the latest request. Translate Sinhala or Singlish preference meaning into concise English search text. Never copy older preferences from recentConversation into an update. Classify intent as question, command, or conversation. Normalize visible budgets and categories only to the supplied preset options. Return JSON only and do not answer the user.",
         },
         {
           role: "user",
@@ -1387,7 +1465,7 @@ function parseRecommendations(value: unknown, products: Product[]) {
       return {
         id,
         fitScore: Math.max(0, Math.min(100, Math.round(fitScore))),
-        reason: reason ?? "Good match from the live Kapruka catalog.",
+        reason: reason ?? "Good match from the live catalog.",
       };
     })
     .filter((item): item is CommerceRecommendation => item !== null)
@@ -1428,12 +1506,12 @@ function parseCommerceResponse(
         risk: getString(analytics, "risk") ?? fallbackResponse.analytics.risk,
       },
       chips: parseChipArray(parsed?.chips, 6),
+      comparisonInsights: [],
       eventPlan: parseStringArray(parsed?.eventPlan, 8),
       giftMessage: getString(parsed, "giftMessage") ?? "",
       mode: getString(parsed, "mode") ?? mode,
       recommendations: parseRecommendations(parsed?.recommendations, products),
       reply: stripModelThinking(getString(parsed, "reply") ?? ""),
-      tracking: getString(parsed, "tracking") ?? "",
     };
   } catch {
     return {
@@ -1452,10 +1530,6 @@ function getReplyLanguageInstruction(language: DetectedLanguage) {
 
   if (language === "Singlish") {
     return "CRITICAL LANGUAGE RULE: Reply only in natural conversational Sinhala written with Latin letters. Ignore the language used in the query. Every sentence must use Sinhala vocabulary and grammar such as oyage, mata, ona, puluwan, hoyala, balanna, or kiyanna. Do not write an English sentence and do not use Sinhala script.";
-  }
-
-  if (language === "Tanglish") {
-    return "CRITICAL LANGUAGE RULE: Reply only in natural conversational Tanglish written with Latin letters. Ignore the language used in the query. Every sentence must primarily use Tamil vocabulary with light English mixing such as unga, enakku, venum, paakanum, kudunga, and pannunga. Do not write Tamil script and do not answer fully in English.";
   }
 
   return "CRITICAL LANGUAGE RULE: Reply only in English.";
@@ -1486,19 +1560,6 @@ function isReplyInSelectedLanguage(
     return new Set(singlishWords.map((word) => word.toLowerCase())).size >= 2;
   }
 
-  if (language === "Tanglish") {
-    if (/[\u0B80-\u0BFF]/u.test(reply) || /[\u0D80-\u0DFF]/u.test(reply)) {
-      return false;
-    }
-
-    const tanglishWords =
-      reply.match(
-        /\b(?:anna|appadi|budget|enna|enakku|enga|evalo|gift|illa|indha|inga|innaikku|irukku|kaami|kaamikiren|kidaichu|kudunga|ku|naan|neenga|paakanum|pannalaam|pannunga|pathi|thedunga|unga|venum)\b/gi,
-      ) ?? [];
-
-    return new Set(tanglishWords.map((word) => word.toLowerCase())).size >= 2;
-  }
-
   return true;
 }
 
@@ -1512,7 +1573,6 @@ function getLanguageSafeReply(
 function sanitizeChatReply(
   reply: string,
   products: Product[],
-  language: DetectedLanguage,
 ) {
   const productReferences = products.flatMap((product) => [
     product.id.trim().toLowerCase(),
@@ -1569,7 +1629,7 @@ async function getAiProductReply(
     messages: [
       {
         role: "system",
-        content: `You are the shopping reply voice for Kapruka Genie. Product cards already exist and match the user's request, so reply positively about the request using activePreferences as the source of truth. Never say that no products were found, never ask the user to change budget or preferences, and never mention product names, product IDs, prices, counts, lists, or bullet points because the UI already shows the product cards. Reply naturally to the user's message in one short paragraph. ${getReplyLanguageInstruction(language)}`,
+        content: `You are the shopping reply voice for GenieAI. Product cards already exist and match the user's request, so reply positively about the request using activePreferences as the source of truth. Never say that no products were found, never ask the user to change budget or preferences, and never mention product names, product IDs, prices, counts, lists, or bullet points because the UI already shows the product cards. Reply naturally to the user's message in one short paragraph. ${getReplyLanguageInstruction(language)}`,
       },
       {
         role: "user",
@@ -1600,10 +1660,10 @@ async function getAiProductReply(
 }
 
 function fallbackRecommendations(products: Product[]) {
-  return products.slice(0, 3).map((product, index) => ({
+  return products.slice(0, 4).map((product, index) => ({
     id: product.id,
     fitScore: 92 - index * 4,
-    reason: "Matched by Kapruka product search.",
+    reason: "Matched by live product search.",
   }));
 }
 
@@ -1612,14 +1672,19 @@ function orderProductsByRecommendation(
   recommendations: CommerceRecommendation[],
 ) {
   if (recommendations.length === 0) {
-    return products.slice(0, 3);
+    return products.slice(0, 4);
   }
 
   const byId = new Map(products.map((product) => [product.id, product]));
-  return recommendations
+  const rankedProducts = recommendations
     .map((recommendation) => byId.get(recommendation.id))
-    .filter((product): product is Product => Boolean(product))
-    .slice(0, 3);
+    .filter((product): product is Product => Boolean(product));
+  const rankedIds = new Set(rankedProducts.map((product) => product.id));
+
+  return [
+    ...rankedProducts,
+    ...products.filter((product) => !rankedIds.has(product.id)),
+  ].slice(0, 4);
 }
 
 function getBudgetSearchReply(search: ProductSearchResult, productCount: number) {
@@ -1642,8 +1707,8 @@ function getBudgetSearchReply(search: ProductSearchResult, productCount: number)
   return `No products match in ${requestedBudgetLabel}, and I could not find nearby products for this search.`;
 }
 
-async function searchKaprukaProducts(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+async function searchCatalogProducts(
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   query: string,
   profile: ShoppingProfile,
   rawQuery = query,
@@ -1662,12 +1727,12 @@ async function searchKaprukaProducts(
     cacheKey,
     PRODUCT_SEARCH_CACHE_TTL_MS,
     MAX_PRODUCT_SEARCH_CACHE_ENTRIES,
-    () => searchKaprukaProductsUncached(mcp, query, profile, rawQuery),
+    () => searchCatalogProductsUncached(mcp, query, profile, rawQuery),
   );
 }
 
-async function searchKaprukaProductsUncached(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+async function searchCatalogProductsUncached(
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   query: string,
   profile: ShoppingProfile,
   rawQuery = query,
@@ -1680,7 +1745,7 @@ async function searchKaprukaProductsUncached(
   const baseParams = {
     currency: "LKR",
     in_stock_only: true,
-    limit: 8,
+    limit: 4,
     response_format: "json",
     sort: "relevance",
   };
@@ -1688,7 +1753,7 @@ async function searchKaprukaProductsUncached(
   async function searchWithParams(filter: BudgetFilter = {}) {
     const responseResults = await Promise.allSettled(
       searchTerms.map((term) =>
-        mcp.callTool<KaprukaSearchResponse>("kapruka_search_products", {
+        mcp.callTool<CatalogSearchResponse>(commerceTools.searchProducts, {
           ...baseParams,
           ...filter,
           q: term,
@@ -1697,7 +1762,7 @@ async function searchKaprukaProductsUncached(
     );
     const responses = responseResults
       .filter(
-        (result): result is PromiseFulfilledResult<KaprukaSearchResponse> =>
+        (result): result is PromiseFulfilledResult<CatalogSearchResponse> =>
           result.status === "fulfilled",
       )
       .map((result) => result.value);
@@ -1707,13 +1772,18 @@ async function searchKaprukaProductsUncached(
         (result): result is PromiseRejectedResult =>
           result.status === "rejected",
       );
-      throw firstFailure?.reason ?? new Error("Kapruka product search failed.");
+      throw firstFailure?.reason ?? new Error("Live product search failed.");
     }
     const seenIds = new Set<string>();
 
     const rawResults =
       query === COMMON_GIFT_SEARCH_QUERY
-        ? responses.flatMap((response) => (response.results?.[0] ? [response.results[0]] : []))
+        ? [
+            ...responses.flatMap((response) =>
+              response.results?.[0] ? [response.results[0]] : [],
+            ),
+            ...responses.flatMap((response) => response.results?.slice(1) ?? []),
+          ]
         : responses.flatMap((response) => response.results ?? []);
 
     return rawResults
@@ -1730,7 +1800,7 @@ async function searchKaprukaProductsUncached(
       .filter((product) =>
         isProductRelevantToPreferences(product, query, profile),
       )
-      .slice(0, 8);
+      .slice(0, 4);
   }
 
   if (!hasBudgetFilter(budgetFilter)) {
@@ -1770,7 +1840,7 @@ async function searchKaprukaProductsUncached(
 }
 
 async function getCanonicalCity(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   city: string,
 ) {
   const cacheKey = city.trim().toLowerCase();
@@ -1781,8 +1851,8 @@ async function getCanonicalCity(
     CITY_CACHE_TTL_MS,
     MAX_CITY_CACHE_ENTRIES,
     async () => {
-      const cityResponse = await mcp.callTool<KaprukaCityResponse>(
-        "kapruka_list_delivery_cities",
+      const cityResponse = await mcp.callTool<CatalogCityResponse>(
+        commerceTools.listDeliveryCities,
         {
           limit: 1,
           query: city,
@@ -1796,7 +1866,7 @@ async function getCanonicalCity(
 }
 
 async function checkDelivery(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   profile: ShoppingProfile,
   productId?: string,
   canonicalCity?: string,
@@ -1807,7 +1877,7 @@ async function checkDelivery(
 
   const city = canonicalCity ?? (await getCanonicalCity(mcp, profile.city));
 
-  return mcp.callTool<KaprukaDeliveryResponse>("kapruka_check_delivery", {
+  return mcp.callTool<CatalogDeliveryResponse>(commerceTools.checkDelivery, {
     city,
     delivery_date: profile.date || null,
     product_id: productId ?? null,
@@ -1816,14 +1886,14 @@ async function checkDelivery(
 }
 
 async function createCheckoutOrder(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   cartIds: string[],
   profile: ShoppingProfile,
   checkout: CheckoutDetails,
 ) {
   const city = await getCanonicalCity(mcp, profile.city ?? "");
 
-  const order = await mcp.callTool<KaprukaOrderResponse>("kapruka_create_order", {
+  const order = await mcp.callTool<CatalogOrderResponse>(commerceTools.createOrder, {
     cart: cartIds.map((productId) => ({
       product_id: productId,
       quantity: 1,
@@ -1833,7 +1903,7 @@ async function createCheckoutOrder(
       address: checkout.address,
       city,
       date: profile.date,
-      location_type: toKaprukaLocationType(checkout.locationType),
+      location_type: toCommerceLocationType(checkout.locationType),
     },
     gift_message: checkout.giftMessage || null,
     recipient: {
@@ -1850,10 +1920,6 @@ async function createCheckoutOrder(
   return normalizeCheckoutOrderResponse(order);
 }
 
-function getOrderNumber(query: string) {
-  return query.match(/\b[A-Z0-9][A-Z0-9_-]{4,48}[A-Z0-9]\b/i)?.[0] ?? null;
-}
-
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return Promise.race([
     promise,
@@ -1864,7 +1930,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 }
 
 async function searchProductsByIds(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   productIds: string[],
 ) {
   const normalizeProductId = (value: string) =>
@@ -1872,7 +1938,7 @@ async function searchProductsByIds(
   const results = await Promise.allSettled(
     productIds.map((productId) =>
       withTimeout(
-        mcp.callTool<KaprukaProductDetailResponse>("kapruka_get_product", {
+        mcp.callTool<CatalogProductDetailResponse>(commerceTools.getProduct, {
           currency: "LKR",
           product_id: productId,
           response_format: "json",
@@ -1898,7 +1964,7 @@ async function searchProductsByIds(
       return [];
     }
 
-    const compareProduct: KaprukaSearchProduct = {
+    const compareProduct: CatalogSearchProduct = {
       category: rawProduct.category,
       id: rawProduct.id,
       image_url: Array.isArray(rawProduct.images) ? rawProduct.images[0] : undefined,
@@ -1927,7 +1993,7 @@ async function getGroqCommerce(
   query: string,
   userMessage: string,
   products: Product[],
-  delivery: KaprukaDeliveryResponse | null,
+  delivery: CatalogDeliveryResponse | null,
   profile: ShoppingProfile,
   messageAnalysis: MessageAnalysis,
   searchQuery: string,
@@ -1945,7 +2011,7 @@ async function getGroqCommerce(
         messages: [
           {
             role: "system",
-            content: `You are the direct conversation voice for Kapruka Genie. Answer the user's actual message naturally and concisely. Answer questions directly, acknowledge or carry out commands, and respond naturally to conversation. Product cards update separately, so never say that you updated products. Never include product names, product IDs, prices, product categories, product examples, recommendation lists, bullets, or numbered lists. If exact matching products were not found, say so briefly and ask whether the user wants to change a preference; do not invent or suggest a substitute category. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. The selected replyLanguage is authoritative. English product terms may appear only when necessary. Do not reveal reasoning or include <think> blocks. ${replyLengthInstruction} ${getReplyLanguageInstruction(language)}`,
+            content: `You are the direct conversation voice for GenieAI. Answer the user's actual message naturally and concisely. Answer questions directly, acknowledge or carry out commands, and respond naturally to conversation. Product cards update separately, so never say that you updated products. Never include product names, product IDs, prices, product categories, product examples, recommendation lists, bullets, or numbered lists. If exact matching products were not found, say so briefly and ask whether the user wants to change a preference; do not invent or suggest a substitute category. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. The selected replyLanguage is authoritative. English product terms may appear only when necessary. Do not reveal reasoning or include <think> blocks. ${replyLengthInstruction} ${getReplyLanguageInstruction(language)}`,
           },
           {
             role: "user",
@@ -1989,7 +2055,7 @@ async function getGroqCommerce(
     messages: [
           {
             role: "system",
-            content: `You are the multilingual reasoning and conversation layer for Kapruka Genie. Product and delivery data already came from the real Kapruka MCP server. The submitted profile is the user's highest-priority requirement: never replace its requested gift type, budget, recipient, or occasion with a different option. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. Rank only provided products that satisfy those preferences. If no matching catalog products are supplied, clearly say that no exact match was found and ask whether the user wants to change a preference; never propose a substitute category such as mugs when flowers were requested. First respond to the user's actual message: answer a question directly, carry out or specifically acknowledge a command, and respond naturally to conversation. In Event Planner and Gift Box modes, always answer a custom user question or command directly in reply, even while a guided item list is active. Never use 'I updated the products', a translation of it, or another generic UI-update status as the reply. The product cards update separately while you reply. If facts needed to answer are not present in the supplied data, say so briefly or ask one useful clarification instead of inventing facts. Rank only the provided product IDs and never invent catalog products. ${replyLengthInstruction} Never include product names, product IDs, prices, or a written list of recommendations in reply because the UI shows products only as cards. For eventPlan and giftBox tasks, return the checklist only in eventPlan, never repeat that checklist in reply. For compare tasks, make reply a direct, useful response for the AI suggestions field without listing products. Analytics and reply chips are generated locally, so do not return them. Return JSON only. ${getReplyLanguageInstruction(language)}`,
+            content: `You are the multilingual reasoning and conversation layer for GenieAI. Product and delivery data already came from the live commerce service. The submitted profile is the user's highest-priority requirement: never replace its requested gift type, budget, recipient, or occasion with a different option. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. Rank only provided products that satisfy those preferences. If no matching catalog products are supplied, clearly say that no exact match was found and ask whether the user wants to change a preference; never propose a substitute category such as mugs when flowers were requested. First respond to the user's actual message: answer a question directly, carry out or specifically acknowledge a command, and respond naturally to conversation. In Event Planner and Gift Box modes, always answer a custom user question or command directly in reply, even while a guided item list is active. Never use 'I updated the products', a translation of it, or another generic UI-update status as the reply. The product cards update separately while you reply. If facts needed to answer are not present in the supplied data, say so briefly or ask one useful clarification instead of inventing facts. Rank only the provided product IDs and never invent catalog products. ${replyLengthInstruction} Never include product names, product IDs, prices, or a written list of recommendations in reply because the UI shows products only as cards. For eventPlan and giftBox tasks, return the checklist only in eventPlan, never repeat that checklist in reply. For compare tasks, make reply a direct, useful response for the AI suggestions field without listing products. Analytics and reply chips are generated locally, so do not return them. Return JSON only. ${getReplyLanguageInstruction(language)}`,
         },
         {
           role: "user",
@@ -2003,12 +2069,11 @@ async function getGroqCommerce(
               recommendations: [
                 {
                   fitScore: 0,
-                  id: "one of the provided Kapruka product ids only",
+                  id: "one of the provided live product ids only",
                   reason: "why this product fits",
                 },
               ],
               reply: "concise direct answer to this specific user message",
-              tracking: "optional order tracking update",
             },
             activePreferences: {
               budget: profile.budget,
@@ -2020,7 +2085,7 @@ async function getGroqCommerce(
             messageIntent: messageAnalysis.intent,
             requestedGiftType:
               messageAnalysis.preferences.requestedGiftType,
-            productCatalogFromKaprukaMcp: products,
+            productCatalogFromCommerceMcp: products,
             profile,
             query: userMessage,
             replyLanguage: language,
@@ -2054,7 +2119,6 @@ async function getGroqCommerce(
       reply: sanitizeChatReply(
         getLanguageSafeReply(language, directReply),
         products,
-        language,
       ),
     };
   }
@@ -2069,7 +2133,6 @@ async function getGroqCommerce(
       reply: sanitizeChatReply(
         getLanguageSafeReply(language, directReply),
         products,
-        language,
       ),
     };
   }
@@ -2094,109 +2157,125 @@ async function getGroqCommerce(
 
   return {
     ...commerce,
-    reply: sanitizeChatReply(reply, products, language),
+    reply: sanitizeChatReply(reply, products),
   };
 }
 
-async function getGroqTrackingSuggestion(
-  apiKey: string,
-  language: string,
-  tracking: string,
-) {
-  const { response } = await fetchGroqChatWithFallback(apiKey, {
-    model:
-      process.env.GROQ_PROCESSING_MODEL ??
-      process.env.GROQ_COMMERCE_MODEL ??
-      DEFAULT_MODEL,
-    messages: [
-        {
-          role: "system",
-          content:
-            "You give one concise post-order shopping support suggestion. Do not invent tracking facts. Reply in the requested language. Singlish means natural conversational Sinhala written entirely with Latin letters, not English; understand informal Singlish spelling and never use Sinhala script for a Singlish reply. Tanglish means natural conversational Tamil mixed with simple English words written entirely with Latin letters; never use Tamil script and do not answer fully in English. Return JSON only.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            expectedSchema: { suggestion: "one short next-step suggestion" },
-            language,
-            tracking,
-          }),
-        },
-    ],
-    temperature: 0.2,
-    max_completion_tokens: 180,
-    response_format: { type: "json_object" },
-  });
-
-  if (!response.ok) {
-    return "";
-  }
-
-  const content = getAssistantContent((await response.json()) as unknown);
-  const jsonText = content ? extractJsonObject(content) : null;
-
-  if (!jsonText) {
-    return "";
-  }
-
-  try {
-    return getString(asRecord(JSON.parse(jsonText) as unknown), "suggestion") ?? "";
-  } catch {
-    return "";
-  }
-}
-
-async function getGroqCompareSuggestion(
+async function getGroqComparisonInsights(
   apiKey: string,
   language: string,
   products: Product[],
+  profile: ShoppingProfile,
 ) {
   const { response } = await fetchGroqChatWithFallback(apiKey, {
-    model:
-      process.env.GROQ_PROCESSING_MODEL ??
-      process.env.GROQ_COMMERCE_MODEL ??
-      DEFAULT_MODEL,
+    model: process.env.GROQ_COMPARE_MODEL ?? DEFAULT_COMPARE_MODEL,
     messages: [
         {
           role: "system",
           content:
-            "Give one detailed final comparison paragraph using only the supplied products. Compare product 1 and product 2 tradeoffs, price/value, use case, strengths, weaknesses, and say which is better for which buyer and why. Reply in the requested language. Singlish means natural conversational Sinhala written entirely with Latin letters, not English; understand informal Singlish spelling and never use Sinhala script for a Singlish reply. Tanglish means natural conversational Tamil mixed with simple English words written entirely with Latin letters; never use Tamil script and do not answer fully in English. Return JSON only.",
+            "Score each supplied product using only the supplied facts and shopping context. Return no more than four short insight dimensions per product. Prefer Value, Quality, Occasion Match, and Recipient Match when the context supports them. Percentages must be integers from 0 to 100 and should meaningfully distinguish the products. Do not invent materials, durability, reviews, or other facts absent from the descriptions. Keep insight labels in the requested language. Return JSON only.",
         },
         {
           role: "user",
           content: JSON.stringify({
-            expectedSchema: { suggestion: "one long final comparison paragraph for both products" },
+            expectedSchema: {
+              productInsights: [
+                {
+                  id: "exact supplied product id",
+                  insights: [
+                    {
+                      label: "short insight label",
+                      percentage: 0,
+                    },
+                  ],
+                },
+              ],
+            },
             language,
+            shoppingContext: {
+              budget: profile.budget,
+              occasion: profile.occasion,
+              recipient: profile.recipient,
+            },
             products: products.map((product) => ({
               category: product.category,
+              description: product.description,
               id: product.id,
               name: product.name,
               price: product.price,
-              stock: product.stockLabel,
             })),
           }),
         },
     ],
     temperature: 0.2,
     max_completion_tokens: 420,
+    reasoning_effort: "low",
     response_format: { type: "json_object" },
-  });
+  }, COMPARE_FALLBACK_MODELS);
 
   if (!response.ok) {
-    return "";
+    return [];
   }
 
   const content = getAssistantContent((await response.json()) as unknown);
   const jsonText = content ? extractJsonObject(content) : null;
 
   if (!jsonText) {
-    return "";
+    return [];
   }
 
   try {
-    return getString(asRecord(JSON.parse(jsonText) as unknown), "suggestion") ?? "";
+    const parsed = asRecord(JSON.parse(jsonText) as unknown);
+    const rawProductInsights = parsed?.productInsights;
+    const productIds = new Set(products.map((product) => product.id));
+
+    if (!Array.isArray(rawProductInsights)) {
+      return [];
+    }
+
+    return rawProductInsights
+      .map((item): ProductComparisonInsights | null => {
+        const record = asRecord(item);
+        const id = getString(record, "id")?.trim();
+        const rawInsights = record?.insights;
+
+        if (!id || !productIds.has(id) || !Array.isArray(rawInsights)) {
+          return null;
+        }
+
+        const seenLabels = new Set<string>();
+        const insights = rawInsights
+          .map((insight): ComparisonInsight | null => {
+            const insightRecord = asRecord(insight);
+            const label = getString(insightRecord, "label")?.trim();
+            const percentage = getNumber(insightRecord, "percentage");
+            const normalizedLabel = label?.toLowerCase();
+
+            if (
+              !label ||
+              !normalizedLabel ||
+              seenLabels.has(normalizedLabel) ||
+              percentage === null
+            ) {
+              return null;
+            }
+
+            seenLabels.add(normalizedLabel);
+            return {
+              label,
+              percentage: Math.max(0, Math.min(100, Math.round(percentage))),
+            };
+          })
+          .filter((insight): insight is ComparisonInsight => Boolean(insight))
+          .slice(0, 4);
+
+        return insights.length > 0 ? { id, insights } : null;
+      })
+      .filter(
+        (item): item is ProductComparisonInsights => Boolean(item),
+      );
   } catch {
-    return "";
+    return [];
   }
 }
 
@@ -2207,7 +2286,7 @@ async function getGroqGiftMessage(
 ) {
   const isSinhala = preferences.language?.trim().toLowerCase() === "sinhala";
   const isSinglish = preferences.language?.trim().toLowerCase() === "singlish";
-  const isTanglish = preferences.language?.trim().toLowerCase() === "tanglish";
+  const isEnglish = preferences.language?.trim().toLowerCase() === "english";
   const { response } = await fetchGroqChatWithFallback(apiKey, {
     model: isSinhala
       ? process.env.GROQ_SINHALA_GIFT_MESSAGE_MODEL ??
@@ -2215,15 +2294,12 @@ async function getGroqGiftMessage(
       : isSinglish
         ? process.env.GROQ_SINGLISH_GIFT_MESSAGE_MODEL ??
           DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL
-      : isTanglish
-        ? process.env.GROQ_SINGLISH_GIFT_MESSAGE_MODEL ??
-          DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL
       : process.env.GROQ_GIFT_MESSAGE_MODEL ?? DEFAULT_GIFT_MESSAGE_MODEL,
     messages: [
         {
           role: "system",
           content:
-            `${isSinhala ? "" : "/no_think\n"}You are a native Sri Lankan gift-card writer. Generate one fresh, polished message in the explicitly requested language. Sinhala must use fluent, idiomatic Sinhala script rather than a literal word-for-word translation. Singlish must be natural conversational Sinhala written entirely with Latin letters, never English prose or Sinhala script. Tanglish must be natural conversational Tamil mixed with simple English words, written entirely with Latin letters and never Tamil script. Natural Singlish style includes 'Obata subama suba upandinayak wewa!' and 'Oyata godak adarei. Hemadama sathutin saha nirogiwa inna.' Do not copy these examples. Respect the requested size, tone, relationship, occasion, and suggestions. Return exactly one JSON object containing a giftMessage string and no other text.`,
+            `${isSinhala ? "" : "/no_think\n"}You are a native Sri Lankan gift-card writer. Generate one fresh, polished message in the explicitly requested language. Sinhala must use fluent, idiomatic Sinhala script rather than a literal word-for-word translation. Singlish must be natural conversational Sinhala written entirely with Latin letters, never English prose or Sinhala script. Natural Singlish style includes 'Obata subama suba upandinayak wewa!' and 'Oyata godak adarei. Hemadama sathutin saha nirogiwa inna.' Do not copy these examples. Respect the requested size, tone, relationship, occasion, and suggestions. Return exactly one JSON object containing a giftMessage string and no other text.`,
         },
         {
           role: "user",
@@ -2236,7 +2312,13 @@ async function getGroqGiftMessage(
     ],
     temperature: 0.45,
     max_completion_tokens: 400,
-  });
+    ...(isEnglish
+      ? {
+          reasoning_effort: "low",
+          response_format: { type: "json_object" },
+        }
+      : {}),
+  }, isEnglish ? ENGLISH_GIFT_MESSAGE_FALLBACK_MODELS : undefined);
 
   if (!response.ok) {
     return "";
@@ -2261,6 +2343,11 @@ export async function POST(request: Request) {
   const bodyRecord = asRecord(body);
   const task = getString(bodyRecord, "task") ?? "recommend";
   const mode = getString(bodyRecord, "mode") ?? "Smart Shopping";
+
+  if (!SUPPORTED_TASKS.has(task)) {
+    return NextResponse.json({ error: "Unsupported commerce task." }, { status: 400 });
+  }
+
   const language = normalizeDetectedLanguage(
     getString(bodyRecord, "language"),
     "English",
@@ -2295,7 +2382,7 @@ export async function POST(request: Request) {
                 {
                   role: "system",
                   content:
-                    "Write one fresh, polished gift-card message in the explicitly requested language. Sinhala must use natural Sinhala script. Singlish must be natural conversational Sinhala written only with Latin letters. Tanglish must be natural conversational Tamil with light English mixing, written only with Latin letters. Respect the requested size, tone, recipient, occasion, and suggestions. Return only the finished gift message with no label, JSON, quotation marks, or explanation.",
+                    "Write one fresh, polished gift-card message in the explicitly requested language. Sinhala must use natural Sinhala script. Singlish must be natural conversational Sinhala written only with Latin letters. Respect the requested size, tone, recipient, occasion, and suggestions. Return only the finished gift message with no label, JSON, quotation marks, or explanation.",
                 },
                 {
                   role: "user",
@@ -2334,7 +2421,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const mcpPromise = createKaprukaMcpClient();
+    const mcpPromise = createCommerceMcpClient();
 
     if (task === "checkout") {
       const mcp = await mcpPromise;
@@ -2343,7 +2430,7 @@ export async function POST(request: Request) {
       if (missingFields.length > 0) {
         return NextResponse.json(
           {
-            error: `Add ${missingFields.join(", ")} before creating a Kapruka checkout link.`,
+            error: `Add ${missingFields.join(", ")} before creating a checkout link.`,
           },
           { status: 400 },
         );
@@ -2356,7 +2443,7 @@ export async function POST(request: Request) {
         analytics: {
           buyBoxHealth: "Checkout link created",
           conversionSignal: "Ready for payment",
-          nextBestAction: "Open the Kapruka click-to-pay URL",
+          nextBestAction: "Open the click-to-pay URL",
           risk: "Checkout link expires after 60 minutes",
         },
         checkout: order,
@@ -2364,52 +2451,8 @@ export async function POST(request: Request) {
         mode,
         products: [],
         reply: order.checkout_url
-          ? "Kapruka created a guest-checkout link."
-          : (order.result ?? "Kapruka returned checkout details."),
-      });
-    }
-
-    if (task === "track") {
-      const mcp = await mcpPromise;
-      const orderNumber = getOrderNumber(query);
-
-      if (!orderNumber) {
-        return NextResponse.json({
-          ...fallbackResponse,
-          chips: [],
-          mode,
-          products: [],
-          tracking:
-            "Enter the Kapruka order number from the confirmation email or order complete page.",
-        });
-      }
-
-      const tracking = await mcp.callTool<{ result?: string }>(
-        "kapruka_track_order",
-        {
-          order_number: orderNumber,
-          response_format: "markdown",
-        },
-      );
-      const trackingResult = tracking.result ?? "No tracking update returned.";
-      const apiKey = getGroqApiKey();
-      const aiSuggestion = apiKey
-        ? await getGroqTrackingSuggestion(apiKey, language, trackingResult)
-        : "";
-
-      return NextResponse.json({
-        ...fallbackResponse,
-        analytics: {
-          buyBoxHealth: "Tracking lookup complete",
-          conversionSignal: "Post-order support",
-          nextBestAction: "Share the latest delivery status",
-          risk: "Order data depends on paid order number",
-        },
-        chips: [],
-        mode,
-        products: [],
-        reply: aiSuggestion,
-        tracking: trackingResult,
+          ? "GenieAI created a guest-checkout link."
+          : (order.result ?? "GenieAI returned checkout details."),
       });
     }
 
@@ -2511,7 +2554,7 @@ export async function POST(request: Request) {
             productSearch: null,
             results,
           }))
-        : searchKaprukaProducts(
+        : searchCatalogProducts(
             mcp,
             searchQuery,
             searchProfile,
@@ -2543,7 +2586,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ...fallbackResponse,
         analytics: {
-          buyBoxHealth: "Live Kapruka products loaded",
+          buyBoxHealth: "Live catalog products loaded",
           conversionSignal: "Starter catalog is ready",
           nextBestAction: "Ask for the gift recipient and budget",
           risk: "Live catalog results may change",
@@ -2551,14 +2594,14 @@ export async function POST(request: Request) {
         chips: [],
         delivery: null,
         mcp: {
-          endpoint: "https://mcp.kapruka.com/mcp",
+          endpoint: getCommerceMcpUrl(),
           searchQuery,
-          tools: ["kapruka_search_products"],
+          tools: [commerceTools.searchProducts],
         },
         mode,
-        products: products.slice(0, 3),
+        products: products.slice(0, 4),
         recommendations,
-        reply: "Kapruka loaded products.",
+        reply: "GenieAI loaded products.",
       });
     }
 
@@ -2570,26 +2613,36 @@ export async function POST(request: Request) {
             buyBoxHealth: "Comparison needs real product IDs",
             conversionSignal: "Missing product match",
             nextBestAction: "Copy IDs from Smart Shopping product cards",
-            risk: "One or more IDs did not match live Kapruka products",
+            risk: "One or more IDs did not match live catalog products",
           },
           chips: [],
           mode,
           products,
           recommendations: [],
           reply:
-            "I could not match two live Kapruka products. Copy the real product IDs shown on product cards in Smart Shopping mode.",
+            "I could not match two live catalog products. Select products shown on the product cards in Smart Shopping mode.",
         });
       }
 
       const apiKey = getGroqApiKey();
-      const aiSuggestion = apiKey
+      const aiInsights = apiKey
         ? await withTimeout(
-            getGroqCompareSuggestion(apiKey, language, products.slice(0, 3)),
+            getGroqComparisonInsights(
+              apiKey,
+              language,
+              products.slice(0, 2),
+              profile,
+            ),
             6000,
-          ).catch(() => "")
-        : "";
-      const finalComparison =
-        aiSuggestion || getDeterministicCompareSummary(products.slice(0, 2));
+          ).catch(() => [])
+        : [];
+      const comparisonInsights =
+        aiInsights.length === products.slice(0, 2).length
+          ? aiInsights
+          : getDeterministicComparisonInsights(products, profile);
+      const finalComparison = getDeterministicCompareSummary(
+        products.slice(0, 2),
+      );
 
       return NextResponse.json({
         ...fallbackResponse,
@@ -2600,6 +2653,7 @@ export async function POST(request: Request) {
           risk: products.length < 2 ? "Some product IDs did not return matches" : "Live catalog can change",
         },
         chips: [],
+        comparisonInsights,
         mode,
         products: products.slice(0, 3),
         recommendations: products.slice(0, 3).map((product) => ({
@@ -2629,7 +2683,7 @@ export async function POST(request: Request) {
           buyBoxHealth: "No live products found",
           conversionSignal: "Search needs refinement",
           nextBestAction: "Try another specific keyword",
-          risk: "Kapruka returned no purchasable products",
+          risk: "The live catalog returned no purchasable products",
         },
         chips: [],
         delivery,
@@ -2638,7 +2692,7 @@ export async function POST(request: Request) {
         reply:
           productSearch && hasBudgetFilter(productSearch.budgetFilter)
             ? getBudgetSearchReply(productSearch, 0)
-            : `Kapruka did not find products for "${searchQuery}".`,
+            : `GenieAI did not find products for "${searchQuery}".`,
       });
     }
 
@@ -2678,7 +2732,7 @@ export async function POST(request: Request) {
       recommendations,
     );
     const responseProducts =
-      task === "compare" ? products.slice(0, 3) : recommendationProducts;
+      task === "compare" ? products.slice(0, 3) : recommendationProducts.slice(0, 4);
     return NextResponse.json({
       ...commerce,
       analytics: getLocalAnalytics({
@@ -2698,11 +2752,11 @@ export async function POST(request: Request) {
       delivery,
       detectedLanguage: resolvedMessageAnalysis.detectedLanguage,
       mcp: {
-        endpoint: "https://mcp.kapruka.com/mcp",
+        endpoint: getCommerceMcpUrl(),
         searchQuery,
         tools: [
-          "kapruka_search_products",
-          ...(deliveryRequested ? ["kapruka_check_delivery"] : []),
+          commerceTools.searchProducts,
+          ...(deliveryRequested ? [commerceTools.checkDelivery] : []),
         ],
       },
       products: responseProducts,
@@ -2717,7 +2771,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Kapruka commerce request failed.",
+            : "The commerce request failed.",
       },
       { status: 502 },
     );

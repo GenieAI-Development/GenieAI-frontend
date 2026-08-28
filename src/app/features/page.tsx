@@ -4,7 +4,7 @@ import Link from "next/link";
 const features = [
   {
     title: "Smart shopping chat",
-    text: "Describe the recipient, occasion, budget, city, or gift type and Kapruka Genie turns it into live product suggestions with AI replies grounded in the same updated preference context.",
+    text: "Describe the recipient, occasion, budget, city, or gift type and GenieAI turns it into live product suggestions with AI replies grounded in the same updated preference context.",
   },
   {
     title: "Event and gift box planning",
@@ -16,7 +16,7 @@ const features = [
   },
   {
     title: "Checkout support",
-    text: "Add items to the buy box, confirm delivery details, and create a Kapruka guest checkout link when everything is ready.",
+    text: "Add items to the buy box, confirm delivery details, and create a GenieAI guest checkout link when everything is ready.",
   },
 ];
 
@@ -30,7 +30,7 @@ const steps = [
 const modeGuides = [
   {
     mode: "Smart Shopping",
-    purpose: "Find live Kapruka gift options from a normal chat request.",
+    purpose: "Find live gift options from a normal chat request.",
     howTo:
       "Type what you need, then add context for budget, recipient, occasion, category, city, or date when prompted. Sidebar preferences can also be sent from this mode. Use product cards to add items to the buy box.",
   },
@@ -48,15 +48,9 @@ const modeGuides = [
   },
   {
     mode: "Product Compare",
-    purpose: "Compare two real Kapruka products side by side.",
+    purpose: "Compare two real products side by side.",
     howTo:
       "Copy product IDs from Smart Shopping product cards, paste them into Product ID 1 and Product ID 2, then compare price, category, description, stock, and AI recommendation.",
-  },
-  {
-    mode: "Order Tracking",
-    purpose: "Check an existing Kapruka order status.",
-    howTo:
-      "Enter the Kapruka order number from the confirmation email or order completion page. The app returns tracking output and a concise next-step suggestion.",
   },
   {
     mode: "Gift Message",
@@ -73,7 +67,7 @@ const preferences = [
   },
   {
     title: "Delivery context",
-    text: "City and delivery date are used for delivery checks and checkout. Dates are kept non-past so Kapruka MCP does not reject the request.",
+    text: "City and delivery date are used for delivery checks and checkout. Dates are kept non-past so the commerce service does not reject the request.",
   },
   {
     title: "Language",
@@ -102,7 +96,7 @@ export default function FeaturesPage() {
             href="/"
             className="text-2xl font-black tracking-normal text-[#3f246d]"
           >
-            Kapruka <span className="text-[#ffdf00]">Genie</span>
+            <span className="genie-wordmark text-[#ffdf00]">GenieAI</span>
           </Link>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -126,10 +120,10 @@ export default function FeaturesPage() {
               Features and how to use
             </p>
             <h1 className="mt-2 max-w-3xl text-4xl font-black tracking-normal text-[#3f246d] md:text-6xl">
-              A guided AI shopping desk for Kapruka gifts
+              A guided AI shopping desk for thoughtful gifts
             </h1>
             <p className="mt-4 max-w-2xl text-base font-bold leading-7 text-[#675f79]">
-              Kapruka Genie combines chat, live catalog search, delivery checks,
+              GenieAI combines chat, live catalog search, delivery checks,
               comparison, event planning, gift message writing, and checkout
               preparation in one focused workspace.
             </p>
@@ -137,7 +131,7 @@ export default function FeaturesPage() {
           <div className="relative aspect-[4/3] overflow-hidden rounded-[22px] border border-[#e8e2f2] bg-white shadow-[0_18px_50px_rgba(44,22,75,0.12)]">
             <Image
               src="/product-images/gift-box.svg"
-              alt="Kapruka gift box"
+              alt="GenieAI gift box"
               fill
               priority
               sizes="(min-width: 768px) 40vw, 100vw"
