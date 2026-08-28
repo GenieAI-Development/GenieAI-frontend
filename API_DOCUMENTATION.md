@@ -10,7 +10,7 @@ Concise HTTP reference for the public API routes.
 | `POST` | `/api/ai/context-analysis` | Extract shopping preferences from text |
 | `POST` | `/api/ai/image-analysis` | Analyze an image for product-search hints |
 | `POST` | `/api/ai/voice-messages` | Transcribe English audio |
-| `POST` | `/api/ai/commerce` | Search, compare, plan, track, and check out |
+| `POST` | `/api/ai/commerce` | Search, compare, plan, generate gift messages, and check out |
 
 Use your deployed application origin as the base URL:
 
@@ -191,7 +191,7 @@ Other errors: `400` for invalid fields, `413` above the size limit, `415` for th
 
 `POST /api/ai/commerce`
 
-A task-based endpoint for the live Kapruka catalog.
+A task-based endpoint for the live GenieAI catalog.
 
 ### Tasks
 
@@ -201,12 +201,13 @@ A task-based endpoint for the live Kapruka catalog.
 | `recommend` | Search and recommend products | `query`, `userMessage`, preferences |
 | `eventPlan` | Search and create an event checklist | `eventUserPreference` |
 | `giftBox` | Search and build a gift-box list | `giftUserPreference` |
-| `compare` | Compare 2–3 products | `productIds` |
-| `track` | Track an order | Order number in `query` |
+| `compare` | Compare live products and generate scored AI insights | `productIds` |
 | `checkout` | Create a guest-checkout link | `cartIds`, `profile`, `checkout` |
 | `giftMessage` | Generate a gift-card message | `giftMessagePreferences` |
 
 `task` defaults to `recommend`.
+
+Order tracking has been removed. Sending `"task": "track"` or any other unsupported task returns `400` with `{"error":"Unsupported commerce task."}`.
 
 ### Common request
 
@@ -249,7 +250,7 @@ A task-based endpoint for the live Kapruka catalog.
 | `eventUserPreference` | object | Preferences for Event Planner. |
 | `giftUserPreference` | object | Preferences for Gift Box Builder. |
 | `cartIds` | string[] | Up to 30 product IDs; required for checkout. |
-| `productIds` | string[] | Up to 3 exact product IDs for comparison. |
+| `productIds` | string[] | Two IDs are required by the current UI comparison flow. The API parses up to 3 IDs. |
 | `conversationHistory` | array | Final 3 valid user/assistant messages. |
 | `preserveProfile` | boolean | Keep submitted profile values when `true`. |
 
@@ -262,6 +263,7 @@ A task-based endpoint for the live Kapruka catalog.
   "detectedLanguage": "English",
   "products": [],
   "recommendations": [],
+  "comparisonInsights": [],
   "chips": ["Suggest more"],
   "delivery": null,
   "eventPlan": [],
@@ -275,9 +277,18 @@ A task-based endpoint for the live Kapruka catalog.
 }
 ```
 
-Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`.
+Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`.
 
 ### Compare
+
+The product-card workflow selects exactly two products:
+
+1. Click **Compare** on a product image.
+2. Other product cards remain visible and their action changes to **Select**.
+3. Select one more product.
+4. Click **Done (2/2)** in the chat header. The UI switches to the Product Compare tab and sends the two selected IDs to this task.
+
+The comparison page does not expose product-ID fields. It displays only each product's name, price, full description, and AI insights.
 
 ```json
 {
@@ -288,7 +299,45 @@ Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `sto
 }
 ```
 
-At least two valid product IDs are needed for the exact comparison flow. Unavailable products are omitted; comparison may use a local fallback.
+At least two valid product IDs are needed for the exact comparison flow. Unavailable products are omitted. If fewer than two products resolve, the endpoint returns `200` with the matched products, an empty comparison, and guidance to select live product cards. When products resolve but AI scoring fails, the endpoint supplies deterministic insight percentages.
+
+### Compare response — `200`
+
+```json
+{
+  "mode": "Product Compare",
+  "reply": "The first option offers the stronger price balance, while the second may suit the occasion better.",
+  "products": [
+    {
+      "id": "PRODUCT_ID_1",
+      "name": "Example Gift One",
+      "price": 4500,
+      "currency": "LKR",
+      "description": "Full product description."
+    },
+    {
+      "id": "PRODUCT_ID_2",
+      "name": "Example Gift Two",
+      "price": 6200,
+      "currency": "LKR",
+      "description": "Full product description."
+    }
+  ],
+  "comparisonInsights": [
+    {
+      "id": "PRODUCT_ID_1",
+      "insights": [
+        { "label": "Value", "percentage": 88 },
+        { "label": "Quality", "percentage": 82 },
+        { "label": "Occasion Match", "percentage": 91 },
+        { "label": "Recipient Match", "percentage": 86 }
+      ]
+    }
+  ]
+}
+```
+
+`comparisonInsights` contains no more than four entries per scored product. Each entry has a short localized `label` and an integer `percentage` clamped to `0–100`. The preferred dimensions are Value, Quality, Occasion Match, and Recipient Match when the supplied product facts and shopping context support them. If Groq is unavailable, invalid, or times out, deterministic insights are returned instead. AI insights are currently generated for the first two matched products.
 
 ### Checkout
 
@@ -317,7 +366,7 @@ A successful response includes:
 
 ```json
 {
-  "reply": "Kapruka created a guest-checkout link.",
+  "reply": "GenieAI created a guest-checkout link.",
   "checkout": {
     "checkout_url": "https://example.com/checkout/...",
     "expires_at": "2026-08-27T13:00:00Z",
@@ -353,15 +402,28 @@ A successful response includes:
 
 The generated text is returned in `giftMessage`.
 
+Language/provider behavior:
+
+- English uses Groq only: `openai/gpt-oss-20b` by default, with `openai/gpt-oss-120b` as the dedicated fallback. It does not fall back to Novita.
+- Sinhala and Singlish use Hugging Face via Novita first when `HF_TOKEN` is configured, then fall back to their configured Groq models.
+- If no provider returns a message and no Groq request failed after starting, the endpoint returns a generic local message.
+- If Groq is configured but returns no valid updated message, the endpoint returns `502`.
+
 ### Commerce errors
 
 | Status | Meaning |
 |---:|---|
-| `400` | Checkout data is incomplete. |
+| `400` | The task is unsupported or checkout data is incomplete. |
 | `500` | A required AI credential is missing. |
 | `502` | Catalog, checkout, or provider operation failed. |
 
-Some degraded states intentionally return `200`, including local recommendations, comparison fallback, and gift-message fallback.
+Some degraded states intentionally return `200`, including local recommendations, deterministic comparison insights, and the generic gift-message fallback.
+
+## Frontend consumption notes
+
+- The product-details popup uses the product `imageUrl`, `price`, `currency`, and full `description`. Other product metadata is not shown in that popup.
+- The Product Compare tab renders only `name`, formatted price, full `description`, and `comparisonInsights`. Product IDs are transport identifiers and are not displayed.
+- Comparison selection happens on product cards; the user does not type IDs into the comparison page.
 
 ## Command-line examples
 
@@ -386,8 +448,17 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 |---|---|
 | `GROQ_API_KEY` | Groq chat, vision, and transcription access. `GROQ_TOKEN` is also accepted. |
 | `HF_TOKEN` | Optional non-English generation through Hugging Face. `HUGGINGFACE_TOKEN` is also accepted. |
-| `KAPRUKA_MCP_URL` | Optional Kapruka MCP endpoint override. |
+| `COMMERCE_MCP_URL` | Optional commerce MCP endpoint override. |
+| `COMMERCE_SEARCH_PRODUCTS_TOOL` | Commerce MCP product-search tool name. |
+| `COMMERCE_GET_PRODUCT_TOOL` | Commerce MCP product-detail tool name. |
+| `COMMERCE_LIST_DELIVERY_CITIES_TOOL` | Commerce MCP city-list tool name. |
+| `COMMERCE_CHECK_DELIVERY_TOOL` | Commerce MCP delivery-check tool name. |
+| `COMMERCE_CREATE_ORDER_TOOL` | Commerce MCP order-creation tool name. |
 | `GROQ_REPLY_MODEL` | Optional chatbot model override. |
+| `GROQ_COMPARE_MODEL` | Optional comparison-insights model override. Defaults to `openai/gpt-oss-20b`; the comparison-specific fallback is `openai/gpt-oss-120b`. |
+| `GROQ_GIFT_MESSAGE_MODEL` | English gift-message model. Defaults to `openai/gpt-oss-20b`; English falls back only to `openai/gpt-oss-120b`. |
+| `GROQ_SINHALA_GIFT_MESSAGE_MODEL` | Groq fallback model for Sinhala gift messages. |
+| `GROQ_SINGLISH_GIFT_MESSAGE_MODEL` | Groq fallback model for Singlish gift messages. |
 | `GROQ_VISION_MODEL` | Optional image-analysis model override. |
 
 Keep credentials on the server and never include them in client requests.

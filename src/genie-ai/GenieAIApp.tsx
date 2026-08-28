@@ -101,7 +101,7 @@ function getCheckoutResponseMessage(data: CommerceResponse) {
   return (
     data.checkout?.result ??
     data.reply ??
-    "Kapruka returned checkout details without a checkout link."
+    "GenieAI returned checkout details without a checkout link."
   );
 }
 
@@ -865,7 +865,7 @@ const copy: Record<
     eventPrompt: "Let us plan the event. Add the event details below.",
     giftBoxPrompt: "Let us build the gift box. Add the gift box details below.",
     giftMessageLabel: "Gift message",
-    initialEmpty: "Kapruka products will appear here after a search.",
+    initialEmpty: "GenieAI products will appear here after a search.",
     initialLoading: "Loading products...",
     imageLooksLike: "Your image looks like",
     language: "Language",
@@ -913,7 +913,7 @@ const copy: Record<
     detectedContext: "හමු වූ preferences",
     delivery: "Delivery",
     deliveryInstructions: "Delivery instructions",
-    initialEmpty: "සෙවීමට පස්සේ Kapruka products මෙතැන පෙන්වයි.",
+    initialEmpty: "සෙවීමට පස්සේ GenieAI products මෙතැන පෙන්වයි.",
     initialLoading: "Products load වෙනවා...",
     language: "භාෂාව",
     modes: "Agent Modes",
@@ -954,7 +954,7 @@ const copy: Record<
     eventPrompt: "Event eka plan karamu. Pahala details tika denna.",
     giftBoxPrompt: "Gift box eka hadamu. Pahala details tika denna.",
     giftMessageLabel: "Gift message",
-    initialEmpty: "Seweemakata passe Kapruka products methana pennanawa.",
+    initialEmpty: "Seweemakata passe GenieAI products methana pennanawa.",
     initialLoading: "Products load wenawa...",
     language: "Language",
     modes: "Agent Modes",
@@ -1279,11 +1279,11 @@ const iconPaths: Record<IconName, string> = {
   x: "M6 6l12 12M18 6 6 18",
 };
 
-const CHAT_DB_NAME = "kapruka-genie-chat";
+const CHAT_DB_NAME = "genie-ai-chat";
 const CHAT_STORE_NAME = "chat-state";
 const CHAT_STATE_KEY = "current";
-const CHAT_STORAGE_KEY = "kapruka-genie-chat-state";
-const INTRO_PANEL_STORAGE_KEY = "kapruka-genie-intro-panel-date";
+const CHAT_STORAGE_KEY = "genie-ai-chat-state";
+const INTRO_PANEL_STORAGE_KEY = "genie-ai-intro-panel-date";
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
 }
@@ -1406,27 +1406,27 @@ const rotatingActivityMessages: Record<Language, string[]> = {
   English: [
     "Understanding your request...",
     "Checking your preferences...",
-    "Searching Kapruka products...",
+    "Searching GenieAI products...",
     "Matching the best options...",
     "Preparing your reply...",
   ],
   Sinhala: [
     "ඔබේ ඉල්ලීම තේරුම් ගනිමින්...",
     "Preferences පරීක්ෂා කරමින්...",
-    "Kapruka products සොයමින්...",
+    "GenieAI products සොයමින්...",
     "හොඳම ගැළපීම් තෝරමින්...",
     "පිළිතුර සකස් කරමින්...",
   ],
   Singlish: [
     "Oyage request eka balamin...",
     "Preferences check karamin...",
-    "Kapruka products hoyamin...",
+    "GenieAI products hoyamin...",
     "Galapena options thoramin...",
     "Reply eka hadamin...",
   ],
 };
 
-export function KaprukaGenieApp() {
+export function GenieAIApp() {
   const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const latestMessageRef = useRef<HTMLDivElement | null>(null);
   const compareTableTopScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1483,7 +1483,7 @@ export function KaprukaGenieApp() {
     "Wishing you a wonderful day filled with love and appreciation.",
   );
   const [status, setStatus] = useState(
-    "Groq chat and media ready. Kapruka MCP commerce ready.",
+    "Groq chat and media ready. Live commerce service ready.",
   );
   const [canScrollProductCarouselLeft, setCanScrollProductCarouselLeft] =
     useState(false);
@@ -2647,12 +2647,12 @@ export function KaprukaGenieApp() {
           };
 
           if (!response.ok) {
-            throw new Error(data.error ?? "Kapruka MCP product load failed.");
+            throw new Error(data.error ?? "Live product load failed.");
           }
 
           if (!data.products || data.products.length === 0) {
             throw new Error(
-              `Kapruka MCP returned no starter products on attempt ${attempt}.`,
+              `The live catalog returned no starter products on attempt ${attempt}.`,
             );
           }
 
@@ -2672,8 +2672,8 @@ export function KaprukaGenieApp() {
 
           setStatus(
             attempt === 1
-              ? "Kapruka MCP is loading live starter products."
-              : `Kapruka MCP returned empty/error. Retrying ${attempt}/${maxAttempts}.`,
+              ? "The live catalog is loading starter products."
+              : `The live catalog returned empty/error. Retrying ${attempt}/${maxAttempts}.`,
           );
 
           try {
@@ -2722,12 +2722,12 @@ export function KaprukaGenieApp() {
           }));
         }
 
-        setStatus("Kapruka products ready.");
+        setStatus("GenieAI products ready.");
       } catch (error) {
         if (isMounted) {
           const message =
             error instanceof DOMException && error.name === "AbortError"
-              ? "Kapruka products timed out after automatic retries."
+              ? "Live products timed out after automatic retries."
               : getErrorMessage(error);
           setStatus(message);
         }
@@ -3067,7 +3067,7 @@ export function KaprukaGenieApp() {
         }
 
         if (!response.ok) {
-          throw new Error(errorMessage || "Kapruka MCP commerce request failed.");
+          throw new Error(errorMessage || "Commerce request failed.");
         }
 
         if (
@@ -3241,7 +3241,7 @@ export function KaprukaGenieApp() {
     setConversationStage("ready");
     setChips(starterChips);
     setStatus(
-      "Groq is answering with the collected context. Kapruka MCP is searching products.",
+      "Groq is answering with the collected context. The live catalog is searching products.",
     );
     const commerceData = await runCommerce(
       `${request}\n${buildContextSummary(requestDraft)}\nBudget: ${requestProfile.budget}\nRecipient: ${requestProfile.recipient}\nOccasion: ${requestProfile.occasion}\nGift type: ${requestProfile.category}`,
@@ -3280,7 +3280,7 @@ export function KaprukaGenieApp() {
       getCommerceReply(commerceData),
       requestExtendedPreferences,
     );
-    setStatus("Groq reply complete. Kapruka MCP commerce panels updated.");
+    setStatus("Groq reply complete. GenieAI commerce panels updated.");
   }
 
   async function handleFirstMessage(content: string) {
@@ -3413,7 +3413,7 @@ export function KaprukaGenieApp() {
     extendedPreferencesOverride = extendedPreferences,
     enforceReplyCount = false,
   ) {
-    setStatus("Groq is answering. Kapruka MCP is searching products.");
+    setStatus("Groq is answering. The live catalog is searching products.");
     const commerceData = await runCommerce(
       content,
       activeMode,
@@ -3432,7 +3432,7 @@ export function KaprukaGenieApp() {
     } else {
       appendAssistantMessage(getCommerceReply(commerceData));
     }
-    setStatus("Groq chat complete. Kapruka MCP commerce panels updated.");
+    setStatus("Groq chat complete. GenieAI commerce panels updated.");
   }
 
   async function handleSidebarPreferenceSubmit() {
@@ -3805,7 +3805,7 @@ export function KaprukaGenieApp() {
     setIsCompareSubmitting(true);
     setCompareRows([]);
     setCompareSuggestion("");
-    setStatus("Kapruka MCP is loading product data for comparison.");
+    setStatus("The live catalog is loading product data for comparison.");
 
     try {
       const controller = new AbortController();
@@ -3998,7 +3998,7 @@ export function KaprukaGenieApp() {
   function openCheckoutModal() {
     if (buyBox.length === 0) {
       setCheckoutWarning(getEmptyCartWarning());
-      setStatus("Add at least one live Kapruka product before checkout.");
+      setStatus("Add at least one live product before checkout.");
       return;
     }
 
@@ -4016,7 +4016,7 @@ export function KaprukaGenieApp() {
 
     if (buyBox.length === 0) {
       setCheckoutWarning(getEmptyCartWarning());
-      setStatus("Add at least one live Kapruka product before checkout.");
+      setStatus("Add at least one live product before checkout.");
       return;
     }
 
@@ -4033,7 +4033,7 @@ export function KaprukaGenieApp() {
     setIsCheckoutCreating(true);
     setCheckoutWarning("");
     setCheckoutUrl("");
-    setStatus("Kapruka MCP is creating a guest-checkout link.");
+    setStatus("GenieAI is creating a guest-checkout link.");
 
     try {
       const response = await fetch("/api/ai/commerce", {
@@ -4051,7 +4051,7 @@ export function KaprukaGenieApp() {
           language,
           mode: activeMode,
           profile: normalizeShoppingProfile(profile),
-          query: "Create Kapruka guest checkout link",
+          query: "Create GenieAI guest checkout link",
           task: "checkout",
         }),
       });
@@ -4060,12 +4060,12 @@ export function KaprukaGenieApp() {
       };
 
       if (!response.ok) {
-        throw new Error(data.error ?? "Kapruka checkout failed.");
+        throw new Error(data.error ?? "GenieAI checkout failed.");
       }
 
       applyCommerceResponse(data);
       if (data.checkout?.checkout_url) {
-        setStatus("Kapruka MCP checkout link created.");
+        setStatus("GenieAI checkout link created.");
         setCheckoutWarning("");
       } else {
         const message = getCheckoutResponseMessage(data);
@@ -4114,8 +4114,8 @@ export function KaprukaGenieApp() {
       await runCommerce(query, activeMode, profile, false);
       setStatus(
         data.fallback
-          ? "Image upload used a best-effort fallback search. Kapruka MCP products updated."
-          : "Groq image analysis complete. Kapruka MCP products updated.",
+          ? "Image upload used a best-effort fallback search. GenieAI products updated."
+          : "Groq image analysis complete. GenieAI products updated.",
       );
     } catch (error) {
       const message = getErrorMessage(error);
@@ -4164,7 +4164,7 @@ export function KaprukaGenieApp() {
         const blob = new Blob(audioChunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
-        const file = new File([blob], "kapruka-voice.webm", {
+        const file = new File([blob], "genie-ai-voice.webm", {
           type: recorder.mimeType || "audio/webm",
         });
         mediaRecorderRef.current = null;
@@ -4672,7 +4672,7 @@ export function KaprukaGenieApp() {
                 </h2>
                 <p className="mt-1 text-sm font-bold text-[#675f79]">
                   Confirm delivery and recipient details before creating the
-                  Kapruka checkout link.
+                  GenieAI checkout link.
                 </p>
               </div>
               <button
@@ -4692,7 +4692,7 @@ export function KaprukaGenieApp() {
                     Checkout link ready
                   </p>
                   <p className="mt-2 text-sm font-bold leading-6 text-[#675f79]">
-                    Open the Kapruka checkout page to complete payment.
+                    Open the GenieAI checkout page to complete payment.
                   </p>
                 </div>
                 <a
@@ -4858,9 +4858,8 @@ export function KaprukaGenieApp() {
       <section className="flex h-full w-full flex-col gap-3 px-4 py-4">
         <div className="flex flex-none flex-col justify-between gap-1.5 md:flex-row md:items-end md:gap-3">
           <div className="flex w-full items-center justify-between gap-2 md:w-auto">
-            <h1 className="mt-1 text-3xl font-black tracking-normal sm:text-4xl">
-              <span className="text-[#3f246d]">Kapruka</span>{" "}
-              <span className="text-[#d6a900] drop-shadow-[0_1px_0_rgba(26,15,46,0.32)]">Genie</span>
+            <h1 className="mt-1 text-3xl font-black tracking-normal text-[#3f246d] sm:text-4xl">
+              GenieAI
             </h1>
             <button
               type="button"
@@ -5375,9 +5374,6 @@ export function KaprukaGenieApp() {
                             {product.category}
                           </span>
                         </div>
-                        <p className="mt-1 font-mono text-[11px] font-bold text-[#8a8299]">
-                          ID: {product.id}
-                        </p>
                         <p className="mt-2 h-[60px] overflow-hidden text-xs leading-5 text-[#675f79]">
                           {product.description}
                         </p>

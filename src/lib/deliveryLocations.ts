@@ -116,7 +116,7 @@ export const locationTypes = [
   "Other(Including Hotels)",
 ] as const;
 
-export function toKaprukaLocationType(value?: string) {
+export function toCommerceLocationType(value?: string) {
   if (!value) {
     return "house";
   }

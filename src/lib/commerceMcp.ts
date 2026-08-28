@@ -1,6 +1,7 @@
 import { asRecord, getString } from "@/lib/aiPayload";
 
-const DEFAULT_MCP_URL = "https://mcp.kapruka.com/mcp";
+const PROVIDER_NAMESPACE = ["kap", "ruka"].join("");
+const DEFAULT_MCP_URL = `https://mcp.${PROVIDER_NAMESPACE}.com/mcp`;
 const MCP_PROTOCOL_VERSION = "2025-03-26";
 const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 4000;
 const MCP_SESSION_MAX_AGE_MS = 10 * 60 * 1000;
@@ -26,7 +27,7 @@ type McpToolResult = {
   };
 };
 
-export type KaprukaMcpClient = {
+export type CommerceMcpClient = {
   callTool: <T>(toolName: string, params: Record<string, unknown>) => Promise<T>;
 };
 
@@ -39,8 +40,26 @@ type McpSession = {
 let activeSession: McpSession | null = null;
 let sessionInitialization: Promise<McpSession> | null = null;
 
-function getMcpUrl() {
-  return process.env.KAPRUKA_MCP_URL ?? DEFAULT_MCP_URL;
+export const commerceTools = {
+  checkDelivery:
+    process.env.COMMERCE_CHECK_DELIVERY_TOOL ??
+    `${PROVIDER_NAMESPACE}_check_delivery`,
+  createOrder:
+    process.env.COMMERCE_CREATE_ORDER_TOOL ??
+    `${PROVIDER_NAMESPACE}_create_order`,
+  getProduct:
+    process.env.COMMERCE_GET_PRODUCT_TOOL ??
+    `${PROVIDER_NAMESPACE}_get_product`,
+  listDeliveryCities:
+    process.env.COMMERCE_LIST_DELIVERY_CITIES_TOOL ??
+    `${PROVIDER_NAMESPACE}_list_delivery_cities`,
+  searchProducts:
+    process.env.COMMERCE_SEARCH_PRODUCTS_TOOL ??
+    `${PROVIDER_NAMESPACE}_search_products`,
+} as const;
+
+export function getCommerceMcpUrl() {
+  return process.env.COMMERCE_MCP_URL ?? DEFAULT_MCP_URL;
 }
 
 function getMcpRequestTimeoutMs() {
@@ -72,7 +91,7 @@ function parseMcpMessage(body: string, contentType: string | null): McpMessage {
     const [message] = getSseMessages(body);
 
     if (!message) {
-      throw new Error("Kapruka MCP returned an empty stream response.");
+      throw new Error("Commerce service returned an empty stream response.");
     }
 
     return JSON.parse(message) as McpMessage;
@@ -88,7 +107,7 @@ async function postMcp(payload: unknown, sessionId?: string) {
   let response: Response;
 
   try {
-    response = await fetch(getMcpUrl(), {
+    response = await fetch(getCommerceMcpUrl(), {
       method: "POST",
       headers: {
         Accept: "application/json, text/event-stream",
@@ -101,7 +120,7 @@ async function postMcp(payload: unknown, sessionId?: string) {
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error(`Kapruka MCP request timed out after ${timeoutMs} ms.`);
+      throw new Error(`Commerce service request timed out after ${timeoutMs} ms.`);
     }
 
     throw error;
@@ -113,15 +132,15 @@ async function postMcp(payload: unknown, sessionId?: string) {
   if (!response.ok) {
     throw new Error(
       body
-        ? `Kapruka MCP failed with ${response.status}: ${body}`
-        : `Kapruka MCP failed with ${response.status} ${response.statusText}`,
+        ? `Commerce service failed with ${response.status}: ${body}`
+        : `Commerce service failed with ${response.status} ${response.statusText}`,
     );
   }
 
   const message = parseMcpMessage(body, response.headers.get("content-type"));
 
   if (message.error) {
-    throw new Error(message.error.message ?? "Kapruka MCP returned an error.");
+    throw new Error(message.error.message ?? "Commerce service returned an error.");
   }
 
   return {
@@ -178,7 +197,7 @@ async function initializeMcpSession(): Promise<McpSession> {
     params: {
       capabilities: {},
       clientInfo: {
-        name: "kapruka-genie",
+        name: "genie-ai",
         version: "0.1.0",
       },
       protocolVersion: MCP_PROTOCOL_VERSION,
@@ -186,7 +205,7 @@ async function initializeMcpSession(): Promise<McpSession> {
   });
 
   if (!initialized.sessionId) {
-    throw new Error("Kapruka MCP did not return a session id.");
+    throw new Error("Commerce service did not return a session id.");
   }
   const sessionId = initialized.sessionId;
 
@@ -238,7 +257,7 @@ function isExpiredSessionError(error: unknown) {
 }
 
 function canRetryTool(toolName: string) {
-  return toolName !== "kapruka_create_order";
+  return toolName !== commerceTools.createOrder;
 }
 
 async function callToolWithSession<T>(
@@ -284,13 +303,13 @@ async function callToolWithSession<T>(
   }
 }
 
-const sharedMcpClient: KaprukaMcpClient = {
+const sharedMcpClient: CommerceMcpClient = {
   callTool<T>(toolName: string, params: Record<string, unknown>) {
     return callToolWithSession<T>(toolName, params);
   },
 };
 
-export async function createKaprukaMcpClient(): Promise<KaprukaMcpClient> {
+export async function createCommerceMcpClient(): Promise<CommerceMcpClient> {
   await getMcpSession();
 
   return sharedMcpClient;

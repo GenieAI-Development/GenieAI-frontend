@@ -1,6 +1,6 @@
 # Genie Gifting — Design Documentation
 
-A concierge-style gift shopping UI for Kapruka, redesigned around a
+A concierge-style gift shopping UI for GenieAI, redesigned around a
 **Ceylon sapphire + gift-ribbon gold** identity — a deliberate move away
 from the source product's purple/yellow palette, chosen because sapphire
 and gold read as premium and locally rooted (Sri Lanka's gem trade)

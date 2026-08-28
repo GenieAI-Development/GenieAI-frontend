@@ -15,9 +15,13 @@ import {
   getHuggingFaceApiKey,
   getHuggingFaceNovitaReply,
 } from "@/lib/huggingFaceNovita";
-import { createKaprukaMcpClient } from "@/lib/kaprukaMcp";
-import { toKaprukaLocationType } from "@/lib/deliveryLocations";
-import { KaprukaSearchProduct, Product, toProduct } from "@/lib/productCatalog";
+import {
+  commerceTools,
+  createCommerceMcpClient,
+  getCommerceMcpUrl,
+} from "@/lib/commerceMcp";
+import { toCommerceLocationType } from "@/lib/deliveryLocations";
+import { CatalogSearchProduct, Product, toProduct } from "@/lib/productCatalog";
 
 export const runtime = "nodejs";
 
@@ -87,14 +91,14 @@ type ShoppingProfile = {
   recipient?: string;
 };
 
-type KaprukaSearchResponse = {
+type CatalogSearchResponse = {
   applied_filters?: unknown;
   next_cursor?: string | null;
   result?: string;
-  results?: KaprukaSearchProduct[];
+  results?: CatalogSearchProduct[];
 };
 
-type KaprukaProductDetailResponse = {
+type CatalogProductDetailResponse = {
   category?: {
     id?: string;
     name?: string;
@@ -115,14 +119,14 @@ type KaprukaProductDetailResponse = {
   url?: string;
 };
 
-type KaprukaCityResponse = {
+type CatalogCityResponse = {
   cities?: Array<{
     aliases?: string[];
     name?: string;
   }>;
 };
 
-type KaprukaDeliveryResponse = {
+type CatalogDeliveryResponse = {
   available?: boolean;
   checked_date?: string;
   city?: string;
@@ -134,7 +138,7 @@ type KaprukaDeliveryResponse = {
   result?: string;
 };
 
-type KaprukaOrderResponse = {
+type CatalogOrderResponse = {
   checkout_url?: string;
   checkoutUrl?: string;
   click_to_pay_url?: string;
@@ -159,10 +163,10 @@ function getFirstUrl(value: string | undefined) {
 }
 
 function normalizeCheckoutOrderResponse(
-  order: KaprukaOrderResponse | null | undefined,
+  order: CatalogOrderResponse | null | undefined,
 ) {
   if (!order) {
-    return { result: "" } as KaprukaOrderResponse;
+    return { result: "" } as CatalogOrderResponse;
   }
 
   const checkoutUrl =
@@ -220,7 +224,7 @@ type ProductSearchResult = {
   exactBudgetMatched: boolean;
   nearbyBudgetLabel?: string;
   requestedBudgetLabel?: string;
-  results: KaprukaSearchProduct[];
+  results: CatalogSearchProduct[];
   usedNearbyBudgetFallback: boolean;
 };
 
@@ -316,7 +320,7 @@ type GiftMessagePreferences = {
 
 const fallbackResponse: CommerceResponse = {
   analytics: {
-    buyBoxHealth: "Kapruka ready",
+    buyBoxHealth: "Live catalog ready",
     conversionSignal: "Waiting for a catalog match",
     nextBestAction: "Search the catalog",
     risk: "Catalog results may change",
@@ -389,7 +393,7 @@ function getLocalAnalytics({
   profile,
   recommendations,
 }: {
-  delivery: KaprukaDeliveryResponse | null;
+  delivery: CatalogDeliveryResponse | null;
   deliveryRequested: boolean;
   intent: MessageIntent;
   products: Product[];
@@ -972,7 +976,7 @@ function getPreferenceRelevanceTerms(
 }
 
 function isProductRelevantToPreferences(
-  product: KaprukaSearchProduct,
+  product: CatalogSearchProduct,
   query: string,
   profile: ShoppingProfile,
 ) {
@@ -1017,7 +1021,7 @@ function getSearchQuery(query: string, profile: ShoppingProfile, mode: string) {
 
   const cleaned = query
     .replace(
-      /\b(find|can|you|me|a|an|gift|for|please|kapruka|budget|recipient|occasion)\b/gi,
+      /\b(find|can|you|me|a|an|gift|for|please|genieai|budget|recipient|occasion)\b/gi,
       " ",
     )
     .replace(/\b(between|from|to|and|under|below|less|than|above|over|higher|greater|more|rupees?|rs\.?|lkr)\b/gi, " ")
@@ -1461,7 +1465,7 @@ function parseRecommendations(value: unknown, products: Product[]) {
       return {
         id,
         fitScore: Math.max(0, Math.min(100, Math.round(fitScore))),
-        reason: reason ?? "Good match from the live Kapruka catalog.",
+        reason: reason ?? "Good match from the live catalog.",
       };
     })
     .filter((item): item is CommerceRecommendation => item !== null)
@@ -1659,7 +1663,7 @@ function fallbackRecommendations(products: Product[]) {
   return products.slice(0, 3).map((product, index) => ({
     id: product.id,
     fitScore: 92 - index * 4,
-    reason: "Matched by Kapruka product search.",
+    reason: "Matched by live product search.",
   }));
 }
 
@@ -1698,8 +1702,8 @@ function getBudgetSearchReply(search: ProductSearchResult, productCount: number)
   return `No products match in ${requestedBudgetLabel}, and I could not find nearby products for this search.`;
 }
 
-async function searchKaprukaProducts(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+async function searchCatalogProducts(
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   query: string,
   profile: ShoppingProfile,
   rawQuery = query,
@@ -1718,12 +1722,12 @@ async function searchKaprukaProducts(
     cacheKey,
     PRODUCT_SEARCH_CACHE_TTL_MS,
     MAX_PRODUCT_SEARCH_CACHE_ENTRIES,
-    () => searchKaprukaProductsUncached(mcp, query, profile, rawQuery),
+    () => searchCatalogProductsUncached(mcp, query, profile, rawQuery),
   );
 }
 
-async function searchKaprukaProductsUncached(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+async function searchCatalogProductsUncached(
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   query: string,
   profile: ShoppingProfile,
   rawQuery = query,
@@ -1744,7 +1748,7 @@ async function searchKaprukaProductsUncached(
   async function searchWithParams(filter: BudgetFilter = {}) {
     const responseResults = await Promise.allSettled(
       searchTerms.map((term) =>
-        mcp.callTool<KaprukaSearchResponse>("kapruka_search_products", {
+        mcp.callTool<CatalogSearchResponse>(commerceTools.searchProducts, {
           ...baseParams,
           ...filter,
           q: term,
@@ -1753,7 +1757,7 @@ async function searchKaprukaProductsUncached(
     );
     const responses = responseResults
       .filter(
-        (result): result is PromiseFulfilledResult<KaprukaSearchResponse> =>
+        (result): result is PromiseFulfilledResult<CatalogSearchResponse> =>
           result.status === "fulfilled",
       )
       .map((result) => result.value);
@@ -1763,7 +1767,7 @@ async function searchKaprukaProductsUncached(
         (result): result is PromiseRejectedResult =>
           result.status === "rejected",
       );
-      throw firstFailure?.reason ?? new Error("Kapruka product search failed.");
+      throw firstFailure?.reason ?? new Error("Live product search failed.");
     }
     const seenIds = new Set<string>();
 
@@ -1826,7 +1830,7 @@ async function searchKaprukaProductsUncached(
 }
 
 async function getCanonicalCity(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   city: string,
 ) {
   const cacheKey = city.trim().toLowerCase();
@@ -1837,8 +1841,8 @@ async function getCanonicalCity(
     CITY_CACHE_TTL_MS,
     MAX_CITY_CACHE_ENTRIES,
     async () => {
-      const cityResponse = await mcp.callTool<KaprukaCityResponse>(
-        "kapruka_list_delivery_cities",
+      const cityResponse = await mcp.callTool<CatalogCityResponse>(
+        commerceTools.listDeliveryCities,
         {
           limit: 1,
           query: city,
@@ -1852,7 +1856,7 @@ async function getCanonicalCity(
 }
 
 async function checkDelivery(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   profile: ShoppingProfile,
   productId?: string,
   canonicalCity?: string,
@@ -1863,7 +1867,7 @@ async function checkDelivery(
 
   const city = canonicalCity ?? (await getCanonicalCity(mcp, profile.city));
 
-  return mcp.callTool<KaprukaDeliveryResponse>("kapruka_check_delivery", {
+  return mcp.callTool<CatalogDeliveryResponse>(commerceTools.checkDelivery, {
     city,
     delivery_date: profile.date || null,
     product_id: productId ?? null,
@@ -1872,14 +1876,14 @@ async function checkDelivery(
 }
 
 async function createCheckoutOrder(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   cartIds: string[],
   profile: ShoppingProfile,
   checkout: CheckoutDetails,
 ) {
   const city = await getCanonicalCity(mcp, profile.city ?? "");
 
-  const order = await mcp.callTool<KaprukaOrderResponse>("kapruka_create_order", {
+  const order = await mcp.callTool<CatalogOrderResponse>(commerceTools.createOrder, {
     cart: cartIds.map((productId) => ({
       product_id: productId,
       quantity: 1,
@@ -1889,7 +1893,7 @@ async function createCheckoutOrder(
       address: checkout.address,
       city,
       date: profile.date,
-      location_type: toKaprukaLocationType(checkout.locationType),
+      location_type: toCommerceLocationType(checkout.locationType),
     },
     gift_message: checkout.giftMessage || null,
     recipient: {
@@ -1916,7 +1920,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 }
 
 async function searchProductsByIds(
-  mcp: Awaited<ReturnType<typeof createKaprukaMcpClient>>,
+  mcp: Awaited<ReturnType<typeof createCommerceMcpClient>>,
   productIds: string[],
 ) {
   const normalizeProductId = (value: string) =>
@@ -1924,7 +1928,7 @@ async function searchProductsByIds(
   const results = await Promise.allSettled(
     productIds.map((productId) =>
       withTimeout(
-        mcp.callTool<KaprukaProductDetailResponse>("kapruka_get_product", {
+        mcp.callTool<CatalogProductDetailResponse>(commerceTools.getProduct, {
           currency: "LKR",
           product_id: productId,
           response_format: "json",
@@ -1950,7 +1954,7 @@ async function searchProductsByIds(
       return [];
     }
 
-    const compareProduct: KaprukaSearchProduct = {
+    const compareProduct: CatalogSearchProduct = {
       category: rawProduct.category,
       id: rawProduct.id,
       image_url: Array.isArray(rawProduct.images) ? rawProduct.images[0] : undefined,
@@ -1979,7 +1983,7 @@ async function getGroqCommerce(
   query: string,
   userMessage: string,
   products: Product[],
-  delivery: KaprukaDeliveryResponse | null,
+  delivery: CatalogDeliveryResponse | null,
   profile: ShoppingProfile,
   messageAnalysis: MessageAnalysis,
   searchQuery: string,
@@ -2041,7 +2045,7 @@ async function getGroqCommerce(
     messages: [
           {
             role: "system",
-            content: `You are the multilingual reasoning and conversation layer for GenieAI. Product and delivery data already came from the real Kapruka MCP server. The submitted profile is the user's highest-priority requirement: never replace its requested gift type, budget, recipient, or occasion with a different option. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. Rank only provided products that satisfy those preferences. If no matching catalog products are supplied, clearly say that no exact match was found and ask whether the user wants to change a preference; never propose a substitute category such as mugs when flowers were requested. First respond to the user's actual message: answer a question directly, carry out or specifically acknowledge a command, and respond naturally to conversation. In Event Planner and Gift Box modes, always answer a custom user question or command directly in reply, even while a guided item list is active. Never use 'I updated the products', a translation of it, or another generic UI-update status as the reply. The product cards update separately while you reply. If facts needed to answer are not present in the supplied data, say so briefly or ask one useful clarification instead of inventing facts. Rank only the provided product IDs and never invent catalog products. ${replyLengthInstruction} Never include product names, product IDs, prices, or a written list of recommendations in reply because the UI shows products only as cards. For eventPlan and giftBox tasks, return the checklist only in eventPlan, never repeat that checklist in reply. For compare tasks, make reply a direct, useful response for the AI suggestions field without listing products. Analytics and reply chips are generated locally, so do not return them. Return JSON only. ${getReplyLanguageInstruction(language)}`,
+            content: `You are the multilingual reasoning and conversation layer for GenieAI. Product and delivery data already came from the live commerce service. The submitted profile is the user's highest-priority requirement: never replace its requested gift type, budget, recipient, or occasion with a different option. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. Rank only provided products that satisfy those preferences. If no matching catalog products are supplied, clearly say that no exact match was found and ask whether the user wants to change a preference; never propose a substitute category such as mugs when flowers were requested. First respond to the user's actual message: answer a question directly, carry out or specifically acknowledge a command, and respond naturally to conversation. In Event Planner and Gift Box modes, always answer a custom user question or command directly in reply, even while a guided item list is active. Never use 'I updated the products', a translation of it, or another generic UI-update status as the reply. The product cards update separately while you reply. If facts needed to answer are not present in the supplied data, say so briefly or ask one useful clarification instead of inventing facts. Rank only the provided product IDs and never invent catalog products. ${replyLengthInstruction} Never include product names, product IDs, prices, or a written list of recommendations in reply because the UI shows products only as cards. For eventPlan and giftBox tasks, return the checklist only in eventPlan, never repeat that checklist in reply. For compare tasks, make reply a direct, useful response for the AI suggestions field without listing products. Analytics and reply chips are generated locally, so do not return them. Return JSON only. ${getReplyLanguageInstruction(language)}`,
         },
         {
           role: "user",
@@ -2055,7 +2059,7 @@ async function getGroqCommerce(
               recommendations: [
                 {
                   fitScore: 0,
-                  id: "one of the provided Kapruka product ids only",
+                  id: "one of the provided live product ids only",
                   reason: "why this product fits",
                 },
               ],
@@ -2071,7 +2075,7 @@ async function getGroqCommerce(
             messageIntent: messageAnalysis.intent,
             requestedGiftType:
               messageAnalysis.preferences.requestedGiftType,
-            productCatalogFromKaprukaMcp: products,
+            productCatalogFromCommerceMcp: products,
             profile,
             query: userMessage,
             replyLanguage: language,
@@ -2407,7 +2411,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const mcpPromise = createKaprukaMcpClient();
+    const mcpPromise = createCommerceMcpClient();
 
     if (task === "checkout") {
       const mcp = await mcpPromise;
@@ -2416,7 +2420,7 @@ export async function POST(request: Request) {
       if (missingFields.length > 0) {
         return NextResponse.json(
           {
-            error: `Add ${missingFields.join(", ")} before creating a Kapruka checkout link.`,
+            error: `Add ${missingFields.join(", ")} before creating a checkout link.`,
           },
           { status: 400 },
         );
@@ -2429,7 +2433,7 @@ export async function POST(request: Request) {
         analytics: {
           buyBoxHealth: "Checkout link created",
           conversionSignal: "Ready for payment",
-          nextBestAction: "Open the Kapruka click-to-pay URL",
+          nextBestAction: "Open the click-to-pay URL",
           risk: "Checkout link expires after 60 minutes",
         },
         checkout: order,
@@ -2437,8 +2441,8 @@ export async function POST(request: Request) {
         mode,
         products: [],
         reply: order.checkout_url
-          ? "Kapruka created a guest-checkout link."
-          : (order.result ?? "Kapruka returned checkout details."),
+          ? "GenieAI created a guest-checkout link."
+          : (order.result ?? "GenieAI returned checkout details."),
       });
     }
 
@@ -2540,7 +2544,7 @@ export async function POST(request: Request) {
             productSearch: null,
             results,
           }))
-        : searchKaprukaProducts(
+        : searchCatalogProducts(
             mcp,
             searchQuery,
             searchProfile,
@@ -2572,7 +2576,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ...fallbackResponse,
         analytics: {
-          buyBoxHealth: "Live Kapruka products loaded",
+          buyBoxHealth: "Live catalog products loaded",
           conversionSignal: "Starter catalog is ready",
           nextBestAction: "Ask for the gift recipient and budget",
           risk: "Live catalog results may change",
@@ -2580,14 +2584,14 @@ export async function POST(request: Request) {
         chips: [],
         delivery: null,
         mcp: {
-          endpoint: "https://mcp.kapruka.com/mcp",
+          endpoint: getCommerceMcpUrl(),
           searchQuery,
-          tools: ["kapruka_search_products"],
+          tools: [commerceTools.searchProducts],
         },
         mode,
         products: products.slice(0, 3),
         recommendations,
-        reply: "Kapruka loaded products.",
+        reply: "GenieAI loaded products.",
       });
     }
 
@@ -2599,14 +2603,14 @@ export async function POST(request: Request) {
             buyBoxHealth: "Comparison needs real product IDs",
             conversionSignal: "Missing product match",
             nextBestAction: "Copy IDs from Smart Shopping product cards",
-            risk: "One or more IDs did not match live Kapruka products",
+            risk: "One or more IDs did not match live catalog products",
           },
           chips: [],
           mode,
           products,
           recommendations: [],
           reply:
-            "I could not match two live Kapruka products. Copy the real product IDs shown on product cards in Smart Shopping mode.",
+            "I could not match two live catalog products. Select products shown on the product cards in Smart Shopping mode.",
         });
       }
 
@@ -2669,7 +2673,7 @@ export async function POST(request: Request) {
           buyBoxHealth: "No live products found",
           conversionSignal: "Search needs refinement",
           nextBestAction: "Try another specific keyword",
-          risk: "Kapruka returned no purchasable products",
+          risk: "The live catalog returned no purchasable products",
         },
         chips: [],
         delivery,
@@ -2678,7 +2682,7 @@ export async function POST(request: Request) {
         reply:
           productSearch && hasBudgetFilter(productSearch.budgetFilter)
             ? getBudgetSearchReply(productSearch, 0)
-            : `Kapruka did not find products for "${searchQuery}".`,
+            : `GenieAI did not find products for "${searchQuery}".`,
       });
     }
 
@@ -2738,11 +2742,11 @@ export async function POST(request: Request) {
       delivery,
       detectedLanguage: resolvedMessageAnalysis.detectedLanguage,
       mcp: {
-        endpoint: "https://mcp.kapruka.com/mcp",
+        endpoint: getCommerceMcpUrl(),
         searchQuery,
         tools: [
-          "kapruka_search_products",
-          ...(deliveryRequested ? ["kapruka_check_delivery"] : []),
+          commerceTools.searchProducts,
+          ...(deliveryRequested ? [commerceTools.checkDelivery] : []),
         ],
       },
       products: responseProducts,
@@ -2757,7 +2761,7 @@ export async function POST(request: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Kapruka commerce request failed.",
+            : "The commerce request failed.",
       },
       { status: 502 },
     );
