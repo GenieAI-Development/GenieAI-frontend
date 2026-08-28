@@ -1454,7 +1454,6 @@ export function GenieAIController() {
   const initialProductsLoadedRef = useRef(false);
 
   const [activeMode, setActiveMode] = useState("Smart Shopping");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [language, setLanguage] = useState<Language>("English");
   const [messages, setMessages] = useState<ChatMessage[]>(starterMessages);
   const [input, setInput] = useState("");
@@ -1585,14 +1584,6 @@ export function GenieAIController() {
     activeMode.includes("Event") || activeMode.includes("Gift Box");
   const isFormToolMode = isCompareMode || isGiftMessageMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
-
-  useEffect(() => {
-    const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
-    const syncTheme = () => setTheme(colorScheme.matches ? "dark" : "light");
-    syncTheme();
-    colorScheme.addEventListener("change", syncTheme);
-    return () => colorScheme.removeEventListener("change", syncTheme);
-  }, []);
 
   useEffect(() => {
     if (!isPromptPopupOpen) {
@@ -2130,12 +2121,12 @@ export function GenieAIController() {
 
         index -= 1;
         elements.push(
-          <div key={`table-${index}`} className="max-w-full overflow-x-auto rounded-xl border border-[#d9cdea] bg-white">
+          <div key={`table-${index}`} className="max-w-full overflow-x-auto rounded-xl border border-[#D7E2EF] bg-white">
             <table className="min-w-full border-collapse text-left text-xs">
-              <thead className="bg-[#f6f4fb] text-[#3f246d]">
+              <thead className="bg-[#E7EEF7] text-[#0B2748]">
                 <tr>
                   {headers.map((header) => (
-                    <th key={header} className="border-b border-[#e8e2f2] px-3 py-2 font-black break-words [overflow-wrap:anywhere]">
+                    <th key={header} className="border-b border-[#D7E2EF] px-3 py-2 font-bold break-words [overflow-wrap:anywhere]">
                       {renderInlineText(header)}
                     </th>
                   ))}
@@ -2145,7 +2136,7 @@ export function GenieAIController() {
                 {rows.map((row, rowIndex) => (
                   <tr key={`row-${rowIndex}`}>
                     {row.map((cell, cellIndex) => (
-                      <td key={`${rowIndex}-${cellIndex}`} className="border-b border-[#f0e9fb] px-3 py-2 align-top break-words [overflow-wrap:anywhere]">
+                      <td key={`${rowIndex}-${cellIndex}`} className="border-b border-[#E4E1D8] px-3 py-2 align-top break-words [overflow-wrap:anywhere]">
                         {renderInlineText(cell)}
                       </td>
                     ))}
@@ -4509,12 +4500,7 @@ export function GenieAIController() {
               </fieldset>
             ))}
           </div>
-        ) : (
-            <div />
-          // <div className="rounded-[16px] border border-[#e8e2f2] bg-white p-3 text-sm font-bold text-[#675f79]">
-          //   {/*{text.allContextDetected}*/}
-          // </div>
-        )}
+        ) : <div />}
 
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -4619,7 +4605,6 @@ export function GenieAIController() {
 
   return (
     <GenieShell
-      theme={theme}
       header={
         <AppHeader
           cartCount={cartCount}
