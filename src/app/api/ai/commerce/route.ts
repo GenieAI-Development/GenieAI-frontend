@@ -187,7 +187,6 @@ const PREFERENCE_GIFT_TYPES = [
   "Flowers",
   "Cakes",
   "Chocolate",
-  "Electronics",
   "Perfumes",
   "Fashion",
   "Other",
@@ -1225,7 +1224,7 @@ function inferPresetCategoryFromGiftType(giftType: string | null | undefined) {
   }
 
   if (/(electronic|electronics|headphone|headphones|earbud|earbuds|speaker|gadget)/.test(normalized)) {
-    return "Electronics";
+    return "Other";
   }
 
   return "";
@@ -1363,7 +1362,7 @@ async function getGroqMessageAnalysis(
                 budget:
                   "Under Rs. 2,500 | Rs. 2,500 - 5,000 | Rs. 5,000 - 10,000 | Above Rs. 10,000 | Other | null",
                 category:
-                  "Flowers | Cakes | Chocolate | Electronics | Perfumes | Fashion | Other | null",
+                  "Flowers | Cakes | Chocolate | Perfumes | Fashion | Other | null",
                 occasion:
                   "Birthday | Anniversary | Wedding | Graduation | Other | null",
                 recipient: "Male | Female | Child | Couple | Other | null",

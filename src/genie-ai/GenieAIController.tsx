@@ -329,7 +329,6 @@ const giftTypeOptions = [
   "Flowers",
   "Cakes",
   "Chocolate",
-  "Electronics",
   "Perfumes",
   "Fashion",
   "Other",
@@ -616,6 +615,44 @@ function buildBudgetRangeValue(min: string, max: string) {
   }
 
   return "";
+}
+
+function divideBudgetAcrossItems(budget: string, itemCount: number) {
+  const divisor = Math.max(1, Math.floor(itemCount));
+  const normalized = budget.trim();
+
+  if (!normalized || normalized.toLowerCase() === "other" || divisor === 1) {
+    return budget;
+  }
+
+  const { min, max } = parseBudgetRangeValue(normalized);
+  const dividedMin = min
+    ? String(Math.max(1, Math.floor(Number(min) / divisor)))
+    : "";
+  const dividedMax = max
+    ? String(Math.max(1, Math.floor(Number(max) / divisor)))
+    : "";
+
+  if (/^under\b/i.test(normalized)) {
+    return dividedMax
+      ? `Under Rs. ${formatBudgetAmount(Number(dividedMax))}`
+      : budget;
+  }
+
+  if (/^(above|over)\b/i.test(normalized)) {
+    return dividedMin
+      ? `Above Rs. ${formatBudgetAmount(Number(dividedMin))}`
+      : budget;
+  }
+
+  if (dividedMin && dividedMax) {
+    return buildBudgetRangeValue(dividedMin, dividedMax);
+  }
+
+  const singleAmount = dividedMax || dividedMin;
+  return singleAmount
+    ? `Under Rs. ${formatBudgetAmount(Number(singleAmount))}`
+    : budget;
 }
 
 const initialShoppingProfile: ShoppingProfile = {
@@ -1125,7 +1162,6 @@ const optionLabels: Record<Language, Record<string, string>> = {
     Chocolate: "\u0da0\u0ddc\u0d9a\u0dbd\u0da7\u0dca",
     Couple: "Couple",
     Cakes: "\u0d9a\u0dda\u0d9a\u0dca",
-    Electronics: "Electronics",
     Fashion: "Fashion",
     Female: "කාන්තාවක්",
     Flowers: "\u0db8\u0dbd\u0dca",
@@ -1146,7 +1182,6 @@ const optionLabels: Record<Language, Record<string, string>> = {
     Chocolate: "Chocolate",
     Couple: "Couple",
     Cakes: "Cake",
-    Electronics: "Electronics",
     Fashion: "Fashion",
     Female: "Female",
     Flowers: "Mal",
@@ -1439,7 +1474,6 @@ const rotatingActivityMessages: Record<Language, string[]> = {
 
 export function GenieAIController() {
   const chatScrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const latestMessageRef = useRef<HTMLDivElement | null>(null);
   const compareTableTopScrollRef = useRef<HTMLDivElement | null>(null);
   const compareTableBottomScrollRef = useRef<HTMLDivElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -1451,6 +1485,7 @@ export function GenieAIController() {
   const shouldSendRecordingRef = useRef(false);
   const audioChunksRef = useRef<Blob[]>([]);
   const chatSoundContextRef = useRef<AudioContext | null>(null);
+  const speechPlaybackRequestRef = useRef(0);
   const initialProductsLoadedRef = useRef(false);
 
   const [activeMode, setActiveMode] = useState("Smart Shopping");
@@ -1534,7 +1569,6 @@ export function GenieAIController() {
   const [isIntroPanelVisible, setIsIntroPanelVisible] = useState(false);
   const [isComposerMenuOpen, setIsComposerMenuOpen] = useState(false);
   const [isPromptPopupOpen, setIsPromptPopupOpen] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [sidebarBudgetMin, setSidebarBudgetMin] = useState(() =>
     parseBudgetRangeValue(initialShoppingProfile.budget).min
   );
@@ -1560,8 +1594,12 @@ export function GenieAIController() {
   const shouldShowProductSuggestions =
     conversationStage !== "collecting-context";
   const hasUserMessages = messages.some((message) => message.role === "user");
+  const isGuidedMode =
+    activeMode.includes("Event") || activeMode.includes("Gift Box");
   const visibleReplyChips =
-    activeMode === "Smart Shopping" && hasUserMessages
+    isGuidedMode && isSending
+      ? []
+      : activeMode === "Smart Shopping" && hasUserMessages
       ? chips.filter((chip) => chip === "Suggest more")
       : hasUserMessages
         ? chips.filter((chip) => !isRemovedGenericReplyChip(chip))
@@ -1580,8 +1618,6 @@ export function GenieAIController() {
         : "Read latest message aloud";
   const isCompareMode = activeMode.includes("Compare");
   const isGiftMessageMode = activeMode.includes("Message");
-  const isGuidedMode =
-    activeMode.includes("Event") || activeMode.includes("Gift Box");
   const isFormToolMode = isCompareMode || isGiftMessageMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
 
@@ -2377,16 +2413,6 @@ export function GenieAIController() {
   }
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
-
-    updateViewport();
-    mediaQuery.addEventListener("change", updateViewport);
-
-    return () => mediaQuery.removeEventListener("change", updateViewport);
-  }, []);
-
-  useEffect(() => {
     if (!isSending) {
       return;
     }
@@ -2402,52 +2428,25 @@ export function GenieAIController() {
   }, [isSending, language]);
 
   useEffect(() => {
-    if (isFormToolMode || isMobileViewport) {
-      return;
-    }
-
     const animationFrame = window.requestAnimationFrame(() => {
       const container = chatScrollContainerRef.current;
-      if (container) {
-        container.scrollTo({
-          behavior: "smooth",
-          top: container.scrollHeight,
-        });
-      }
-    });
-
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [
-    activityMessage,
-    chips,
-    isFormToolMode,
-    isMobileViewport,
-    messages,
-    recommendedProducts,
-  ]);
-
-  useEffect(() => {
-    if (isFormToolMode || !isMobileViewport) {
-      return;
-    }
-
-    const animationFrame = window.requestAnimationFrame(() => {
-      const container = chatScrollContainerRef.current;
-      const latestMessage = latestMessageRef.current;
+      const messageElements = container?.querySelectorAll<HTMLElement>(
+        '[data-chat-message="true"]',
+      );
+      const latestMessage = messageElements?.item(messageElements.length - 1);
 
       if (!container || !latestMessage) {
         return;
       }
 
-      const nextTop = latestMessage.offsetTop - container.offsetTop;
       container.scrollTo({
         behavior: "smooth",
-        top: nextTop,
+        top: latestMessage.offsetTop - container.offsetTop - 8,
       });
     });
 
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [isFormToolMode, isMobileViewport, messages]);
+  }, [messages]);
 
   useEffect(() => {
     const today = getLocalDateString();
@@ -3078,6 +3077,32 @@ export function GenieAIController() {
     }
   }
 
+  async function runGuidedItemCommerce(
+    query: string,
+    planItems = guidedPlanItems,
+    profileOverride = profile,
+    preferencesOverride = extendedPreferences,
+    draft = contextDraft,
+  ) {
+    const itemCount = activeMode.includes("Gift Box")
+      ? getGiftBoxItemCount(draft)
+      : planItems.length;
+    const itemBudget = divideBudgetAcrossItems(
+      preferencesOverride.budget || profileOverride.budget,
+      itemCount,
+    );
+
+    return runCommerce(
+      query,
+      activeMode,
+      { ...profileOverride, budget: itemBudget },
+      false,
+      query,
+      true,
+      { ...preferencesOverride, budget: itemBudget },
+    );
+  }
+
   function getContextDraftFromProfile(nextProfile: ShoppingProfile) {
     return {
       ...emptyContextDraft,
@@ -3256,11 +3281,12 @@ export function GenieAIController() {
       setGuidedPlanItems(planItems);
       setGuidedPlanIndex(0);
       setGuidedMoreCount(0);
-      await runCommerce(
+      await runGuidedItemCommerce(
         getPlanSearchTerm(firstItem),
-        activeMode,
+        planItems,
         requestProfile,
-        false,
+        requestExtendedPreferences,
+        requestDraft,
       );
       appendAssistantMessage(getGuidedPlanReply(planItems, 0, language));
       setChips(getGuidedReplyChips());
@@ -3504,7 +3530,9 @@ export function GenieAIController() {
 
   async function handleGuidedCustomMessage(content: string) {
     setStatus("Groq is answering and finding related guided options.");
-    const commerceData = await runCommerce(content);
+    const commerceData = guidedPlanItems.length > 0
+      ? await runGuidedItemCommerce(content)
+      : await runCommerce(content);
     appendAssistantMessage(getCommerceReply(commerceData));
     setChips(getGuidedReplyChips());
     setStatus("Related guided options loaded.");
@@ -3531,7 +3559,7 @@ export function GenieAIController() {
     try {
       setRecommendedProducts([]);
       setFitReasons({});
-      await runCommerce(getPlanSearchTerm(nextItem), activeMode, profile, false);
+      await runGuidedItemCommerce(getPlanSearchTerm(nextItem));
       setChips(getGuidedReplyChips());
       setStatus("Next guided item loaded.");
     } catch (error) {
@@ -3562,12 +3590,7 @@ export function GenieAIController() {
     try {
       setRecommendedProducts([]);
       setFitReasons({});
-      await runCommerce(
-        getPlanSearchTerm(previousItem),
-        activeMode,
-        profile,
-        false,
-      );
+      await runGuidedItemCommerce(getPlanSearchTerm(previousItem));
       setChips(getGuidedReplyChips());
       setStatus("Previous guided item loaded.");
     } catch (error) {
@@ -3593,11 +3616,8 @@ export function GenieAIController() {
       setGuidedMoreCount(nextMoreCount);
       setRecommendedProducts([]);
       setFitReasons({});
-      await runCommerce(
+      await runGuidedItemCommerce(
         getMoreSearchTerm(currentItem, nextMoreCount),
-        activeMode,
-        profile,
-        false,
       );
       setChips(getGuidedReplyChips());
       setStatus("More options loaded.");
@@ -4309,6 +4329,8 @@ export function GenieAIController() {
       /female|amy|aria|ava|emma|fiona|hazel|ivy|joanna|jenny|karen|kendra|kimberly|libby|maisie|michelle|moira|natasha|olivia|salli|samantha|sara|serena|shelley|sonia|susan|tessa|victoria|zira|google us english/i;
     const naturalVoicePattern = /enhanced|google|microsoft|natural|neural|premium/i;
     const speechSynthesis = window.speechSynthesis;
+    const playbackRequest = speechPlaybackRequestRef.current + 1;
+    speechPlaybackRequestRef.current = playbackRequest;
     const hasFemaleEnglishVoice = (voices: SpeechSynthesisVoice[]) =>
       voices.some(
         (voice) =>
@@ -4334,6 +4356,10 @@ export function GenieAIController() {
         });
       });
       voices = speechSynthesis.getVoices();
+    }
+
+    if (speechPlaybackRequestRef.current !== playbackRequest) {
+      return;
     }
 
     const femaleEnglishVoices = voices.filter(
@@ -4380,16 +4406,25 @@ export function GenieAIController() {
     utterance.voice = preferredVoice;
 
     utterance.onend = () => {
+      if (speechPlaybackRequestRef.current !== playbackRequest) return;
       setIsSpeaking(false);
       setStatus("Finished reading the latest message.");
     };
     utterance.onerror = () => {
+      if (speechPlaybackRequestRef.current !== playbackRequest) return;
       setIsSpeaking(false);
       setStatus("The browser could not read this message aloud.");
     };
 
     setStatus("Reading the latest message aloud.");
     speechSynthesis.speak(utterance);
+  }
+
+  function stopSpeaking() {
+    speechPlaybackRequestRef.current += 1;
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+    setStatus("Read-aloud stopped.");
   }
 
   useEffect(() => {
@@ -4478,7 +4513,7 @@ export function GenieAIController() {
           <div className="grid gap-1.5">
             {fieldsToAsk.map((field) => (
               <fieldset key={field} aria-label={getContextQuestion(field)} className="rounded-lg border border-[#E4E1D8] bg-[#FAF7F1] px-2.5 py-1.5">
-                <div className="grid grid-cols-[92px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[120px_minmax(0,1fr)]">
+                <div className="grid gap-1.5 sm:grid-cols-[20%_minmax(0,1fr)] sm:items-center sm:gap-2">
                   <p className="text-xs font-semibold leading-4 text-[#0B2748]">
                     {getContextQuestion(field)}
                   </p>
@@ -4526,7 +4561,7 @@ export function GenieAIController() {
 
 
   const productSection = shouldShowProductSuggestions ? (
-    <div className="ml-[54px] mt-5">
+    <div className="mt-2 md:ml-[54px] md:mt-5">
       <ProductGrid
         addLabel={text.addToBuyBox}
         cartIds={new Set(buyBox.map((product) => product.id))}
@@ -4544,7 +4579,7 @@ export function GenieAIController() {
   ) : null;
 
   const replyChipSection = visibleReplyChips.length > 0 ? (
-    <div className="ml-[54px] mt-4 flex flex-wrap gap-2">
+    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1.5 md:ml-[54px] md:mt-4 md:gap-2">
       {visibleReplyChips.map((chip) => (
         <button
           key={chip}
@@ -4775,6 +4810,7 @@ export function GenieAIController() {
           onLanguageEnglish={() => handleLanguageChange("English")}
           onRetry={(message) => void handleRetryMessage(message)}
           onSpeak={(content) => void speakMessage(content)}
+          onStopSpeaking={stopSpeaking}
           readAloudTitle={readAloudTitle}
           renderMessage={renderChatMessage}
           switchEnglishLabel={getSwitchToEnglishLabel()}
