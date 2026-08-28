@@ -2,247 +2,49 @@ import Image from "next/image";
 import Link from "next/link";
 
 const features = [
-  {
-    title: "Smart shopping chat",
-    text: "Describe the recipient, occasion, budget, city, or gift type and GenieAI turns it into live product suggestions with AI replies grounded in the same updated preference context.",
-  },
-  {
-    title: "Event and gift box planning",
-    text: "Build a guided checklist for parties, office events, birthdays, and curated gift boxes, then move through the flow with Previous item, Next item, and Suggest more actions under the product cards.",
-  },
-  {
-    title: "Product compare",
-    text: "Paste product IDs from live cards and get a clean comparison of price, category, description, and best-fit recommendation.",
-  },
-  {
-    title: "Checkout support",
-    text: "Add items to the buy box, confirm delivery details, and create a GenieAI guest checkout link when everything is ready.",
-  },
+  ["Smart Shopping", "Describe the recipient, occasion, budget, city, or gift type and get up to four live product suggestions."],
+  ["Event Planner", "Build a guided checklist for birthdays, gatherings, and office events with focused next-step controls."],
+  ["Gift Box", "Create a curated multi-item gift box around a recipient, theme, item count, occasion, and budget."],
+  ["Product Compare", "Select two product cards and compare name, price, description, and up to four AI fit insights."],
+  ["Gift Message", "Generate and refine an English gift message by size, tone, and your own suggestions."],
+  ["Checkout", "Review the cart, delivery details, recipient information, saved gift message, and checkout link."],
 ];
 
 const steps = [
-  "Start with a natural request like 'find a birthday gift under Rs. 5,000 in Colombo'.",
-  "Choose the guided context chips for budget, recipient, occasion, or gift type.",
-  "Review the product cards, compare options, and add the best picks to the buy box.",
-  "Enter recipient and delivery details, then create the checkout link.",
-];
-
-const modeGuides = [
-  {
-    mode: "Smart Shopping",
-    purpose: "Find live gift options from a normal chat request.",
-    howTo:
-      "Type what you need, then add context for budget, recipient, occasion, category, city, or date when prompted. Sidebar preferences can also be sent from this mode. Use product cards to add items to the buy box.",
-  },
-  {
-    mode: "Event Planner",
-    purpose: "Plan a party, office event, birthday, or gathering.",
-    howTo:
-      "Choose event context such as event type, venue, participant count, budget, and occasion. After the first reply, continue only with the centered Previous item, Next item, and Suggest more guided buttons below the product cards.",
-  },
-  {
-    mode: "Gift Box Builder",
-    purpose: "Create a curated multi-item gift box.",
-    howTo:
-      "Pick the recipient, gift box theme, item count, budget, and occasion. After the first reply, continue only with the centered Previous item, Next item, and Suggest more guided buttons below the product cards.",
-  },
-  {
-    mode: "Product Compare",
-    purpose: "Compare two real products side by side.",
-    howTo:
-      "Copy product IDs from Smart Shopping product cards, paste them into Product ID 1 and Product ID 2, then compare price, category, description, stock, and AI recommendation.",
-  },
-  {
-    mode: "Gift Message",
-    purpose: "Write or refine a gift card message.",
-    howTo:
-      "Choose language, size, and tone, then add suggestions like relationship, occasion, names, or wording style. Generate a default or update the message.",
-  },
-];
-
-const preferences = [
-  {
-    title: "User context",
-    text: "Budget, recipient, occasion, and gift type stay aligned across sidebar preferences and hidden extended preferences so chat updates, AI replies, and live product cards use the same context. Sending sidebar preference updates is available in Smart Shopping only.",
-  },
-  {
-    title: "Delivery context",
-    text: "City and delivery date are used for delivery checks and checkout. Dates are kept non-past so the commerce service does not reject the request.",
-  },
-  {
-    title: "Language",
-    text: "Switch between English, Sinhala, and Singlish. Chat prompts, chips, and generated support text follow the selected language where available.",
-  },
-  {
-    title: "Buy box",
-    text: "Add recommended products, review subtotal, delivery fee, total, recipient details, sender details, gift message, and checkout link creation.",
-  },
-  {
-    title: "Voice and image input",
-    text: "Use microphone input for spoken requests, speaker output for the latest reply, image upload to search for visually similar gift ideas, and lightweight send/receive sounds for chat feedback.",
-  },
-  {
-    title: "Guided chips",
-    text: "Quick chips help continue the flow without typing. Smart Shopping keeps a lightweight Suggest more flow, while Event Planner and Gift Box Builder stay focused on Previous item, Next item, and Suggest more below the product cards.",
-  },
+  "Describe the gift or event in natural language.",
+  "Set budget, recipient, occasion, gift type, and delivery preferences.",
+  "Review four product suggestions, compare two options, and add products to the cart.",
+  "Confirm the saved gift message and delivery details, then create the checkout link.",
 ];
 
 export default function FeaturesPage() {
   return (
-    <main className="min-h-screen bg-[#f6f4fb] text-[#161226]">
-      <section className="mx-auto grid min-h-screen w-full max-w-6xl gap-8 px-5 py-6 md:px-8">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="text-2xl font-black tracking-normal text-[#3f246d]"
-          >
-            <span className="genie-wordmark text-[#ffdf00]">GenieAI</span>
-          </Link>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/demo-video"
-              className="grid h-11 place-items-center rounded-[13px] bg-[#ffdf00] px-4 text-sm font-black text-[#1a0f2e]"
-            >
-              See demo video
-            </Link>
-            <Link
-              href="/"
-              className="grid h-11 place-items-center rounded-[13px] bg-[#3f246d] px-4 text-sm font-black text-white"
-            >
-              Chat now
-            </Link>
+    <main className="min-h-screen bg-[#FAF7F1] text-[#16202B] dark:bg-[#071A30] dark:text-[#EEF4FB]">
+      <header className="sticky top-0 z-20 border-b border-[#E4E1D8] bg-white/95 backdrop-blur dark:border-[#294967] dark:bg-[#102D4D]/95">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
+          <Link href="/" className="genie-wordmark text-[#0B2748] dark:text-white">Genie<span className="text-[#B3872F]">AI</span></Link>
+          <div className="flex gap-2">
+            <Link href="/demo-video" className="grid h-9 place-items-center rounded-full border border-[#D7E2EF] px-4 text-xs font-semibold text-[#31577F] dark:border-[#446583] dark:text-[#AFC8E5]">Demo</Link>
+            <Link href="/" className="grid h-9 place-items-center rounded-full bg-[#0B2748] px-4 text-xs font-semibold text-white dark:bg-[#D6A936] dark:text-[#071A30]">Open GenieAI</Link>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <section className="grid gap-6 md:grid-cols-[1.1fr_0.9fr] md:items-center">
+      <div className="mx-auto grid max-w-6xl gap-14 px-5 py-10 md:px-8 md:py-16">
+        <section className="grid items-center gap-8 md:grid-cols-[1.15fr_.85fr]">
           <div>
-            <p className="text-xs font-black uppercase tracking-normal text-[#7b3fb1]">
-              Features and how to use
-            </p>
-            <h1 className="mt-2 max-w-3xl text-4xl font-black tracking-normal text-[#3f246d] md:text-6xl">
-              A guided AI shopping desk for thoughtful gifts
-            </h1>
-            <p className="mt-4 max-w-2xl text-base font-bold leading-7 text-[#675f79]">
-              GenieAI combines chat, live catalog search, delivery checks,
-              comparison, event planning, gift message writing, and checkout
-              preparation in one focused workspace.
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#B3872F]">Features &amp; workflow</p>
+            <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-[1.08] tracking-[-.04em] text-[#0B2748] dark:text-white md:text-6xl">Thoughtful shopping, guided from idea to checkout.</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-[#5B6B7A] dark:text-[#AFC8E5]">GenieAI combines conversational product discovery, event planning, gift-box building, comparison, message writing, and checkout preparation in one focused workspace.</p>
+            <div className="mt-6 flex flex-wrap gap-3"><Link href="/" className="rounded-[11px] bg-[#D6A936] px-5 py-3 text-sm font-semibold text-[#071A30]">Start shopping</Link><Link href="/demo-video" className="rounded-[11px] border border-[#D7E2EF] bg-white px-5 py-3 text-sm font-semibold text-[#31577F] dark:border-[#446583] dark:bg-[#102D4D] dark:text-[#AFC8E5]">Watch the demo</Link></div>
           </div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-[22px] border border-[#e8e2f2] bg-white shadow-[0_18px_50px_rgba(44,22,75,0.12)]">
-            <Image
-              src="/product-images/gift-box.svg"
-              alt="GenieAI gift box"
-              fill
-              priority
-              sizes="(min-width: 768px) 40vw, 100vw"
-              className="object-contain p-8"
-            />
-          </div>
+          <div className="relative aspect-[4/3] overflow-hidden rounded-[24px] border border-[#E6D5A7] bg-[radial-gradient(circle_at_50%_30%,#FFF8E7,#E7EEF7)] shadow-[0_24px_60px_-30px_rgba(10,31,58,.45)] dark:border-[#6F5727] dark:bg-[radial-gradient(circle_at_50%_30%,#332B1B,#102D4D)]"><Image src="/product-images/gift-box.svg" alt="Gift box" fill priority sizes="(min-width:768px) 38vw, 90vw" className="object-contain p-8" /></div>
         </section>
 
-        {/*<section className="grid gap-4 md:grid-cols-4">*/}
-        {/*  {features.map((feature) => (*/}
-        {/*    <article*/}
-        {/*      key={feature.title}*/}
-        {/*      className="rounded-[18px] border border-[#e8e2f2] bg-white p-4 shadow-[0_12px_32px_rgba(44,22,75,0.06)]"*/}
-        {/*    >*/}
-        {/*      <h2 className="text-lg font-black text-[#3f246d]">*/}
-        {/*        {feature.title}*/}
-        {/*      </h2>*/}
-        {/*      <p className="mt-2 text-sm font-bold leading-6 text-[#675f79]">*/}
-        {/*        {feature.text}*/}
-        {/*      </p>*/}
-        {/*    </article>*/}
-        {/*  ))}*/}
-        {/*</section>*/}
+        <section><p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#B3872F]">Everything in one place</p><h2 className="mt-2 text-3xl font-semibold tracking-[-.03em] text-[#0B2748] dark:text-white">Explore each GenieAI mode</h2><div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{features.map(([title,text], index) => <article key={title} className="rounded-2xl border border-[#E4E1D8] bg-white p-5 shadow-[0_12px_32px_-26px_rgba(10,31,58,.35)] dark:border-[#294967] dark:bg-[#102D4D]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#E7EEF7] text-xs font-bold text-[#1E4D8C] dark:bg-[#163A60] dark:text-[#8FC1F5]">{String(index + 1).padStart(2,"0")}</span><h3 className="mt-4 text-base font-semibold text-[#0B2748] dark:text-white">{title}</h3><p className="mt-2 text-sm leading-6 text-[#5B6B7A] dark:text-[#AFC8E5]">{text}</p></article>)}</div></section>
 
-        <section className="grid gap-5 rounded-[22px] border border-[#e8e2f2] bg-white p-5 shadow-[0_12px_32px_rgba(44,22,75,0.06)]">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-normal text-[#7b3fb1]">
-                Modes
-              </p>
-              <h2 className="mt-2 text-3xl font-black tracking-normal text-[#3f246d]">
-                What each mode does
-              </h2>
-            </div>
-            <Link
-              href="/"
-              className="grid h-11 place-items-center rounded-[13px] bg-[#3f246d] px-4 text-sm font-black text-white"
-            >
-              Open chat workspace
-            </Link>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {modeGuides.map((item) => (
-              <article
-                key={item.mode}
-                className="rounded-[18px] border border-[#e8e2f2] bg-[#fbf9ff] p-4"
-              >
-                <h3 className="text-lg font-black text-[#3f246d]">
-                  {item.mode}
-                </h3>
-                <p className="mt-2 text-sm font-black leading-6 text-[#161226]">
-                  {item.purpose}
-                </p>
-                <p className="mt-2 text-sm font-bold leading-6 text-[#675f79]">
-                  {item.howTo}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-5 rounded-[22px] border border-[#e8e2f2] bg-white p-5 shadow-[0_12px_32px_rgba(44,22,75,0.06)]">
-          <div>
-            <p className="text-xs font-black uppercase tracking-normal text-[#7b3fb1]">
-              Preferences and options
-            </p>
-            <h2 className="mt-2 text-3xl font-black tracking-normal text-[#3f246d]">
-              Controls that shape the shopping flow
-            </h2>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            {preferences.map((item) => (
-              <article
-                key={item.title}
-                className="rounded-[18px] border border-[#e8e2f2] bg-[#fbf9ff] p-4"
-              >
-                <h3 className="text-base font-black text-[#3f246d]">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-sm font-bold leading-6 text-[#675f79]">
-                  {item.text}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="grid gap-5 rounded-[22px] border border-[#e8e2f2] bg-white p-5 shadow-[0_12px_32px_rgba(44,22,75,0.06)] md:grid-cols-[0.7fr_1.3fr]">
-          <div>
-            <p className="text-xs font-black uppercase tracking-normal text-[#7b3fb1]">
-              How to
-            </p>
-            <h2 className="mt-2 text-3xl font-black tracking-normal text-[#3f246d]">
-              From request to checkout
-            </h2>
-          </div>
-          <ol className="grid gap-3">
-            {steps.map((step, index) => (
-              <li
-                key={step}
-                className="grid grid-cols-[44px_1fr] items-start gap-3 rounded-[16px] bg-[#fbf9ff] p-3 text-sm font-bold leading-6 text-[#675f79]"
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-[12px] bg-[#3f246d] font-black text-white">
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      </section>
+        <section className="grid gap-7 rounded-[24px] bg-[#0B2748] p-6 text-white md:grid-cols-[.7fr_1.3fr] md:p-8"><div><p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#D6A936]">How it works</p><h2 className="mt-2 text-3xl font-semibold tracking-[-.03em]">From request to checkout</h2></div><ol className="grid gap-2.5">{steps.map((step,index) => <li key={step} className="grid grid-cols-[36px_1fr] items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm leading-6 text-[#D7E2EF]"><span className="grid h-9 w-9 place-items-center rounded-lg bg-[#D6A936] font-bold text-[#071A30]">{index+1}</span>{step}</li>)}</ol></section>
+      </div>
     </main>
   );
 }
