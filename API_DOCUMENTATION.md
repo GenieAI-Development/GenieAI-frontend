@@ -500,3 +500,55 @@ Keep credentials on the server and never include them in client requests.
 - Prevent duplicate checkout submissions; no idempotency key is currently supported.
 - Treat AI output as untrusted text and escape it for its rendering context.
 - Prices, stock, delivery availability, and checkout details can change; use the latest response.
+
+## Frontend API calling flow
+
+```mermaid
+flowchart TD
+  frontend["GenieAI frontend"]
+  textFlow["Shared text submission flow"]
+  contextApi["POST /api/ai/context-analysis"]
+  imageApi["POST /api/ai/image-analysis"]
+  voiceApi["POST /api/ai/voice-messages"]
+  commerceApi["POST /api/ai/commerce"]
+  groq["Groq AI services"]
+  novita["Novita Hugging Face"]
+  commerceMcp["Commerce MCP catalog and checkout"]
+
+  frontend -->|"Initial product load"| commerceApi
+  frontend -->|"Typed message"| textFlow
+  textFlow -->|"First-message preference extraction"| contextApi
+  contextApi -->|"AI extraction when configured"| groq
+  groq -->|"Normalized preferences"| contextApi
+  contextApi -->|"Preferences"| textFlow
+  textFlow -->|"Ready or guided shopping request"| commerceApi
+
+  frontend -->|"Compare, checkout, gift message, or preference search"| commerceApi
+  commerceApi -->|"Live product, delivery, and order operations"| commerceMcp
+  commerceMcp -->|"Catalog, delivery, or checkout data"| commerceApi
+  commerceApi -->|"Replies, ranking, comparison, and English gift message"| groq
+  groq -->|"Generated or scored output"| commerceApi
+  commerceApi -->|"Non-English replies and gift messages when configured"| novita
+  novita -->|"Generated non-English text"| commerceApi
+  commerceApi -->|"Products, plan, insights, checkout, or message"| frontend
+
+  frontend -->|"Image upload"| imageApi
+  imageApi -->|"Vision analysis"| groq
+  groq -->|"Vision result"| imageApi
+  imageApi -->|"Search hints"| frontend
+  frontend -->|"Search using image hints"| commerceApi
+
+  frontend -->|"English voice recording"| voiceApi
+  voiceApi -->|"Speech transcription"| groq
+  groq -->|"Transcript result"| voiceApi
+  voiceApi -->|"Transcript"| textFlow
+```
+
+The diagram shows the main successful request paths. The local preference
+analysis, filename-based image hints, deterministic comparison insights, and
+other degraded responses documented above may return without completing an AI
+provider call.
+
+`/api/ai/chatbot` remains available as a standalone public route, but the
+current GenieAI frontend uses the commerce endpoint for shopping conversation
+and product workflows.
