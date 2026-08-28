@@ -110,7 +110,7 @@ Extracts shopping preferences from the latest user message. Existing context fil
 Normalized values:
 
 - `budget`: `Under Rs. 2,500`, `Rs. 2,500 - 5,000`, `Rs. 5,000 - 10,000`, `Above Rs. 10,000`, `Other`, or `null`
-- `category`: `Flowers`, `Cakes`, `Chocolate`, `Electronics`, `Perfumes`, `Fashion`, `Other`, or `null`
+- `category`: `Flowers`, `Cakes`, `Chocolate`, `Perfumes`, `Fashion`, `Other`, or `null`
 - `occasion`: `Birthday`, `Anniversary`, `Wedding`, `Graduation`, `Other`, or `null`
 - `recipient`: `Male`, `Female`, `Child`, `Couple`, `Other`, or `null`
 
@@ -277,7 +277,23 @@ Order tracking has been removed. Sending `"task": "track"` or any other unsuppor
 }
 ```
 
-Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`.
+Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose at most four ranked products and four recommendations.
+
+### Guided Event and Gift Box budgets
+
+In the GenieAI frontend, a budget selected for Event Planner or Gift Box Builder
+is the total budget for the whole plan, not a budget for every item. The initial
+guided-plan request retains that total. Each subsequent item-card search divides
+the total before calling this endpoint and sends the per-item amount in both
+`profile.budget` and the mode-specific preference object:
+
+- Event Planner divides by the number of guided plan items.
+- Gift Box Builder divides by the selected item count.
+
+For example, a total budget of `Rs. 10,000` across four items results in an
+individual search budget of `Under Rs. 2,500`. Direct API clients implementing
+guided item searches should apply the same calculation; the API filters products
+using the budget supplied in the individual request.
 
 ### Compare
 
@@ -402,6 +418,11 @@ A successful response includes:
 
 The generated text is returned in `giftMessage`.
 
+The frontend calls this task only when the user explicitly requests message
+generation. Opening the Gift Message tab does not invoke the endpoint. After a
+successful response, the frontend stores `giftMessage` in the checkout payload's
+`checkout.giftMessage` field without navigating to the checkout form.
+
 Language/provider behavior:
 
 - English uses Groq only: `openai/gpt-oss-20b` by default, with `openai/gpt-oss-120b` as the dedicated fallback. It does not fall back to Novita.
@@ -455,11 +476,19 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `COMMERCE_CHECK_DELIVERY_TOOL` | Commerce MCP delivery-check tool name. |
 | `COMMERCE_CREATE_ORDER_TOOL` | Commerce MCP order-creation tool name. |
 | `GROQ_REPLY_MODEL` | Optional chatbot model override. |
+| `GROQ_ENGLISH_CHAT_MODEL` | Optional English commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
+| `GROQ_SINHALA_CHAT_MODEL` | Optional Sinhala commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
+| `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `llama-3.3-70b-versatile`. |
 | `GROQ_COMPARE_MODEL` | Optional comparison-insights model override. Defaults to `openai/gpt-oss-20b`; the comparison-specific fallback is `openai/gpt-oss-120b`. |
 | `GROQ_GIFT_MESSAGE_MODEL` | English gift-message model. Defaults to `openai/gpt-oss-20b`; English falls back only to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_GIFT_MESSAGE_MODEL` | Groq fallback model for Sinhala gift messages. |
 | `GROQ_SINGLISH_GIFT_MESSAGE_MODEL` | Groq fallback model for Singlish gift messages. |
 | `GROQ_VISION_MODEL` | Optional image-analysis model override. |
+| `GROQ_VISION_BACKUP_MODEL` | Optional image-analysis fallback-model override. |
+| `GROQ_BACKUP_MODEL` | Optional first general Groq text fallback model. |
+| `GROQ_BACKUP_MODELS` | Optional comma-separated general Groq text fallback models. |
+| `GROQ_REQUEST_TIMEOUT_MS` | Per-model Groq timeout; clamped to 3–30 seconds and defaults to 5 seconds. |
+| `GROQ_TOTAL_TIMEOUT_MS` | Total Groq fallback-chain timeout; clamped to 10–60 seconds and defaults to 10 seconds. |
 
 Keep credentials on the server and never include them in client requests.
 
