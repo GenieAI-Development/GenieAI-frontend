@@ -9,7 +9,7 @@ import {
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const requiredFields = ["budget", "recipient", "occasion"] as const;
 const budgetOptions = [
   "Under Rs. 2,500",

@@ -8,7 +8,6 @@ export const GROQ_TRANSCRIPTIONS_URL =
 
 const DEFAULT_TEXT_BACKUP_MODELS = [
   "qwen/qwen3.6-27b",
-  "llama-3.1-8b-instant",
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
 ];

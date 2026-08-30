@@ -311,9 +311,9 @@ AI_SERVICE_TOKEN=the_same_token_used_by_python
 HF_TOKEN=optional_hugging_face_token
 
 GROQ_ENGLISH_CHAT_MODEL=openai/gpt-oss-120b
-GROQ_PROCESSING_MODEL=llama-3.3-70b-versatile
-GROQ_CONTEXT_MODEL=llama-3.3-70b-versatile
-GROQ_COMMERCE_MODEL=llama-3.3-70b-versatile
+GROQ_PROCESSING_MODEL=openai/gpt-oss-120b
+GROQ_CONTEXT_MODEL=openai/gpt-oss-120b
+GROQ_COMMERCE_MODEL=openai/gpt-oss-120b
 GROQ_BACKUP_MODEL=qwen/qwen3.6-27b
 GROQ_REQUEST_TIMEOUT_MS=5000
 GROQ_TOTAL_TIMEOUT_MS=10000

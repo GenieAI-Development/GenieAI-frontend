@@ -535,7 +535,7 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `GROQ_REPLY_MODEL` | Optional chatbot model override. |
 | `GROQ_ENGLISH_CHAT_MODEL` | Optional English commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_CHAT_MODEL` | Optional Sinhala commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
-| `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `llama-3.3-70b-versatile`. |
+| `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_COMPARE_MODEL` | Optional comparison-insights model override. Defaults to `openai/gpt-oss-20b`; the comparison-specific fallback is `openai/gpt-oss-120b`. |
 | `GROQ_GIFT_MESSAGE_MODEL` | English gift-message model. Defaults to `openai/gpt-oss-20b`; English falls back only to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_GIFT_MESSAGE_MODEL` | Groq fallback model for Sinhala gift messages. |

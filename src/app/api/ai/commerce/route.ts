@@ -27,15 +27,15 @@ import { getRandomInitialProducts } from "@/lib/supabaseProductCatalog";
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_COMPARE_MODEL = "openai/gpt-oss-20b";
 const COMPARE_FALLBACK_MODELS = ["openai/gpt-oss-120b"];
 const DEFAULT_GIFT_MESSAGE_MODEL = "openai/gpt-oss-20b";
 const ENGLISH_GIFT_MESSAGE_FALLBACK_MODELS = ["openai/gpt-oss-120b"];
 const DEFAULT_SINHALA_GIFT_MESSAGE_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_SINHALA_CHAT_MODEL = "openai/gpt-oss-120b";
-const DEFAULT_SINGLISH_CHAT_MODEL = "llama-3.3-70b-versatile";
-const DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL = "llama-3.3-70b-versatile";
+const DEFAULT_SINGLISH_CHAT_MODEL = "openai/gpt-oss-120b";
+const DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_ENGLISH_CHAT_MODEL = "openai/gpt-oss-120b";
 const INITIAL_REPLY_CHIPS = [
   "Find a gift",
