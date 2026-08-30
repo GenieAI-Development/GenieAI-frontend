@@ -1,5 +1,6 @@
 import { asRecord, getNumber, getString } from "@/lib/aiPayload";
 import { commerceTools, createCommerceMcpClient } from "@/lib/commerceMcp";
+import { cleanProductDescription } from "@/lib/productDescription";
 import {
   type CatalogSearchProduct,
   type Product,
@@ -73,10 +74,11 @@ export function normalizePythonProduct(value: unknown): Product | null {
     stock: inStock ? 1 : 0,
     stockLabel: inStock ? "In stock" : "Out of stock",
     eta: "Delivery availability is confirmed during checkout",
-    description:
+    description: cleanProductDescription(
       getString(record, "description")?.trim() ||
       getString(record, "summary")?.trim() ||
       "Product matched by GenieAI.",
+    ),
     url: getString(record, "url")?.trim() || "#",
   };
 }

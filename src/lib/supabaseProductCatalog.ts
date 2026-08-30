@@ -1,4 +1,5 @@
 import type { Product } from "@/lib/productCatalog";
+import { cleanProductDescription } from "@/lib/productDescription";
 
 type SupabaseProductRow = {
   assigned_category?: unknown;
@@ -18,6 +19,7 @@ type SupabaseProductRow = {
 const REQUEST_TIMEOUT_MS = 6000;
 const RANDOM_SAMPLE_MULTIPLIER = 3;
 const MAX_SAMPLE_ROUNDS = 3;
+const INITIAL_EXCLUDED_PRODUCT_PATTERN = /\bbiscuits?\b/iu;
 const INITIAL_CATEGORIES = ["cakes_and_desserts", "flower_bouquets"] as const;
 
 function getSupabaseConfig() {
@@ -161,12 +163,13 @@ function toProduct(row: SupabaseProductRow): Product | null {
         : "In stock"
       : "Out of stock",
     eta: "Delivery checked by the live commerce service",
-    description:
+    description: cleanProductDescription(
       typeof row.summary === "string"
         ? row.summary
         : typeof row.description === "string"
           ? row.description
           : "Gift product from the saved catalog.",
+    ),
     url: typeof row.product_url === "string" ? row.product_url : "#",
   };
 }
@@ -176,6 +179,7 @@ async function getRandomProductsForCategory(
   secretKey: string,
   category: string,
   limit: number,
+  includeProduct: (product: Product) => boolean = () => true,
 ) {
   const count = await getInStockProductCount(url, secretKey, category);
   const products = new Map<string, Product>();
@@ -201,7 +205,7 @@ async function getRandomProductsForCategory(
 
     for (const row of rows) {
       const product = row ? toProduct(row) : null;
-      if (product) {
+      if (product && includeProduct(product)) {
         products.set(product.id.toUpperCase(), product);
       }
       if (products.size >= limit) {
@@ -229,18 +233,24 @@ export async function getRandomInitialProducts(limit: number) {
   const { secretKey, url } = getSupabaseConfig();
   const cakeLimit = Math.ceil(safeLimit / 2);
   const flowerLimit = safeLimit - cakeLimit;
+  const excludeInitialBiscuits = (product: Product) =>
+    !INITIAL_EXCLUDED_PRODUCT_PATTERN.test(
+      `${product.name} ${product.category} ${product.description}`,
+    );
   const [cakes, flowers] = await Promise.all([
     getRandomProductsForCategory(
       url,
       secretKey,
       INITIAL_CATEGORIES[0],
       cakeLimit,
+      excludeInitialBiscuits,
     ),
     getRandomProductsForCategory(
       url,
       secretKey,
       INITIAL_CATEGORIES[1],
       flowerLimit,
+      excludeInitialBiscuits,
     ),
   ]);
 

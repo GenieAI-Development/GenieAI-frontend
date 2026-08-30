@@ -168,7 +168,7 @@ export type CommerceResponse = {
 
 export type ComparisonInsight = {
   label: string;
-  percentage: number;
+  percentage: number | null;
 };
 
 export type ProductComparisonInsights = {

@@ -24,7 +24,7 @@ export async function getGroqComparisonInsights(
         {
           role: "system",
           content:
-            "Score each supplied product using only the supplied facts and shopping context. Return no more than four short insight dimensions per product. Prefer Value, Quality, Occasion Match, and Recipient Match when the context supports them. Percentages must be integers from 0 to 100 and should meaningfully distinguish the products. Do not invent materials, durability, reviews, or other facts absent from the descriptions. Keep insight labels in the requested language. Return JSON only.",
+            "Score each supplied product using only the supplied facts and shopping context. Return no more than four short insight dimensions per product. Prefer Value, Quality, Occasion Match, and Recipient Match. A missing preference cannot be scored: when occasion is empty, Occasion Match percentage must be null; when recipient is empty, Recipient Match percentage must be null. Never guess a missing preference. Other percentages must be integers from 0 to 100 and should meaningfully distinguish the products. Do not invent materials, durability, reviews, or other facts absent from the descriptions. Keep insight labels in the requested language. Return JSON only.",
         },
         {
           role: "user",
@@ -102,21 +102,32 @@ export async function getGroqComparisonInsights(
             const insightRecord = asRecord(insight);
             const label = getString(insightRecord, "label")?.trim();
             const percentage = getNumber(insightRecord, "percentage");
+            const percentageIsBlank = insightRecord?.percentage === null;
             const normalizedLabel = label?.toLowerCase();
 
             if (
               !label ||
               !normalizedLabel ||
               seenLabels.has(normalizedLabel) ||
-              percentage === null
+              (percentage === null && !percentageIsBlank)
             ) {
               return null;
             }
 
             seenLabels.add(normalizedLabel);
+            const isOccasionDimension =
+              /occasion|event match|awast|utsav|අවස්ථා|උත්සව/i.test(label);
+            const isRecipientDimension =
+              /recipient|relationship|person match|labann|ලබන්න|පුද්ගල/i.test(label);
+            const unavailableForContext =
+              (isOccasionDimension && !(profile.occasion ?? "").trim()) ||
+              (isRecipientDimension && !(profile.recipient ?? "").trim());
             return {
               label,
-              percentage: Math.max(0, Math.min(100, Math.round(percentage))),
+              percentage:
+                percentageIsBlank || unavailableForContext
+                  ? null
+                  : Math.max(0, Math.min(100, Math.round(percentage as number))),
             };
           })
           .filter((insight): insight is ComparisonInsight => Boolean(insight))
@@ -184,7 +195,7 @@ export function getDeterministicComparisonInsights(
 
   function getContextMatch(product: Product, context: string) {
     if (!context.trim()) {
-      return 72;
+      return null;
     }
 
     const searchableText =

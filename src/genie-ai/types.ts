@@ -93,7 +93,7 @@ export function getCheckoutResponseMessage(data: CommerceResponse) {
 
 export type ComparisonInsight = {
   label: string;
-  percentage: number;
+  percentage: number | null;
 };
 
 export type CompareRow = {

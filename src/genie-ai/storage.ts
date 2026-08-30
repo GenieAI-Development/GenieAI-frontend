@@ -4,7 +4,7 @@ const CHAT_DB_NAME = "genie-ai-chat";
 const CHAT_STORE_NAME = "chat-state";
 const CHAT_STATE_KEY = "current";
 const CHAT_STORAGE_KEY = "genie-ai-chat-state";
-export const INITIAL_CATALOG_VERSION = "supabase-cakes-flowers-v2";
+export const INITIAL_CATALOG_VERSION = "supabase-cakes-flowers-no-biscuits-v3";
 export const INTRO_PANEL_STORAGE_KEY = "genie-ai-intro-panel-date";
 function openChatDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {

@@ -498,7 +498,7 @@ Some degraded states intentionally return `200`, including local recommendations
 
 - Product interactions are buffered in browser `sessionStorage` instead of being posted individually. Only events included in a successful Python ranking request are removed; failed requests retain them for retry.
 - The product-details popup uses the product `imageUrl`, `price`, `currency`, and full `description`. Other product metadata is not shown in that popup.
-- The Product Compare tab renders only `name`, formatted price, full `description`, and `comparisonInsights`. Product IDs are transport identifiers and are not displayed.
+- The Product Compare tab renders `name`, formatted price, full `description`, and up to four `comparisonInsights`. Preference-dependent percentages are `null` when their required preference is unset—for example, Occasion Match is blank without an occasion. A final score is displayed alongside the insights and is calculated as the rounded arithmetic mean of non-null scores only. Product IDs are transport identifiers and are not displayed.
 - Comparison selection happens on product cards; the user does not type IDs into the comparison page.
 
 ## Command-line examples

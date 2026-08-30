@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { V3Icon } from "./Icon";
+import { GenieMark, V3Icon } from "./Icon";
 import type { GenieLanguage } from "./types";
 
 type Props = {
@@ -37,7 +37,7 @@ export function AppHeader(props: Props) {
 
   return (
     <header className="z-40 grid h-16 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#E4E1D8] bg-white px-3 sm:flex sm:justify-between sm:px-5">
-      <p className="genie-wordmark min-w-0 truncate leading-none text-[#0A1F3A] sm:max-w-none">Genie<span className="text-[#B3872F]">AI</span></p>
+      <div className="flex min-w-0 items-center gap-2"><GenieMark className="h-8 w-8 shrink-0 rounded-[9px]" /><p className="genie-wordmark min-w-0 truncate leading-none text-[#0A1F3A] sm:max-w-none">Genie<span className="text-[#B3872F]">AI</span></p></div>
       <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         {props.compareCount > 0 ? (
           <button type="button" disabled={props.compareCount !== 2 || props.isComparing} onClick={props.onCompareDone} className="h-9 shrink-0 rounded-full bg-[#C89B3C] px-2.5 text-[11px] font-bold text-[#0A1F3A] disabled:cursor-not-allowed disabled:bg-[#E4E1D8] disabled:text-[#9AA7B2] sm:px-3 sm:text-sm">

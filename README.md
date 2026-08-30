@@ -462,7 +462,7 @@ See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for request/response details 
 3. Click Done in the chat header.
 4. The app moves to Product Compare.
 
-The comparison page shows only product name, price, full description, and up to four AI insight percentages such as Value, Quality, Occasion Match, and Recipient Match. Product ID input fields are not displayed.
+The comparison page shows product name, price, full description, up to four AI insight percentages such as Value, Quality, Occasion Match, and Recipient Match, plus a final score calculated from the available scores. Preference-dependent dimensions remain blank when their required preference is unset, and blank dimensions are excluded from the final-score average. Product ID input fields are not displayed.
 
 ### Gift Message
 
@@ -480,7 +480,7 @@ The comparison page shows only product name, price, full description, and up to 
 - lets the user choose language, style, theme, occasion, recipient, and instructions before generation
 - optionally displays receiver and sender names on the generated card
 - uses the selected product image, name, and description for visual matching
-- displays the generated image in the generator panel and provides an SVG download
+- displays a layered, product-matched card with gradients, texture, motif artwork, an occasion badge, and a framed message panel, and provides an SVG download
 - stores the generated card and preferences with browser chat state
 - copies the generated card message into the checkout gift-message field without opening checkout
 

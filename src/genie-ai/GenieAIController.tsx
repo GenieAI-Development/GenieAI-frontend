@@ -2529,10 +2529,13 @@ export function GenieAIController() {
           productInsights.insights.slice(0, 4),
         ]),
       );
-      const rows = (data.products ?? []).slice(0, 2).map((product) => ({
-        insights: comparisonInsights.get(product.id) ?? [],
-        product,
-      }));
+      const rows = (data.products ?? []).slice(0, 2).map((product) => {
+        const insights = comparisonInsights.get(product.id) ?? [];
+        return {
+          insights,
+          product,
+        };
+      });
 
       setCompareRows(rows);
       setCompareSuggestion(data.reply || "");

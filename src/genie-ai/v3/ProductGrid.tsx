@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { cleanProductDescription } from "@/lib/productDescription";
 import type { GenieProduct } from "./types";
 
 type Props = {
@@ -36,7 +37,7 @@ export function ProductGrid(props: Props) {
             </div>
             <div className="flex flex-1 flex-col gap-1.5 p-2.5">
               <h3 className="line-clamp-1 font-sans text-[13px] font-semibold leading-4 text-[#16202B]">{product.name}</h3>
-              <p className="line-clamp-2 flex-1 text-[11px] leading-4 text-[#5B6B7A]">{product.description}</p>
+              <p className="line-clamp-2 flex-1 text-[11px] leading-4 text-[#5B6B7A]">{cleanProductDescription(product.description)}</p>
               <p className="text-sm font-bold leading-5 text-[#123661]">{props.formatPrice(product.price, product.currency)}</p>
               <div className="grid grid-cols-[1fr_auto] gap-1.5">
                 <button type="button" disabled={inCart} onClick={() => props.onAdd(product)} className="h-8 rounded-lg bg-[linear-gradient(#C89B3C,#B3872F)] px-2 text-[11px] font-bold text-[#0A1F3A] disabled:opacity-55">{inCart ? "Added" : props.addLabel}</button>

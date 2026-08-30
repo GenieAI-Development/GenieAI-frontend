@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
+import { cleanProductDescription } from "@/lib/productDescription";
 import type { CompareRow, ComparisonInsight } from "../types";
 
 type Props = {
@@ -10,27 +11,56 @@ type Props = {
 };
 
 function Insights({ insights }: { insights: ComparisonInsight[] }) {
+  const visibleInsights = insights.slice(0, 4);
+  const scoredInsights = visibleInsights.filter(
+    (insight): insight is ComparisonInsight & { percentage: number } =>
+      typeof insight.percentage === "number",
+  );
+  const finalScore =
+    scoredInsights.length > 0
+      ? Math.round(
+          scoredInsights.reduce(
+            (total, insight) => total + insight.percentage,
+            0,
+          ) / scoredInsights.length,
+        )
+      : null;
+  const scoreRows = [
+    ...visibleInsights,
+    ...(visibleInsights.length > 0
+      ? [{ label: "Final score", percentage: finalScore }]
+      : []),
+  ];
+  const hasMissingPreferenceScore = visibleInsights.some(
+    (insight) => insight.percentage === null,
+  );
+
   return (
     <div className="grid gap-2.5">
-      {insights.slice(0, 4).map((insight) => (
+      {scoreRows.map((insight) => (
         <div
           key={insight.label}
-          className="grid gap-1.5 rounded-lg bg-[#FAF7F1] p-2.5"
+          className={`grid gap-1.5 rounded-lg p-2.5 ${insight.label === "Final score" ? "border border-[#D6A936]/45 bg-[#FFF8E7]" : "bg-[#FAF7F1]"}`}
         >
           <div className="flex items-center justify-between gap-3 text-xs font-semibold text-[#31577F]">
             <span>{insight.label}</span>
             <span className="font-bold text-[#B3872F]">
-              {insight.percentage}%
+              {insight.percentage === null ? "—" : `${insight.percentage}%`}
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-[#D7E2EF]">
             <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,#1E4D8C,#C89B3C)]"
-              style={{ width: `${insight.percentage}%` }}
+              className={`h-full rounded-full ${insight.label === "Final score" ? "bg-[linear-gradient(90deg,#B3872F,#D6A936)]" : "bg-[linear-gradient(90deg,#1E4D8C,#C89B3C)]"}`}
+              style={{ width: `${insight.percentage ?? 0}%` }}
             />
           </div>
         </div>
       ))}
+      {hasMissingPreferenceScore ? (
+        <p className="rounded-lg border border-dashed border-[#D7E2EF] bg-white px-3 py-2 text-[11px] font-medium leading-4 text-[#6C7C8C]">
+          Set preferences to get more insights.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -51,7 +81,7 @@ export function CompareTool({ compareRows, suggestion, formatPrice }: Props) {
             formatPrice(productOne.price, productOne.currency),
             formatPrice(productTwo.price, productTwo.currency),
           ],
-          ["Description", productOne.description, productTwo.description],
+          ["Description", cleanProductDescription(productOne.description), cleanProductDescription(productTwo.description)],
           [
             "AI insights",
             <Insights key="first" insights={first.insights} />,

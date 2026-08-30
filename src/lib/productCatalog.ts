@@ -1,3 +1,5 @@
+import { cleanProductDescription } from "@/lib/productDescription";
+
 export type Product = {
   id: string;
   name: string;
@@ -208,7 +210,9 @@ export function toProduct(product: CatalogSearchProduct): Product | null {
     stock: product.in_stock === true ? 1 : 0,
     stockLabel: getStockLabel(product),
     eta: "Delivery checked by the live commerce service",
-    description: getString(product.summary) ?? "Live catalog item.",
+    description: cleanProductDescription(
+      getString(product.summary) ?? "Live catalog item.",
+    ),
     url: getString(product.url) ?? "#",
     apiDetails: getApiDetails(product),
   };
