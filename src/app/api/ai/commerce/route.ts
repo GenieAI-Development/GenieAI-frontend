@@ -21,6 +21,7 @@ import {
   getCommerceMcpUrl,
 } from "@/lib/commerceMcp";
 import { toCommerceLocationType } from "@/lib/deliveryLocations";
+import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
 import { CatalogSearchProduct, Product, toProduct } from "@/lib/productCatalog";
 
 export const runtime = "nodejs";
@@ -227,6 +228,26 @@ type ProductSearchResult = {
   usedNearbyBudgetFallback: boolean;
 };
 
+type RankingEvent = {
+  category?: string;
+  event: "impression" | "view" | "compare" | "add_to_cart" | "remove_from_cart" | "search" | "purchase";
+  position?: number;
+  price?: number;
+  productId?: string;
+  query?: string;
+  timestamp?: string;
+};
+
+const RANKING_EVENT_TYPES = new Set<RankingEvent["event"]>([
+  "impression",
+  "view",
+  "compare",
+  "add_to_cart",
+  "remove_from_cart",
+  "search",
+  "purchase",
+]);
+
 type CacheEntry<T> = {
   expiresAt: number;
   value: Promise<T>;
@@ -236,6 +257,7 @@ const PRODUCT_SEARCH_CACHE_TTL_MS = 45_000;
 const CITY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PRODUCT_SEARCH_CACHE_ENTRIES = 100;
 const MAX_CITY_CACHE_ENTRIES = 100;
+const MAX_RANKED_PRODUCTS = 12;
 const SUPPORTED_TASKS = new Set([
   "checkout",
   "compare",
@@ -501,6 +523,41 @@ function parseStringArray(value: unknown, maxItems: number) {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, maxItems);
+}
+
+function parseRankingEvents(value: unknown): RankingEvent[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item): RankingEvent | null => {
+      const record = asRecord(item);
+      const event = getString(record, "event") as RankingEvent["event"] | null;
+
+      if (!event || !RANKING_EVENT_TYPES.has(event)) {
+        return null;
+      }
+
+      const optionalString = (key: string, maxLength: number) =>
+        getString(record, key)?.trim().slice(0, maxLength) || undefined;
+      const optionalNumber = (key: string) => {
+        const number = getNumber(record, key);
+        return number !== null && number >= 0 ? number : undefined;
+      };
+
+      return {
+        category: optionalString("category", 120),
+        event,
+        position: optionalNumber("position"),
+        price: optionalNumber("price"),
+        productId: optionalString("productId", 160),
+        query: optionalString("query", 500),
+        timestamp: optionalString("timestamp", 40),
+      };
+    })
+    .filter((event): event is RankingEvent => event !== null)
+    .slice(0, 100);
 }
 
 function parseConversationHistory(value: unknown): ChatMessage[] {
@@ -1671,7 +1728,7 @@ function orderProductsByRecommendation(
   recommendations: CommerceRecommendation[],
 ) {
   if (recommendations.length === 0) {
-    return products.slice(0, 4);
+    return products.slice(0, MAX_RANKED_PRODUCTS);
   }
 
   const byId = new Map(products.map((product) => [product.id, product]));
@@ -1683,7 +1740,117 @@ function orderProductsByRecommendation(
   return [
     ...rankedProducts,
     ...products.filter((product) => !rankedIds.has(product.id)),
-  ].slice(0, 4);
+  ].slice(0, MAX_RANKED_PRODUCTS);
+}
+
+function normalizePythonProduct(value: unknown): Product | null {
+  const record = asRecord(value);
+  const id = getString(record, "id")?.trim();
+  const name =
+    getString(record, "title")?.trim() || getString(record, "name")?.trim();
+
+  if (!id || !name) {
+    return null;
+  }
+
+  const priceRecord = asRecord(record?.price);
+  const directPrice = getNumber(record, "price");
+  const price = directPrice ?? getNumber(priceRecord, "amount") ?? 0;
+  const categoryValue = record?.category;
+  const category =
+    (typeof categoryValue === "string" ? categoryValue.trim() : "") ||
+    getString(asRecord(categoryValue), "name")?.trim() ||
+    "General";
+  const inStock =
+    record?.inStock === true ||
+    record?.in_stock === true ||
+    (typeof record?.stock === "number" && record.stock > 0);
+
+  return {
+    id,
+    name,
+    imageUrl:
+      getString(record, "image")?.trim() ||
+      getString(record, "imageUrl")?.trim() ||
+      getString(record, "image_url")?.trim() ||
+      "/product-images/gift-box.svg",
+    category,
+    price,
+    currency:
+      getString(record, "currency")?.trim() ||
+      getString(priceRecord, "currency")?.trim() ||
+      "LKR",
+    stock: inStock ? 1 : 0,
+    stockLabel: inStock ? "In stock" : "Out of stock",
+    eta: "Delivery availability is confirmed during checkout",
+    description:
+      getString(record, "description")?.trim() ||
+      getString(record, "summary")?.trim() ||
+      "Product matched by GenieAI.",
+    url: getString(record, "url")?.trim() || "#",
+  };
+}
+
+async function fetchPythonRankedProducts({
+  events,
+  profile,
+  query,
+  sessionId,
+}: {
+  events: RankingEvent[];
+  profile: ShoppingProfile;
+  query: string;
+  sessionId: string;
+}) {
+  const serviceUrl = process.env.AI_SERVICE_URL?.trim().replace(/\/+$/, "");
+  const serviceToken = process.env.AI_SERVICE_TOKEN?.trim();
+
+  if (!serviceUrl || !serviceToken) {
+    throw new Error(
+      "Python ranking is not configured. Set AI_SERVICE_URL and AI_SERVICE_TOKEN.",
+    );
+  }
+
+  const budget = parseBudgetFilter(profile.budget);
+  const response = await fetch(`${serviceUrl}/v1/commerce/recommendations`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceToken}`,
+      "Content-Type": "application/json",
+      "X-Genie-Session-Id": sessionId,
+    },
+    body: JSON.stringify({
+      events,
+      preferences: {
+        budgetMax: budget.max_price,
+        budgetMin: budget.min_price,
+        category: profile.category,
+        deliveryCity: profile.city,
+        occasion: profile.occasion,
+        recipient: profile.recipient,
+      },
+      query,
+    }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error(
+      `Python ranking failed with status ${response.status}.`,
+    );
+  }
+
+  const responseBody = asRecord(await response.json().catch(() => null));
+  if (!responseBody || !Array.isArray(responseBody.products)) {
+    throw new Error("Python ranking returned an invalid products response.");
+  }
+
+  return responseBody.products
+    .map(normalizePythonProduct)
+    .filter((product): product is Product => product !== null)
+    .slice(0, MAX_RANKED_PRODUCTS);
 }
 
 function getBudgetSearchReply(search: ProductSearchResult, productCount: number) {
@@ -1744,7 +1911,7 @@ async function searchCatalogProductsUncached(
   const baseParams = {
     currency: "LKR",
     in_stock_only: true,
-    limit: 4,
+    limit: MAX_RANKED_PRODUCTS,
     response_format: "json",
     sort: "relevance",
   };
@@ -1799,7 +1966,7 @@ async function searchCatalogProductsUncached(
       .filter((product) =>
         isProductRelevantToPreferences(product, query, profile),
       )
-      .slice(0, 4);
+      .slice(0, MAX_RANKED_PRODUCTS);
   }
 
   if (!hasBudgetFilter(budgetFilter)) {
@@ -2000,12 +2167,13 @@ async function getGroqCommerce(
   conversationHistory: ChatMessage[],
 ) {
   const isShoppingMode = mode === "Smart Shopping";
+  const isPlanOnlyTask = task === "eventPlan" || task === "giftBox";
   const replyLengthInstruction = isShoppingMode
     ? "In Smart Shopping mode, reply with one compact but detailed paragraph that can be up to three sentences."
     : "The reply must be one short paragraph.";
   const huggingFaceApiKey = getHuggingFaceApiKey();
   const directReplyPromise =
-    language !== "English" && huggingFaceApiKey
+    language !== "English" && huggingFaceApiKey && !isPlanOnlyTask
     ? getHuggingFaceNovitaReply(huggingFaceApiKey, {
         messages: [
           {
@@ -2027,7 +2195,7 @@ async function getGroqCommerce(
               messageIntent: messageAnalysis.intent,
               mode,
               profile,
-              query: userMessage,
+              query: isPlanOnlyTask ? query : userMessage,
               replyLanguage: language,
               searchContext: {
                 budgetResult: productSearch
@@ -2054,7 +2222,7 @@ async function getGroqCommerce(
     messages: [
           {
             role: "system",
-            content: `You are the multilingual reasoning and conversation layer for GenieAI. Product and delivery data already came from the live commerce service. The submitted profile is the user's highest-priority requirement: never replace its requested gift type, budget, recipient, or occasion with a different option. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. Rank only provided products that satisfy those preferences. If no matching catalog products are supplied, clearly say that no exact match was found and ask whether the user wants to change a preference; never propose a substitute category such as mugs when flowers were requested. First respond to the user's actual message: answer a question directly, carry out or specifically acknowledge a command, and respond naturally to conversation. In Event Planner and Gift Box modes, always answer a custom user question or command directly in reply, even while a guided item list is active. Never use 'I updated the products', a translation of it, or another generic UI-update status as the reply. The product cards update separately while you reply. If facts needed to answer are not present in the supplied data, say so briefly or ask one useful clarification instead of inventing facts. Rank only the provided product IDs and never invent catalog products. ${replyLengthInstruction} Never include product names, product IDs, prices, or a written list of recommendations in reply because the UI shows products only as cards. For eventPlan and giftBox tasks, return the checklist only in eventPlan, never repeat that checklist in reply. For compare tasks, make reply a direct, useful response for the AI suggestions field without listing products. Analytics and reply chips are generated locally, so do not return them. Return JSON only. ${getReplyLanguageInstruction(language)}`,
+            content: `You are the multilingual reasoning and conversation layer for GenieAI. ${isPlanOnlyTask ? "This is a plan-only request, so no product catalog is supplied or expected. Create the requested checklist from the submitted context without claiming that products were searched." : "Product and delivery data already came from the live commerce service. Rank only provided products that satisfy the active preferences. If no matching catalog products are supplied, clearly say that no exact match was found and ask whether the user wants to change a preference; never propose a substitute category."} The submitted profile is the user's highest-priority requirement: never replace its requested gift type, budget, recipient, or occasion with a different option. Use activePreferences as the single source of truth for the user's current preferences and do not mix it with older or conflicting categories. First respond to the user's actual message: answer a question directly, carry out or specifically acknowledge a command, and respond naturally to conversation. In Event Planner and Gift Box modes, always answer a custom user question or command directly in reply, even while a guided item list is active. Never use 'I updated the products', a translation of it, or another generic UI-update status as the reply. The product cards update separately while you reply. If facts needed to answer are not present in the supplied data, say so briefly or ask one useful clarification instead of inventing facts. Rank only the provided product IDs and never invent catalog products. ${replyLengthInstruction} Never include product names, product IDs, prices, or a written list of recommendations in reply because the UI shows products only as cards. For eventPlan and giftBox tasks, return the checklist only in eventPlan, never repeat that checklist in reply. For compare tasks, make reply a direct, useful response for the AI suggestions field without listing products. Analytics and reply chips are generated locally, so do not return them. Return JSON only. ${getReplyLanguageInstruction(language)}`,
         },
         {
           role: "user",
@@ -2086,7 +2254,7 @@ async function getGroqCommerce(
               messageAnalysis.preferences.requestedGiftType,
             productCatalogFromCommerceMcp: products,
             profile,
-            query: userMessage,
+            query: isPlanOnlyTask ? query : userMessage,
             replyLanguage: language,
             searchContext: {
               budgetResult: productSearch
@@ -2356,6 +2524,7 @@ export async function POST(request: Request) {
   const preserveProfile = bodyRecord?.preserveProfile === true;
   const cartIds = parseStringArray(bodyRecord?.cartIds, 30);
   const requestedProductIds = parseStringArray(bodyRecord?.productIds, 3);
+  const rankingEvents = parseRankingEvents(bodyRecord?.events);
   const conversationHistory = parseConversationHistory(
     bodyRecord?.conversationHistory,
   );
@@ -2420,10 +2589,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const mcpPromise = createCommerceMcpClient();
-
     if (task === "checkout") {
-      const mcp = await mcpPromise;
+      const mcp = await createCommerceMcpClient();
       const missingFields = getMissingCheckoutFields(cartIds, profile, checkout);
 
       if (missingFields.length > 0) {
@@ -2472,10 +2639,7 @@ export async function POST(request: Request) {
             4000,
           ).catch(() => null)
         : Promise.resolve(null);
-    const [mcp, messageAnalysis] = await Promise.all([
-      mcpPromise,
-      messageAnalysisPromise,
-    ]);
+    const messageAnalysis = await messageAnalysisPromise;
     const locallyDetectedBudget = inferBudgetPreference(userMessage);
     const locallyDetectedOccasion = inferOccasionPreference(userMessage);
     const locallyDetectedRecipient = inferRecipientPreference(userMessage);
@@ -2531,9 +2695,14 @@ export async function POST(request: Request) {
     const activeBudgetFilter = parseBudgetFilter(
       effectiveExtendedPreferences.budget,
     );
+    const isGuidedRecommendation =
+      task === "recommend" &&
+      (mode.includes("Event") || mode.includes("Gift Box"));
     const searchQuery =
       productIdsForCompare.length >= 2
         ? productIdsForCompare.join(" ")
+        : isGuidedRecommendation
+          ? query
         : effectiveExtendedPreferences.giftType ||
           (messageAnalysis
             ? normalizeAnalyzedSearchQuery(
@@ -2542,6 +2711,116 @@ export async function POST(request: Request) {
                 searchProfile,
               )
             : getSearchQuery(query, searchProfile, mode));
+
+    if (task === "eventPlan" || task === "giftBox") {
+      if (!apiKey) {
+        return NextResponse.json(
+          { error: getMissingGroqKeyMessage() },
+          { status: 500 },
+        );
+      }
+
+      const commerce = await getGroqCommerce(
+        apiKey,
+        resolvedMessageAnalysis.detectedLanguage,
+        mode,
+        task,
+        query,
+        userMessage,
+        [],
+        null,
+        replyPreferenceProfile,
+        resolvedMessageAnalysis,
+        searchQuery,
+        null,
+        conversationHistory,
+      );
+
+      if (commerce instanceof NextResponse) {
+        return commerce;
+      }
+
+      return NextResponse.json({
+        ...commerce,
+        analytics: getLocalAnalytics({
+          delivery: null,
+          deliveryRequested: false,
+          intent: resolvedMessageAnalysis.intent,
+          products: [],
+          profile: replyPreferenceProfile,
+          recommendations: [],
+        }),
+        chips: [],
+        delivery: null,
+        mode,
+        products: [],
+        recommendations: [],
+      });
+    }
+
+    if (task === "recommend") {
+      const sessionId = await getOrCreatePersonalizationSessionId();
+      const products = await fetchPythonRankedProducts({
+        events: rankingEvents,
+        profile: searchProfile,
+        query: searchQuery || query,
+        sessionId,
+      });
+
+      if (!apiKey) {
+        return NextResponse.json(
+          { error: getMissingGroqKeyMessage() },
+          { status: 500 },
+        );
+      }
+
+      const commerce = await getGroqCommerce(
+        apiKey,
+        resolvedMessageAnalysis.detectedLanguage,
+        mode,
+        task,
+        query,
+        userMessage,
+        products,
+        null,
+        replyPreferenceProfile,
+        resolvedMessageAnalysis,
+        searchQuery,
+        null,
+        conversationHistory,
+      );
+
+      if (commerce instanceof NextResponse) {
+        return commerce;
+      }
+
+      const recommendations =
+        commerce.recommendations.length > 0
+          ? commerce.recommendations
+          : fallbackRecommendations(products);
+
+      return NextResponse.json({
+        ...commerce,
+        analytics: getLocalAnalytics({
+          delivery: null,
+          deliveryRequested: false,
+          intent: resolvedMessageAnalysis.intent,
+          products,
+          profile: replyPreferenceProfile,
+          recommendations,
+        }),
+        chips:
+          mode.includes("Event") || mode.includes("Gift Box")
+            ? ["Next item", "Suggest more"]
+            : getShoppingReplyChips(),
+        delivery: null,
+        mode,
+        products,
+        recommendations,
+      });
+    }
+
+    const mcp = await createCommerceMcpClient();
     const deliveryRequested = isDeliveryRequested(userMessage);
     const canonicalCityPromise =
       deliveryRequested && effectiveProfile.city
@@ -2598,7 +2877,7 @@ export async function POST(request: Request) {
           tools: [commerceTools.searchProducts],
         },
         mode,
-        products: products.slice(0, 4),
+        products: products.slice(0, MAX_RANKED_PRODUCTS),
         recommendations,
         reply: "GenieAI loaded products.",
       });
@@ -2731,7 +3010,9 @@ export async function POST(request: Request) {
       recommendations,
     );
     const responseProducts =
-      task === "compare" ? products.slice(0, 3) : recommendationProducts.slice(0, 4);
+      task === "compare"
+        ? products.slice(0, 3)
+        : recommendationProducts.slice(0, MAX_RANKED_PRODUCTS);
     return NextResponse.json({
       ...commerce,
       analytics: getLocalAnalytics({

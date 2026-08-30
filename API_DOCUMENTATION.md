@@ -199,8 +199,8 @@ A task-based endpoint for the live GenieAI catalog.
 |---|---|---|
 | `initial` | Load initial products | `query` |
 | `recommend` | Search and recommend products | `query`, `userMessage`, preferences |
-| `eventPlan` | Search and create an event checklist | `eventUserPreference` |
-| `giftBox` | Search and build a gift-box list | `giftUserPreference` |
+| `eventPlan` | Create an event checklist without ranking products | `eventUserPreference` |
+| `giftBox` | Create a gift-box list without ranking products | `giftUserPreference` |
 | `compare` | Compare live products and generate scored AI insights | `productIds` |
 | `checkout` | Create a guest-checkout link | `cartIds`, `profile`, `checkout` |
 | `giftMessage` | Generate a gift-card message | `giftMessagePreferences` |
@@ -249,6 +249,7 @@ Order tracking has been removed. Sending `"task": "track"` or any other unsuppor
 | `extendedPreferences` | object | `budget`, `giftType`, `occasion`, `recipient`. |
 | `eventUserPreference` | object | Preferences for Event Planner. |
 | `giftUserPreference` | object | Preferences for Gift Box Builder. |
+| `events` | array | Buffered interaction events attached only to recommendation requests. Accepted events are `search`, `impression`, `view`, `compare`, `add_to_cart`, `remove_from_cart`, and `purchase`; at most 100 are forwarded. |
 | `cartIds` | string[] | Up to 30 product IDs; required for checkout. |
 | `productIds` | string[] | Two IDs are required by the current UI comparison flow. The API parses up to 3 IDs. |
 | `conversationHistory` | array | Final 3 valid user/assistant messages. |
@@ -277,9 +278,15 @@ Order tracking has been removed. Sending `"task": "track"` or any other unsuppor
 }
 ```
 
-Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose at most four ranked products and four recommendations.
+Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose up to 12 products in ranked order and up to four recommendation explanations. The frontend shows ranks 1–4 initially, 5–8 after the first Suggest more click, and 9–12 after the second. Suggest more does not call or rerank through the API; its third click returns no products and prompts the user to change the query or preferences.
 
 ### Guided Event and Gift Box budgets
+
+Guided modes use two ordered requests. The `eventPlan` or `giftBox` request first
+generates only the item plan and returns no products. Next.js retains that plan,
+the current item index, and the active mode. It then sends a `recommend` request
+for only the current item's search term and category; the Python payload does not
+receive the frontend mode or the complete plan.
 
 In the GenieAI frontend, a budget selected for Event Planner or Gift Box Builder
 is the total budget for the whole plan, not a budget for every item. The initial
@@ -442,6 +449,7 @@ Some degraded states intentionally return `200`, including local recommendations
 
 ## Frontend consumption notes
 
+- Product interactions are buffered in browser `sessionStorage` instead of being posted individually. Only events included in a successful Python ranking request are removed; failed requests retain them for retry.
 - The product-details popup uses the product `imageUrl`, `price`, `currency`, and full `description`. Other product metadata is not shown in that popup.
 - The Product Compare tab renders only `name`, formatted price, full `description`, and `comparisonInsights`. Product IDs are transport identifiers and are not displayed.
 - Comparison selection happens on product cards; the user does not type IDs into the comparison page.
@@ -469,6 +477,8 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 |---|---|
 | `GROQ_API_KEY` | Groq chat, vision, and transcription access. `GROQ_TOKEN` is also accepted. |
 | `HF_TOKEN` | Optional non-English generation through Hugging Face. `HUGGINGFACE_TOKEN` is also accepted. |
+| `AI_SERVICE_URL` | Base URL of the Python ranking backend, for example `http://localhost:8000`. Recommendation requests are sent to `/v1/commerce/recommendations`. |
+| `AI_SERVICE_TOKEN` | Server-only bearer token shared with the Python ranking backend. Never prefix it with `NEXT_PUBLIC_`. |
 | `COMMERCE_MCP_URL` | Optional commerce MCP endpoint override. |
 | `COMMERCE_SEARCH_PRODUCTS_TOOL` | Commerce MCP product-search tool name. |
 | `COMMERCE_GET_PRODUCT_TOOL` | Commerce MCP product-detail tool name. |
@@ -513,6 +523,7 @@ flowchart TD
   commerceApi["POST /api/ai/commerce"]
   groq["Groq AI services"]
   novita["Novita Hugging Face"]
+  pythonRanking["Python ranking backend"]
   commerceMcp["Commerce MCP catalog and checkout"]
 
   frontend -->|"Initial product load"| commerceApi
@@ -523,10 +534,12 @@ flowchart TD
   contextApi -->|"Preferences"| textFlow
   textFlow -->|"Ready or guided shopping request"| commerceApi
 
-  frontend -->|"Compare, checkout, gift message, or preference search"| commerceApi
-  commerceApi -->|"Live product, delivery, and order operations"| commerceMcp
+  frontend -->|"Compare, checkout, gift message, plan, or product recommendation"| commerceApi
+  commerceApi -->|"Query + preferences + events + secure session header"| pythonRanking
+  pythonRanking -->|"Up to 12 final products in ranked order"| commerceApi
+  commerceApi -->|"Initial catalog, compare, delivery, and checkout operations"| commerceMcp
   commerceMcp -->|"Catalog, delivery, or checkout data"| commerceApi
-  commerceApi -->|"Replies, ranking, comparison, and English gift message"| groq
+  commerceApi -->|"Replies using ranked products, plan generation, comparison, and English gift message"| groq
   groq -->|"Generated or scored output"| commerceApi
   commerceApi -->|"Non-English replies and gift messages when configured"| novita
   novita -->|"Generated non-English text"| commerceApi

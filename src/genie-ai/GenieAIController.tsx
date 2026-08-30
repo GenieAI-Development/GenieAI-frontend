@@ -13,6 +13,13 @@ import {
 } from "react";
 import { stripModelThinking } from "@/lib/aiPayload";
 import { deliveryCities, locationTypes } from "@/lib/deliveryLocations";
+import {
+  clearPendingEvents,
+  getPendingEvents,
+  initializePersonalizationSession,
+  trackPersonalizationEvent,
+} from "@/lib/personalization/client";
+import type { PersonalizationEventType } from "@/lib/personalization/types";
 import { formatPrice, Product } from "@/lib/productCatalog";
 import { AppHeader } from "./v3/AppHeader";
 import { CartDrawer } from "./v3/CartDrawer";
@@ -212,11 +219,14 @@ type StoredChatState = {
   conversationStage: "first-message" | "collecting-context" | "ready";
   extendedPreferences?: ExtendedPreferences;
   fitReasons?: Record<string, string>;
+  guidedPlanIndex?: number;
+  guidedPlanItems?: GuidedPlanItem[];
   input: string;
   language: Language;
   messages: ChatMessage[];
   pendingUserRequest: string;
   profile: ShoppingProfile;
+  productBatchIndex?: number;
   buyBox?: Product[];
   recommendedProducts?: Product[];
   activeMode?: string;
@@ -235,10 +245,13 @@ type ModeSession = {
   conversationStage: "first-message" | "collecting-context" | "ready";
   extendedPreferences?: ExtendedPreferences;
   fitReasons?: Record<string, string>;
+  guidedPlanIndex?: number;
+  guidedPlanItems?: GuidedPlanItem[];
   input: string;
   messages: ChatMessage[];
   pendingUserRequest: string;
   profile: ShoppingProfile;
+  productBatchIndex?: number;
   recommendedProducts?: Product[];
 };
 
@@ -265,6 +278,9 @@ const starterChips = [
   "Find chocolates",
   "Find perfume",
 ];
+
+const PRODUCT_BATCH_SIZE = 4;
+const MAX_RANKED_PRODUCTS = 12;
 
 const starterChipGiftTypes: Record<string, string> = {
   "Find a cake": "Cakes",
@@ -780,6 +796,7 @@ function normalizeShoppingProfile(nextProfile: ShoppingProfile): ShoppingProfile
 
 function normalizeModeSession(session: ModeSession): ModeSession {
   const normalizedProfile = normalizeShoppingProfile(session.profile);
+  const guidedPlanItems = (session.guidedPlanItems ?? []).slice(0, 12);
   return {
     ...session,
     extendedPreferences: normalizeExtendedPreferences(
@@ -787,8 +804,20 @@ function normalizeModeSession(session: ModeSession): ModeSession {
       normalizedProfile,
     ),
     fitReasons: session.fitReasons ?? {},
+    guidedPlanIndex: Math.max(
+      0,
+      Math.min(
+        Math.max(0, guidedPlanItems.length - 1),
+        session.guidedPlanIndex ?? 0,
+      ),
+    ),
+    guidedPlanItems,
     profile: normalizedProfile,
-    recommendedProducts: session.recommendedProducts ?? [],
+    productBatchIndex: Math.max(0, Math.min(3, session.productBatchIndex ?? 0)),
+    recommendedProducts: (session.recommendedProducts ?? []).slice(
+      0,
+      MAX_RANKED_PRODUCTS,
+    ),
   };
 }
 
@@ -1487,6 +1516,7 @@ export function GenieAIController() {
   const chatSoundContextRef = useRef<AudioContext | null>(null);
   const speechPlaybackRequestRef = useRef(0);
   const initialProductsLoadedRef = useRef(false);
+  const lastPersonalizationImpressionKeyRef = useRef("");
 
   const [activeMode, setActiveMode] = useState("Smart Shopping");
   const [language, setLanguage] = useState<Language>("English");
@@ -1494,6 +1524,7 @@ export function GenieAIController() {
   const [input, setInput] = useState("");
   const [chips, setChips] = useState(starterChips);
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
+  const [productBatchIndex, setProductBatchIndex] = useState(0);
   const [isLoadingInitialProducts, setIsLoadingInitialProducts] =
     useState(true);
   const [fitReasons, setFitReasons] = useState<Record<string, string>>({});
@@ -1554,7 +1585,6 @@ export function GenieAIController() {
   const [compareSuggestion, setCompareSuggestion] = useState("");
   const [guidedPlanItems, setGuidedPlanItems] = useState<GuidedPlanItem[]>([]);
   const [guidedPlanIndex, setGuidedPlanIndex] = useState(0);
-  const [guidedMoreCount, setGuidedMoreCount] = useState(0);
   const [isCompareSubmitting, setIsCompareSubmitting] = useState(false);
   const [isCheckoutCreating, setIsCheckoutCreating] = useState(false);
   const [checkoutWarning, setCheckoutWarning] = useState("");
@@ -1590,7 +1620,20 @@ export function GenieAIController() {
     (typeof copy)["English"]
   >;
   const minimumDeliveryDate = getLocalDateString();
-  const visibleProducts = recommendedProducts.slice(0, 4);
+  const visibleProducts = useMemo(
+    () => {
+      const start = productBatchIndex * PRODUCT_BATCH_SIZE;
+      return recommendedProducts.slice(start, start + PRODUCT_BATCH_SIZE);
+    },
+    [productBatchIndex, recommendedProducts],
+  );
+  const latestUserQuery = useMemo(
+    () =>
+      [...messages]
+        .reverse()
+        .find((message) => message.role === "user")?.content,
+    [messages],
+  );
   const shouldShowProductSuggestions =
     conversationStage !== "collecting-context";
   const hasUserMessages = messages.some((message) => message.role === "user");
@@ -1620,6 +1663,38 @@ export function GenieAIController() {
   const isGiftMessageMode = activeMode.includes("Message");
   const isFormToolMode = isCompareMode || isGiftMessageMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
+
+  useEffect(() => {
+    void initializePersonalizationSession();
+  }, []);
+
+  useEffect(() => {
+    if (isSending || visibleProducts.length === 0) {
+      return;
+    }
+
+    const impressionKey = JSON.stringify({
+      mode: activeMode,
+      productIds: visibleProducts.map((product) => product.id),
+      query: latestUserQuery ?? "",
+    });
+
+    if (lastPersonalizationImpressionKeyRef.current === impressionKey) {
+      return;
+    }
+
+    lastPersonalizationImpressionKeyRef.current = impressionKey;
+    visibleProducts.forEach((product, index) => {
+      void trackPersonalizationEvent({
+        category: product.category,
+        event: "impression",
+        position: productBatchIndex * PRODUCT_BATCH_SIZE + index + 1,
+        price: product.price,
+        productId: product.id,
+        query: latestUserQuery,
+      });
+    });
+  }, [activeMode, isSending, latestUserQuery, productBatchIndex, visibleProducts]);
 
   useEffect(() => {
     if (!isPromptPopupOpen) {
@@ -1723,10 +1798,13 @@ export function GenieAIController() {
           initialShoppingProfile,
         ),
         fitReasons: {},
+        guidedPlanIndex: 0,
+        guidedPlanItems: [],
         input: "",
         messages: starterMessagesByLanguage[language],
         pendingUserRequest: "",
         profile: normalizeShoppingProfile(initialShoppingProfile),
+        productBatchIndex: 0,
         recommendedProducts: [],
       };
     }
@@ -1739,6 +1817,8 @@ export function GenieAIController() {
       conversationStage: needsContext ? "collecting-context" : "ready",
       extendedPreferences: getExtendedPreferencesFromProfile(profile),
       fitReasons: {},
+      guidedPlanIndex: 0,
+      guidedPlanItems: [],
       input: "",
       messages: [
         {
@@ -1753,6 +1833,7 @@ export function GenieAIController() {
           ? "Build a gift box"
           : "",
       profile: normalizeShoppingProfile(profile),
+      productBatchIndex: 0,
       recommendedProducts: [],
     };
   }
@@ -1764,10 +1845,13 @@ export function GenieAIController() {
       conversationStage,
       extendedPreferences,
       fitReasons,
+      guidedPlanIndex,
+      guidedPlanItems,
       input,
       messages,
       pendingUserRequest,
       profile: normalizeShoppingProfile(profile),
+      productBatchIndex,
       recommendedProducts,
     };
   }
@@ -1785,12 +1869,17 @@ export function GenieAIController() {
       ),
     );
     setFitReasons(normalizedSession.fitReasons ?? {});
+    setGuidedPlanIndex(normalizedSession.guidedPlanIndex ?? 0);
+    setGuidedPlanItems(normalizedSession.guidedPlanItems ?? []);
     setInput(normalizedSession.input);
     setMessages(normalizedSession.messages);
     setPendingUserRequest(normalizedSession.pendingUserRequest);
     setProfile(normalizedSession.profile);
+    setProductBatchIndex(normalizedSession.productBatchIndex ?? 0);
     syncSidebarBudgetDraft(normalizedSession.profile.budget);
-    setRecommendedProducts((normalizedSession.recommendedProducts ?? []).slice(0, 4));
+    setRecommendedProducts(
+      (normalizedSession.recommendedProducts ?? []).slice(0, MAX_RANKED_PRODUCTS),
+    );
   }
 
   function resetToolPanels() {
@@ -1921,20 +2010,6 @@ export function GenieAIController() {
     if (normalized.includes("card")) return "greeting card";
 
     return value.replace(/^\d+[\).:-]?\s*/, "").slice(0, 80) || "gift";
-  }
-
-  function getMoreSearchTerm(item: GuidedPlanItem, count: number) {
-    const baseTerm = getPlanSearchTerm(item);
-    const strictTerms: Record<string, string[]> = {
-      cake: ["cake", "birthday cake", "chocolate cake", "celebration cake"],
-      chocolate: ["chocolate", "chocolate box", "chocolate hamper", "chocolates"],
-      flowers: ["flowers", "flower bouquet", "roses", "fresh flowers"],
-      perfume: ["perfume", "fragrance", "perfume gift", "body spray"],
-      snacks: ["snacks", "snack pack", "party snacks", "savory snacks"],
-    };
-    const options = strictTerms[baseTerm] ?? [baseTerm];
-
-    return options[count % options.length];
   }
 
   function formatGuidedPlanItem(item: GuidedPlanItem) {
@@ -2500,10 +2575,13 @@ export function GenieAIController() {
                 storedState.profile,
               ),
               fitReasons: storedState.fitReasons ?? {},
+              guidedPlanIndex: storedState.guidedPlanIndex ?? 0,
+              guidedPlanItems: storedState.guidedPlanItems ?? [],
               input: storedState.input,
               messages: storedState.messages,
               pendingUserRequest: storedState.pendingUserRequest,
               profile: normalizeShoppingProfile(storedState.profile),
+              productBatchIndex: storedState.productBatchIndex ?? 0,
               recommendedProducts: storedState.recommendedProducts ?? [],
             };
           const shouldUseFreshStarterChips =
@@ -2552,11 +2630,14 @@ export function GenieAIController() {
       conversationStage,
       extendedPreferences,
       fitReasons,
+      guidedPlanIndex,
+      guidedPlanItems,
       input,
       language,
       messages,
       buyBox,
       profile,
+      productBatchIndex,
       recommendedProducts,
       modeSessions: {
         ...modeSessions,
@@ -2566,10 +2647,13 @@ export function GenieAIController() {
           conversationStage,
           extendedPreferences,
           fitReasons,
+          guidedPlanIndex,
+          guidedPlanItems,
           input,
           messages,
           pendingUserRequest,
           profile,
+          productBatchIndex,
           recommendedProducts,
         },
       },
@@ -2582,6 +2666,8 @@ export function GenieAIController() {
     conversationStage,
     extendedPreferences,
     fitReasons,
+    guidedPlanIndex,
+    guidedPlanItems,
     input,
     isChatStateLoaded,
     language,
@@ -2590,6 +2676,7 @@ export function GenieAIController() {
     modeSessions,
     pendingUserRequest,
     profile,
+    productBatchIndex,
     recommendedProducts,
   ]);
 
@@ -2682,7 +2769,8 @@ export function GenieAIController() {
         }
 
         if (data.products && data.products.length > 0) {
-          setRecommendedProducts(data.products.slice(0, 4));
+          setRecommendedProducts(data.products.slice(0, MAX_RANKED_PRODUCTS));
+          setProductBatchIndex(0);
         }
 
         if (data.recommendations) {
@@ -2889,6 +2977,9 @@ export function GenieAIController() {
 
   function addToBuyBox(product: Product) {
     setCheckoutWarning("");
+    if (!buyBox.some((item) => item.id === product.id)) {
+      trackProductInteraction("add_to_cart", product);
+    }
     setBuyBox((current) =>
       current.some((item) => item.id === product.id)
         ? current
@@ -2897,7 +2988,37 @@ export function GenieAIController() {
   }
 
   function removeFromBuyBox(productId: string) {
+    const product = buyBox.find((item) => item.id === productId);
+    if (product) {
+      trackProductInteraction("remove_from_cart", product);
+    }
     setBuyBox((current) => current.filter((item) => item.id !== productId));
+  }
+
+  function trackProductInteraction(
+    event: PersonalizationEventType,
+    product: Product,
+  ) {
+    const position = visibleProducts.findIndex(
+      (visibleProduct) => visibleProduct.id === product.id,
+    );
+
+    void trackPersonalizationEvent({
+      category: product.category,
+      event,
+      position:
+        position >= 0
+          ? productBatchIndex * PRODUCT_BATCH_SIZE + position + 1
+          : undefined,
+      price: product.price,
+      productId: product.id,
+      query: latestUserQuery,
+    });
+  }
+
+  function viewProduct(product: Product) {
+    trackProductInteraction("view", product);
+    setSelectedProduct(product);
   }
 
   function applyCommerceResponse(
@@ -2906,7 +3027,8 @@ export function GenieAIController() {
   ) {
     const responsePreferences = getResponsePreferenceForMode(activeMode, data);
     if (data.products) {
-      setRecommendedProducts(data.products.slice(0, 4));
+      setRecommendedProducts(data.products.slice(0, MAX_RANKED_PRODUCTS));
+      setProductBatchIndex(0);
     }
 
     if (data.recommendations) {
@@ -2990,8 +3112,11 @@ export function GenieAIController() {
     userMessage = query,
     preserveProfile = false,
     extendedPreferencesOverride = extendedPreferences,
+    taskOverride?: string,
   ) {
     const requestProfile = normalizeShoppingProfile(profileOverride);
+    const requestTask = taskOverride ?? getTaskForMode(mode);
+    const pendingEvents = requestTask === "recommend" ? getPendingEvents() : [];
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 28000);
     const requestBody = JSON.stringify({
@@ -3003,12 +3128,13 @@ export function GenieAIController() {
         )
         .slice(-3)
         .map(({ content, role }) => ({ content, role })),
+      events: pendingEvents,
       language,
       mode,
       profile: requestProfile,
       preserveProfile,
       query,
-      task: getTaskForMode(mode),
+      task: requestTask,
       userMessage,
       ...getPreferencePayloadForMode(mode, extendedPreferencesOverride),
     });
@@ -3070,6 +3196,9 @@ export function GenieAIController() {
         }
 
         applyCommerceResponse(data, applyPreferenceUpdates);
+        if (requestTask === "recommend") {
+          clearPendingEvents(pendingEvents);
+        }
         return data;
       }
     } finally {
@@ -3091,15 +3220,25 @@ export function GenieAIController() {
       preferencesOverride.budget || profileOverride.budget,
       itemCount,
     );
+    const itemSearchTerm = query.trim();
 
     return runCommerce(
-      query,
+      itemSearchTerm,
       activeMode,
-      { ...profileOverride, budget: itemBudget },
+      {
+        ...profileOverride,
+        budget: itemBudget,
+        category: itemSearchTerm,
+      },
       false,
-      query,
+      itemSearchTerm,
       true,
-      { ...preferencesOverride, budget: itemBudget },
+      {
+        ...preferencesOverride,
+        budget: itemBudget,
+        giftType: itemSearchTerm,
+      },
+      "recommend",
     );
   }
 
@@ -3280,7 +3419,6 @@ export function GenieAIController() {
 
       setGuidedPlanItems(planItems);
       setGuidedPlanIndex(0);
-      setGuidedMoreCount(0);
       await runGuidedItemCommerce(
         getPlanSearchTerm(firstItem),
         planItems,
@@ -3606,27 +3744,32 @@ export function GenieAIController() {
       return;
     }
 
-    const currentItem =
-      guidedPlanItems[guidedPlanIndex] ?? guidedPlanItems[0];
-    setIsSending(true);
-    setActivityMessage(text.processing);
+    const nextBatchIndex = productBatchIndex + 1;
+    const nextBatchStart = nextBatchIndex * PRODUCT_BATCH_SIZE;
 
-    try {
-      const nextMoreCount = guidedMoreCount + 1;
-      setGuidedMoreCount(nextMoreCount);
-      setRecommendedProducts([]);
-      setFitReasons({});
-      await runGuidedItemCommerce(
-        getMoreSearchTerm(currentItem, nextMoreCount),
+    if (nextBatchStart < recommendedProducts.length) {
+      setProductBatchIndex(nextBatchIndex);
+      setStatus(
+        `Showing ranked products ${nextBatchStart + 1}-${Math.min(
+          nextBatchStart + PRODUCT_BATCH_SIZE,
+          recommendedProducts.length,
+        )}.`,
       );
-      setChips(getGuidedReplyChips());
-      setStatus("More options loaded.");
-    } catch (error) {
-      setStatus(getErrorMessage(error));
-    } finally {
-      setActivityMessage("");
-      setIsSending(false);
+      return;
     }
+
+    setProductBatchIndex(nextBatchIndex);
+    setChips((current) => current.filter((chip) => chip !== "Suggest more"));
+    addMessage({
+      role: "assistant",
+      content:
+        language === "Sinhala"
+          ? "මෙම item එකට ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
+          : language === "Singlish"
+            ? "Me item ekata match una products okkoma pennala iwrai. Query eka hari preferences hari wenas karannada?"
+            : "You've seen all the products matched for this item. Would you like to change the query or update your preferences?",
+    });
+    setStatus("All matched products for this item have been shown.");
   }
 
   async function handleSuggestMoreShopping() {
@@ -3634,16 +3777,11 @@ export function GenieAIController() {
       return;
     }
 
-    if (!profile.budget) {
-      setStatus("Choose a budget before requesting more products.");
-      return;
-    }
+    const nextBatchIndex = productBatchIndex + 1;
+    const nextBatchStart = nextBatchIndex * PRODUCT_BATCH_SIZE;
 
-    if (recommendedProducts.length > 4) {
-      setRecommendedProducts((current) => [
-        ...current.slice(4),
-        ...current.slice(0, 4),
-      ]);
+    if (nextBatchStart < recommendedProducts.length) {
+      setProductBatchIndex(nextBatchIndex);
       addMessage({
         role: "assistant",
         content:
@@ -3653,32 +3791,27 @@ export function GenieAIController() {
               ? "ඔබේ අයවැයට ගැළපෙන තවත් විකල්ප පෙන්වන්නම්."
               : "Here are more options within your budget.",
       });
-      setStatus("More budget-matched products shown.");
+      setStatus(
+        `Showing ranked products ${nextBatchStart + 1}-${Math.min(
+          nextBatchStart + PRODUCT_BATCH_SIZE,
+          recommendedProducts.length,
+        )}.`,
+      );
       return;
     }
 
-    setIsSending(true);
-    setActivityMessage(text.processing);
-    try {
-      const commerceData = await runCommerce(
-        `${profile.category || "gift"} more options`,
-        activeMode,
-        profile,
-        false,
-        "Suggest more",
-        true,
-      );
-      addMessage({
-        role: "assistant",
-        content: getCommerceReply(commerceData),
-      });
-      setStatus("More budget-matched products loaded.");
-    } catch (error) {
-      setStatus(getErrorMessage(error));
-    } finally {
-      setActivityMessage("");
-      setIsSending(false);
-    }
+    setProductBatchIndex(nextBatchIndex);
+    setChips((current) => current.filter((chip) => chip !== "Suggest more"));
+    addMessage({
+      role: "assistant",
+      content:
+        language === "Sinhala"
+          ? "ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට search query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
+          : language === "Singlish"
+            ? "Match una products okkoma pennala iwrai. Search query eka hari preferences hari wenas karannada?"
+            : "You've seen all the matched products. Would you like to change your search query or update your preferences?",
+    });
+    setStatus("All matched products have been shown.");
   }
 
   function handleChipClick(chip: string) {
@@ -3747,6 +3880,12 @@ export function GenieAIController() {
     if (!content || isSending) {
       return;
     }
+
+    void trackPersonalizationEvent({
+      category: starterGiftType || profile.category || undefined,
+      event: "search",
+      query: content,
+    });
 
     const nextMessages: ChatMessage[] = [
       ...messages,
@@ -3894,6 +4033,18 @@ export function GenieAIController() {
   }
 
   function toggleCompareSelection(productId: string) {
+    if (
+      !compareSelectionIds.includes(productId) &&
+      compareSelectionIds.length < 2
+    ) {
+      const product = recommendedProducts.find(
+        (candidate) => candidate.id === productId,
+      );
+      if (product) {
+        trackProductInteraction("compare", product);
+      }
+    }
+
     setCompareSelectionIds((current) => {
       if (current.includes(productId)) {
         return current.filter((id) => id !== productId);
@@ -4571,7 +4722,7 @@ export function GenieAIController() {
         isLoading={isLoadingInitialProducts}
         onAdd={addToBuyBox}
         onCompare={toggleCompareSelection}
-        onView={setSelectedProduct}
+        onView={viewProduct}
         products={visibleProducts}
         viewLabel={text.productView}
       />

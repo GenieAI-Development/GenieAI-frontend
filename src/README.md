@@ -6,8 +6,9 @@ GenieAI is a hosted-AI conversational commerce app styled from `Doc/sample.html`
 - First-message context analysis: Groq processing model
 - Image shopping and voice transcription: Groq vision and STT APIs
 - Assistant read-aloud: browser speech synthesis (no additional AI model)
-- Live products and delivery checks: commerce MCP
-- Ranking, event planning, gift boxes, and comparison: Groq over real MCP results
+- Product recommendations: Python ranking backend through the server-only Next.js proxy
+- Initial catalog, product details, delivery, comparison lookup, and checkout: commerce MCP
+- Event planning, gift boxes, reply generation, and comparison insights: Groq
 - Reply chips: two randomly selected starter chips, generated locally
 - Commerce analytics: generated locally
 
@@ -25,6 +26,8 @@ Edit `.env.local` and set:
 
 - `GROQ_API_KEY`
 - `HF_TOKEN` with Inference Providers permission
+- `AI_SERVICE_URL` for the Python backend
+- `AI_SERVICE_TOKEN` shared with that backend
 
 Run the app:
 
@@ -38,6 +41,8 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Default Models
 
 ```dotenv
+AI_SERVICE_URL=http://localhost:8000
+AI_SERVICE_TOKEN=replace-with-the-token-configured-by-your-python-backend
 HF_NOVITA_REPLY_MODEL=Qwen/Qwen2.5-72B-Instruct:novita
 HF_NOVITA_REPLY_TIMEOUT_MS=4500
 GROQ_REPLY_MODEL=openai/gpt-oss-120b

@@ -39,7 +39,7 @@ export function ChatThread({ activityMessage, chatRef, contextPanel, contentOver
           return (
             <article data-chat-message="true" key={`${message.role}-${index}`} className={user ? "flex items-end justify-end gap-2 pl-6 md:pl-10" : "grid grid-cols-1 gap-3.5 md:grid-cols-[40px_minmax(0,1fr)]"}>
               {!user ? <GenieMark className="relative z-10 hidden h-10 w-10 rounded-full border-2 border-[#C89B3C] bg-white text-[#1E4D8C] md:grid" /> : null}
-              <div className={`min-w-0 items-end gap-2 ${user ? "order-first max-w-[min(80%,520px)]" : "flex w-full"}`}>
+              <div className={`min-w-0 items-end gap-2 ${user ? "order-first max-w-[min(80%,520px)]" : `flex w-full ${isContext ? "md:pr-12" : ""}`}`}>
                 <div className={`${isContext ? "w-full" : user ? "w-fit max-w-[min(100%,680px)]" : "w-[85%] max-w-[680px]"} rounded-[12px] border px-4 py-3 text-sm leading-6 shadow-[0_8px_24px_-12px_rgba(10,31,58,.18)] ${user ? "border-[#0A1F3A] bg-[#0A1F3A] text-white" : "border-[#E4E1D8] bg-white text-[#3E4A56]"}`}>
                   {isContext ? contextPanel(conversationStage === "collecting-context") : renderMessage(message.content)}
                   {message.retryReason === "timeout" && message.retryText ? (

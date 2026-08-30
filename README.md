@@ -2,7 +2,7 @@
 
 GenieAI is a multilingual AI-assisted shopping experience built with Next.js. It combines hosted LLMs, a live commerce MCP integration, guided shopping flows, delivery checks, product comparison, gift message generation, image-based search hints, and voice input into a single ecommerce workspace.
 
-The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) directory and is designed around real catalog operations rather than mock product recommendations. The frontend talks to local Next.js API routes, and those routes orchestrate Groq, Hugging Face via Novita, and the commerce MCP server.
+The app lives in the `src` directory. The frontend talks only to local Next.js API routes; those routes securely orchestrate the Python ranking backend, Groq, Hugging Face via Novita, and the commerce MCP server.
 
 ## Table of Contents
 
@@ -64,7 +64,8 @@ At a high level:
 4. Those routes call one or more of:
    - Groq hosted models
    - Hugging Face Inference Providers via Novita
-   - commerce MCP tools
+   - the Python product-ranking backend
+   - commerce MCP tools for initial catalog, comparison lookup, delivery, and checkout
 5. The backend returns a normalized JSON response containing reply text, products, recommendations, delivery status, chips, analytics, or task-specific results.
 6. The UI updates product cards, chat bubbles, guided chips, the buy box, and any delivery or checkout information.
 
@@ -78,6 +79,7 @@ At a high level:
 - `Groq API` for chat, reasoning, image analysis, and speech-to-text
 - `Hugging Face Inference Providers` via Novita for selected reply generation
 - `Commerce MCP` for live commerce operations
+- `Python ranking service` for final product recommendations
 
 ## Repository Structure
 
@@ -163,6 +165,8 @@ The default template is [`src/env.local.example`](D:/Projects/AI/MCP-AI-Shopping
 
 - `GROQ_API_KEY`
 - `HF_TOKEN`
+- `AI_SERVICE_URL` — Python backend base URL, such as `http://localhost:8000`
+- `AI_SERVICE_TOKEN` — server-only token shared with the Python backend
 
 ### Commerce and Provider Configuration
 
