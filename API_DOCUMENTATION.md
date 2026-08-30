@@ -9,6 +9,7 @@ Concise HTTP reference for the public API routes.
 | `POST` | `/api/ai/chatbot` | Multilingual shopping chat |
 | `POST` | `/api/ai/context-analysis` | Extract shopping preferences from text |
 | `POST` | `/api/ai/image-analysis` | Analyze an image for product-search hints |
+| `POST` | `/api/ai/gift-card` | Generate a product-matched Gift Card image |
 | `POST` | `/api/ai/voice-messages` | Transcribe English audio |
 | `POST` | `/api/ai/commerce` | Search, compare, plan, generate gift messages, and check out |
 
@@ -150,6 +151,51 @@ If vision is temporarily unavailable, the endpoint may return `200` with `"fallb
 
 Errors: `400` for a missing file, `413` above the size limit, `500` for missing credentials, and upstream/`502` errors for analysis failures.
 
+## Gift Card image generation
+
+`POST /api/ai/gift-card`
+
+Analyzes one cart product image with Groq and renders a safe SVG Gift Card in Next.js.
+
+### Request
+
+```json
+{
+  "product": {
+    "id": "product-45",
+    "name": "Pink Rose Bouquet",
+    "description": "Fresh pink roses wrapped for gifting",
+    "imageUrl": "https://example.com/rose.jpg"
+  },
+  "preferences": {
+    "language": "English",
+    "style": "Elegant",
+    "theme": "Auto-match product",
+    "occasion": "Birthday",
+    "recipient": "Mother",
+    "receiverName": "Nimali",
+    "senderName": "Kamal",
+    "instructions": "Keep the wish short and warm"
+  }
+}
+```
+
+`product.id`, `product.imageUrl`, and a valid selected cart product are required by the frontend. The Card tab lives inside the Gift Message window and prefills language, occasion, and recipient from active shopping preferences when available. Remote HTTP(S) images and supported raster data URLs are passed as Groq vision input. Bundled local SVG product artwork is read from `public` and supplied as bounded SVG context without exposing arbitrary files.
+
+### Response — `200`
+
+```json
+{
+  "analysis": "Soft pink floral styling matches the bouquet and birthday mood.",
+  "imageDataUrl": "data:image/svg+xml;base64,...",
+  "message": "Wishing you a beautiful birthday filled with love.",
+  "model": "qwen/qwen3.6-27b",
+  "palette": ["#FFF8F4", "#5E2945", "#E8A4B8"]
+}
+```
+
+The server validates colors, motif, and text lengths, escapes all text, and renders a fixed 1200×800 SVG template. Optional `receiverName` and `senderName` values are displayed as “To” and “From”; blank values add no name text. Groq never supplies executable SVG or HTML. Errors: `400` when no valid product is selected, `500` when the Groq key is missing, and upstream/`502` errors when generation fails.
+
 ## Voice transcription
 
 `POST /api/ai/voice-messages`
@@ -199,6 +245,7 @@ A task-based endpoint for the live GenieAI catalog.
 |---|---|---|
 | `initial` | Load initial products | `query` |
 | `recommend` | Search and recommend products | `query`, `userMessage`, preferences |
+| `productPageReply` | Generate text after locally paging stored products; never calls Python or the catalog | `shownFrom`, `shownTo`, `total`, `exhausted` |
 | `eventPlan` | Create an event checklist without ranking products | `eventUserPreference` |
 | `giftBox` | Create a gift-box list without ranking products | `giftUserPreference` |
 | `compare` | Compare live products and generate scored AI insights | `productIds` |
@@ -278,7 +325,7 @@ Order tracking has been removed. Sending `"task": "track"` or any other unsuppor
 }
 ```
 
-Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose up to 12 products in ranked order and up to four recommendation explanations. The frontend shows ranks 1–4 initially, 5–8 after the first Suggest more click, and 9–12 after the second. Suggest more does not call or rerank through the API; its third click returns no products and prompts the user to change the query or preferences.
+Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose up to 12 products in ranked order and up to four recommendation explanations. The frontend shows ranks 1–4 initially, 5–8 after the first Suggest more click, and 9–12 after the second. Each Suggest more action switches cards locally, then calls the AI-only `productPageReply` task for conversational text. It never calls Python, searches the catalog, or reranks. The next action after ranks 9–12 is the fourth display state: it returns no products and generates the “all matched products shown” reply.
 
 ### Guided Event and Gift Box budgets
 
@@ -495,6 +542,8 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `GROQ_SINGLISH_GIFT_MESSAGE_MODEL` | Groq fallback model for Singlish gift messages. |
 | `GROQ_VISION_MODEL` | Optional image-analysis model override. |
 | `GROQ_VISION_BACKUP_MODEL` | Optional image-analysis fallback-model override. |
+| `GROQ_GIFT_CARD_MODEL` | Gift Card vision/art-direction model. Defaults to `qwen/qwen3.6-27b`. |
+| `GROQ_GIFT_CARD_BACKUP_MODEL` | Gift Card fallback model. Defaults to `qwen/qwen3.8-27b`. |
 | `GROQ_BACKUP_MODEL` | Optional first general Groq text fallback model. |
 | `GROQ_BACKUP_MODELS` | Optional comma-separated general Groq text fallback models. |
 | `GROQ_REQUEST_TIMEOUT_MS` | Per-model Groq timeout; clamped to 3–30 seconds and defaults to 5 seconds. |
@@ -519,6 +568,7 @@ flowchart TD
   textFlow["Shared text submission flow"]
   contextApi["POST /api/ai/context-analysis"]
   imageApi["POST /api/ai/image-analysis"]
+  giftCardApi["POST /api/ai/gift-card"]
   voiceApi["POST /api/ai/voice-messages"]
   commerceApi["POST /api/ai/commerce"]
   groq["Groq AI services"]
@@ -550,6 +600,11 @@ flowchart TD
   groq -->|"Vision result"| imageApi
   imageApi -->|"Search hints"| frontend
   frontend -->|"Search using image hints"| commerceApi
+
+  frontend -->|"Selected cart product + card preferences"| giftCardApi
+  giftCardApi -->|"Product-image analysis and art direction"| groq
+  groq -->|"Validated palette, motif, and copy"| giftCardApi
+  giftCardApi -->|"Safe SVG data image"| frontend
 
   frontend -->|"English voice recording"| voiceApi
   voiceApi -->|"Speech transcription"| groq

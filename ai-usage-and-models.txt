@@ -7,6 +7,7 @@ Default summary
 - Most analysis, ranking, and comparison tasks use Groq `llama-3.3-70b-versatile`.
 - Voice transcription uses Groq `whisper-large-v3-turbo`.
 - Image analysis uses Groq `qwen/qwen3.6-27b`.
+- Gift Card product-image analysis and art direction use Groq `qwen/qwen3.6-27b`, with `qwen/qwen3.8-27b` as the dedicated fallback. Next.js renders the returned design into SVG.
 
 Active defaults
 
@@ -22,6 +23,8 @@ Active defaults
 - `GROQ_SINHALA_GIFT_MESSAGE_MODEL=openai/gpt-oss-120b`
 - `GROQ_SINGLISH_GIFT_MESSAGE_MODEL=llama-3.3-70b-versatile`
 - `GROQ_VISION_MODEL=qwen/qwen3.6-27b`
+- `GROQ_GIFT_CARD_MODEL=qwen/qwen3.6-27b`
+- `GROQ_GIFT_CARD_BACKUP_MODEL=qwen/qwen3.8-27b`
 
 Where each model is used
 
@@ -34,6 +37,8 @@ Where each model is used
   Standalone test chatbot: Groq
 - `/api/ai/image-analysis`
   Image understanding: Groq vision
+- `/api/ai/gift-card`
+  Selected cart-product image analysis, palette/motif selection, and card copy: Groq multimodal; safe SVG rendering: Next.js
 - `/api/ai/voice-messages`
   Speech-to-text: Groq Whisper
 

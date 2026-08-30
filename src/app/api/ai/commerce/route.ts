@@ -23,6 +23,7 @@ import {
 import { toCommerceLocationType } from "@/lib/deliveryLocations";
 import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
 import { CatalogSearchProduct, Product, toProduct } from "@/lib/productCatalog";
+import { getRandomInitialProducts } from "@/lib/supabaseProductCatalog";
 
 export const runtime = "nodejs";
 
@@ -265,6 +266,7 @@ const SUPPORTED_TASKS = new Set([
   "giftBox",
   "giftMessage",
   "initial",
+  "productPageReply",
   "recommend",
 ]);
 const productSearchCache = new Map<string, CacheEntry<ProductSearchResult>>();
@@ -2505,6 +2507,68 @@ async function getGroqGiftMessage(
   }
 }
 
+function getProductPageReplyFallback(
+  language: DetectedLanguage,
+  exhausted: boolean,
+) {
+  if (exhausted) {
+    return language === "Sinhala"
+      ? "ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට search query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
+      : language === "Singlish"
+        ? "Match una products okkoma pennala iwrai. Search query eka hari preferences hari wenas karannada?"
+        : "You've seen all the matched products. Would you like to change your search query or update your preferences?";
+  }
+
+  return language === "Sinhala"
+    ? "ඔබේ preferences වලට ගැළපෙන ඊළඟ products පෙන්වන්නම්."
+    : language === "Singlish"
+      ? "Oyage preferences walata match wena ilanga products pennanawa."
+      : "Here are the next matched products for your preferences.";
+}
+
+async function getGroqProductPageReply(
+  apiKey: string,
+  language: DetectedLanguage,
+  context: {
+    exhausted: boolean;
+    mode: string;
+    profile: ShoppingProfile;
+    query: string;
+    shownFrom: number;
+    shownTo: number;
+    total: number;
+  },
+) {
+  const { response } = await fetchGroqChatWithFallback(apiKey, {
+    model:
+      language === "Sinhala"
+        ? process.env.GROQ_SINHALA_CHAT_MODEL ?? DEFAULT_SINHALA_CHAT_MODEL
+        : language === "Singlish"
+          ? process.env.GROQ_SINGLISH_CHAT_MODEL ?? DEFAULT_SINGLISH_CHAT_MODEL
+          : process.env.GROQ_ENGLISH_CHAT_MODEL ?? DEFAULT_ENGLISH_CHAT_MODEL,
+    messages: [
+      {
+        role: "system",
+        content: `Write one natural, concise shopping-assistant sentence. The product cards were paged locally, so never claim that you searched, ranked, loaded, or fetched products. Do not mention product names, IDs, APIs, or technical details. If exhausted is true, clearly say all matched products have now been shown and ask whether the user wants to change the query or preferences. Otherwise acknowledge that the next matched products are now visible. ${getReplyLanguageInstruction(language)}`,
+      },
+      {
+        role: "user",
+        content: JSON.stringify(context),
+      },
+    ],
+    temperature: 0.35,
+    max_completion_tokens: 100,
+  });
+
+  if (!response.ok) {
+    return "";
+  }
+
+  return stripModelThinking(
+    getAssistantContent((await response.json()) as unknown) ?? "",
+  ).trim();
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as unknown;
   const bodyRecord = asRecord(body);
@@ -2539,6 +2603,44 @@ export async function POST(request: Request) {
   );
 
   try {
+    if (task === "productPageReply") {
+      const exhausted = bodyRecord?.exhausted === true;
+      const shownFrom = Math.max(
+        1,
+        Math.round(getNumber(bodyRecord, "shownFrom") ?? 1),
+      );
+      const shownTo = Math.max(
+        shownFrom,
+        Math.round(getNumber(bodyRecord, "shownTo") ?? shownFrom),
+      );
+      const total = Math.max(
+        0,
+        Math.round(getNumber(bodyRecord, "total") ?? 0),
+      );
+      const apiKey = getGroqApiKey();
+      const fallbackReply = getProductPageReplyFallback(language, exhausted);
+      const aiReply = apiKey
+        ? await getGroqProductPageReply(apiKey, language, {
+            exhausted,
+            mode,
+            profile,
+            query,
+            shownFrom,
+            shownTo,
+            total,
+          }).catch(() => "")
+        : "";
+
+      return NextResponse.json({
+        ...fallbackResponse,
+        chips: exhausted ? [] : ["Suggest more"],
+        mode,
+        products: [],
+        recommendations: [],
+        reply: aiReply || fallbackReply,
+      });
+    }
+
     if (task === "giftMessage") {
       const apiKey = getGroqApiKey();
       const huggingFaceApiKey = getHuggingFaceApiKey();
@@ -2820,6 +2922,31 @@ export async function POST(request: Request) {
       });
     }
 
+    if (task === "initial") {
+      const products = await getRandomInitialProducts(MAX_RANKED_PRODUCTS);
+      const recommendations = fallbackRecommendations(products);
+
+      return NextResponse.json({
+        ...fallbackResponse,
+        analytics: {
+          buyBoxHealth: "Random saved products loaded",
+          conversionSignal: "Starter catalog is ready",
+          nextBestAction: "Ask for the gift recipient and budget",
+          risk: "Saved catalog availability may differ from live availability",
+        },
+        catalog: {
+          source: "supabase",
+          strategy: "random-in-stock-cakes-and-flowers",
+        },
+        chips: [],
+        delivery: null,
+        mode,
+        products,
+        recommendations,
+        reply: "GenieAI loaded products.",
+      });
+    }
+
     const mcp = await createCommerceMcpClient();
     const deliveryRequested = isDeliveryRequested(userMessage);
     const canonicalCityPromise =
@@ -2857,31 +2984,6 @@ export async function POST(request: Request) {
         : normalizedProducts.filter((product) =>
             isProductInsideBudget(product, activeBudgetFilter),
           );
-
-    if (task === "initial") {
-      const recommendations = fallbackRecommendations(products);
-
-      return NextResponse.json({
-        ...fallbackResponse,
-        analytics: {
-          buyBoxHealth: "Live catalog products loaded",
-          conversionSignal: "Starter catalog is ready",
-          nextBestAction: "Ask for the gift recipient and budget",
-          risk: "Live catalog results may change",
-        },
-        chips: [],
-        delivery: null,
-        mcp: {
-          endpoint: getCommerceMcpUrl(),
-          searchQuery,
-          tools: [commerceTools.searchProducts],
-        },
-        mode,
-        products: products.slice(0, MAX_RANKED_PRODUCTS),
-        recommendations,
-        reply: "GenieAI loaded products.",
-      });
-    }
 
     if (task === "compare" && productIdsForCompare.length >= 2) {
       if (products.length < 2) {

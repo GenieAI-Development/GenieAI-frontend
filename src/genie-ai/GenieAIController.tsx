@@ -27,6 +27,7 @@ import { ChatThread } from "./v3/ChatThread";
 import { CheckoutDialog } from "./v3/CheckoutDialog";
 import { Composer } from "./v3/Composer";
 import { GenieShell } from "./v3/GenieShell";
+import { GiftCardTool, type GiftCardPreferences } from "./v3/GiftCardTool";
 import { NavigationRail } from "./v3/NavigationRail";
 import { PreferencesDrawer } from "./v3/PreferencesDrawer";
 import { ProductDialog } from "./v3/ProductDialog";
@@ -145,7 +146,7 @@ type SuggestedPrompt = {
 };
 
 type GiftMessagePreferences = {
-  language: string;
+  language: Language;
   size: string;
   suggestions: string;
   tone: string;
@@ -221,6 +222,12 @@ type StoredChatState = {
   fitReasons?: Record<string, string>;
   guidedPlanIndex?: number;
   guidedPlanItems?: GuidedPlanItem[];
+  giftCardAnalysis?: string;
+  giftCardImage?: string;
+  giftCardMessage?: string;
+  giftCardPalette?: string[];
+  giftCardPreferences?: GiftCardPreferences;
+  giftCardProductId?: string;
   input: string;
   language: Language;
   messages: ChatMessage[];
@@ -229,6 +236,7 @@ type StoredChatState = {
   productBatchIndex?: number;
   buyBox?: Product[];
   recommendedProducts?: Product[];
+  initialCatalogVersion?: string;
   activeMode?: string;
   modeSessions?: Record<string, ModeSession>;
 };
@@ -253,6 +261,15 @@ type ModeSession = {
   profile: ShoppingProfile;
   productBatchIndex?: number;
   recommendedProducts?: Product[];
+};
+
+type GiftCardResponse = {
+  analysis?: string;
+  error?: string;
+  imageDataUrl?: string;
+  message?: string;
+  model?: string;
+  palette?: string[];
 };
 
 const modes = [
@@ -1358,6 +1375,7 @@ const CHAT_DB_NAME = "genie-ai-chat";
 const CHAT_STORE_NAME = "chat-state";
 const CHAT_STATE_KEY = "current";
 const CHAT_STORAGE_KEY = "genie-ai-chat-state";
+const INITIAL_CATALOG_VERSION = "supabase-cakes-flowers-v2";
 const INTRO_PANEL_STORAGE_KEY = "genie-ai-intro-panel-date";
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
@@ -1596,6 +1614,24 @@ export function GenieAIController() {
       tone: "Warm",
     });
   const [isGiftMessageGenerating, setIsGiftMessageGenerating] = useState(false);
+  const [giftMessageToolTab, setGiftMessageToolTab] = useState<"message" | "card">("message");
+  const [giftCardPreferences, setGiftCardPreferences] =
+    useState<GiftCardPreferences>({
+      instructions: "",
+      language: "English",
+      occasion: "",
+      recipient: "",
+      receiverName: "",
+      senderName: "",
+      style: "Elegant",
+      theme: "Auto-match product",
+    });
+  const [giftCardProductId, setGiftCardProductId] = useState("");
+  const [giftCardImage, setGiftCardImage] = useState("");
+  const [giftCardMessage, setGiftCardMessage] = useState("");
+  const [giftCardAnalysis, setGiftCardAnalysis] = useState("");
+  const [giftCardPalette, setGiftCardPalette] = useState<string[]>([]);
+  const [isGiftCardGenerating, setIsGiftCardGenerating] = useState(false);
   const [isIntroPanelVisible, setIsIntroPanelVisible] = useState(false);
   const [isComposerMenuOpen, setIsComposerMenuOpen] = useState(false);
   const [isPromptPopupOpen, setIsPromptPopupOpen] = useState(false);
@@ -1887,6 +1923,11 @@ export function GenieAIController() {
     setCompareSuggestion("");
     setGuidedPlanItems([]);
     setGuidedPlanIndex(0);
+    setGiftCardImage("");
+    setGiftCardMessage("");
+    setGiftCardAnalysis("");
+    setGiftCardPalette([]);
+    setGiftCardProductId("");
   }
 
   function getCommerceReply(data: CommerceResponse) {
@@ -2397,8 +2438,53 @@ export function GenieAIController() {
   }
 
   function renderGiftMessageTool() {
+    const tabs = (
+      <div className="relative grid h-11 w-full grid-cols-2 border-b-2 border-[#DCE2E8] bg-transparent" role="tablist" aria-label="Gift creation tools">
+        <span aria-hidden="true" className={`pointer-events-none absolute -bottom-0.5 left-0 h-0.5 w-1/2 bg-[#D6A936] transition-transform duration-300 ease-out ${giftMessageToolTab === "card" ? "translate-x-full" : "translate-x-0"}`} />
+        <button type="button" role="tab" aria-selected={giftMessageToolTab === "message"} onClick={() => setGiftMessageToolTab("message")} className={`relative min-w-0 text-sm font-medium transition-colors duration-200 ${giftMessageToolTab === "message" ? "text-[#16202B]" : "text-[#6C7C8C] hover:text-[#31577F]"}`}>Message</button>
+        <button type="button" role="tab" aria-selected={giftMessageToolTab === "card"} onClick={() => {
+          setGiftCardPreferences((current) => ({
+            ...current,
+            language,
+            occasion: profile.occasion || current.occasion,
+            recipient: profile.recipient || current.recipient,
+            receiverName: checkoutDetails.recipientName || current.receiverName || "",
+            senderName: checkoutDetails.senderName || current.senderName || "",
+          }));
+          setGiftMessageToolTab("card");
+        }} className={`relative min-w-0 text-sm font-medium transition-colors duration-200 ${giftMessageToolTab === "card" ? "text-[#16202B]" : "text-[#6C7C8C] hover:text-[#31577F]"}`}>Gift Card</button>
+      </div>
+    );
+
+    if (giftMessageToolTab === "card") {
+      return (
+        <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+          {tabs}
+          <div className="min-h-0 flex-1">
+            <GiftCardTool
+              analysis={giftCardAnalysis}
+              generatedImage={giftCardImage}
+              generating={isGiftCardGenerating}
+              languageLabels={languageLabels}
+              languageOptions={languageOptions}
+              message={giftCardMessage}
+              onPreferences={setGiftCardPreferences}
+              onProduct={setGiftCardProductId}
+              onSubmit={(event) => void handleGiftCardSubmit(event)}
+              palette={giftCardPalette}
+              preferences={giftCardPreferences}
+              products={buyBox}
+              selectedProductId={giftCardProductId}
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="grid min-h-0 gap-3 lg:h-full lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
+      <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+        {tabs}
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]">
         <section className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-[#D7E2EF] bg-white shadow-[0_12px_32px_-24px_rgba(10,31,58,.35)]">
           <div className="bg-[#0B2748] px-5 py-4">
             <div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#D6A936]">Personal note</p><h2 className="mt-1 text-xl font-semibold text-white">Gift Message</h2></div>
@@ -2415,12 +2501,20 @@ export function GenieAIController() {
             <label className="grid gap-1 text-xs font-semibold text-[#5B6B7A]">
               Language
               <select
-                value="English"
-                disabled
-                onChange={() => undefined}
-                className="h-10 rounded-[10px] border border-[#D7E2EF] bg-[#FAF7F1] px-3 text-sm text-[#16202B] outline-none disabled:opacity-100"
+                value={giftMessagePreferences.language}
+                onChange={(event) =>
+                  setGiftMessagePreferences((current) => ({
+                    ...current,
+                    language: event.target.value as Language,
+                  }))
+                }
+                className="h-10 rounded-[10px] border border-[#D7E2EF] bg-[#FAF7F1] px-3 text-sm text-[#16202B] outline-none focus:border-[#3D74B8]"
               >
-                <option>English</option>
+                {languageOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {languageLabels[option]}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="grid gap-1 text-xs font-semibold text-[#5B6B7A]">
@@ -2483,6 +2577,7 @@ export function GenieAIController() {
             {isGiftMessageGenerating ? "Updating..." : "Update message"}
           </button>
         </form>
+        </div>
       </div>
     );
   }
@@ -2561,7 +2656,8 @@ export function GenieAIController() {
         }
 
         if (storedState) {
-          const restoredMode = storedState.activeMode ?? "Smart Shopping";
+          const storedMode = storedState.activeMode ?? "Smart Shopping";
+          const restoredMode = storedMode === "Gift Card" ? "Gift Message" : storedMode;
           const restoredSessions = normalizeModeSessions(
             storedState.modeSessions ?? {},
           );
@@ -2587,17 +2683,48 @@ export function GenieAIController() {
           const shouldUseFreshStarterChips =
             restoredSession.conversationStage === "first-message" &&
             !restoredSession.messages.some((message) => message.role === "user");
-          const sessionToApply = shouldUseFreshStarterChips
+          const restoredSessionWithFreshChips = shouldUseFreshStarterChips
             ? {
                 ...restoredSession,
                 chips: starterChips,
               }
             : restoredSession;
+          const shouldRefreshInitialCatalog =
+            restoredMode === "Smart Shopping" &&
+            storedState.initialCatalogVersion !== INITIAL_CATALOG_VERSION;
+          const sessionToApply = shouldRefreshInitialCatalog
+            ? {
+                ...restoredSessionWithFreshChips,
+                fitReasons: {},
+                productBatchIndex: 0,
+                recommendedProducts: [],
+              }
+            : restoredSessionWithFreshChips;
+          const nextRestoredSessions = shouldRefreshInitialCatalog
+            ? {
+                ...restoredSessions,
+                "Smart Shopping": sessionToApply,
+              }
+            : restoredSessions;
 
           setActiveMode(restoredMode);
+          if (storedMode === "Gift Card") setGiftMessageToolTab("card");
           setLanguage(storedState.language);
-          setModeSessions(restoredSessions);
+          setModeSessions(nextRestoredSessions);
           setBuyBox(storedState.buyBox ?? []);
+          if (storedState.giftCardPreferences) {
+            setGiftCardPreferences((current) => ({
+              ...current,
+              ...storedState.giftCardPreferences,
+              receiverName: storedState.giftCardPreferences?.receiverName ?? "",
+              senderName: storedState.giftCardPreferences?.senderName ?? "",
+            }));
+          }
+          setGiftCardProductId(storedState.giftCardProductId ?? "");
+          setGiftCardImage(storedState.giftCardImage ?? "");
+          setGiftCardMessage(storedState.giftCardMessage ?? "");
+          setGiftCardAnalysis(storedState.giftCardAnalysis ?? "");
+          setGiftCardPalette(storedState.giftCardPalette ?? []);
           applyModeSession(sessionToApply);
         }
       } catch (error) {
@@ -2632,7 +2759,14 @@ export function GenieAIController() {
       fitReasons,
       guidedPlanIndex,
       guidedPlanItems,
+      giftCardAnalysis,
+      giftCardImage,
+      giftCardMessage,
+      giftCardPalette,
+      giftCardPreferences,
+      giftCardProductId,
       input,
+      initialCatalogVersion: INITIAL_CATALOG_VERSION,
       language,
       messages,
       buyBox,
@@ -2668,6 +2802,12 @@ export function GenieAIController() {
     fitReasons,
     guidedPlanIndex,
     guidedPlanItems,
+    giftCardAnalysis,
+    giftCardImage,
+    giftCardMessage,
+    giftCardPalette,
+    giftCardPreferences,
+    giftCardProductId,
     input,
     isChatStateLoaded,
     language,
@@ -2993,6 +3133,9 @@ export function GenieAIController() {
       trackProductInteraction("remove_from_cart", product);
     }
     setBuyBox((current) => current.filter((item) => item.id !== productId));
+    if (giftCardProductId === productId) {
+      setGiftCardProductId("");
+    }
   }
 
   function trackProductInteraction(
@@ -3739,6 +3882,70 @@ export function GenieAIController() {
     }
   }
 
+  function getProductPageReplyFallback(exhausted: boolean, guided: boolean) {
+    if (exhausted) {
+      return language === "Sinhala"
+        ? guided
+          ? "මෙම item එකට ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
+          : "ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට search query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
+        : language === "Singlish"
+          ? guided
+            ? "Me item ekata match una products okkoma pennala iwrai. Query eka hari preferences hari wenas karannada?"
+            : "Match una products okkoma pennala iwrai. Search query eka hari preferences hari wenas karannada?"
+          : guided
+            ? "You've seen all the products matched for this item. Would you like to change the query or update your preferences?"
+            : "You've seen all the matched products. Would you like to change your search query or update your preferences?";
+    }
+
+    return language === "Sinhala"
+      ? "ඔබේ preferences වලට ගැළපෙන ඊළඟ products පෙන්වන්නම්."
+      : language === "Singlish"
+        ? "Oyage preferences walata match wena ilanga products pennanawa."
+        : "Here are the next matched products for your preferences.";
+  }
+
+  async function requestProductPageReply({
+    exhausted,
+    guided,
+    shownFrom,
+    shownTo,
+  }: {
+    exhausted: boolean;
+    guided: boolean;
+    shownFrom: number;
+    shownTo: number;
+  }) {
+    try {
+      const response = await fetch("/api/ai/commerce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          exhausted,
+          language,
+          mode: activeMode,
+          profile,
+          query: latestUserQuery ?? pendingUserRequest,
+          shownFrom,
+          shownTo,
+          task: "productPageReply",
+          total: recommendedProducts.length,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        reply?: string;
+      } | null;
+
+      if (!response.ok || !data?.reply?.trim()) {
+        throw new Error(data?.error || "AI reply generation failed.");
+      }
+
+      return data.reply.trim();
+    } catch {
+      return getProductPageReplyFallback(exhausted, guided);
+    }
+  }
+
   async function handleSuggestMoreGuidedItem() {
     if (isSending || guidedPlanItems.length === 0) {
       return;
@@ -3746,30 +3953,38 @@ export function GenieAIController() {
 
     const nextBatchIndex = productBatchIndex + 1;
     const nextBatchStart = nextBatchIndex * PRODUCT_BATCH_SIZE;
-
-    if (nextBatchStart < recommendedProducts.length) {
-      setProductBatchIndex(nextBatchIndex);
-      setStatus(
-        `Showing ranked products ${nextBatchStart + 1}-${Math.min(
+    const exhausted = nextBatchStart >= recommendedProducts.length;
+    const shownFrom = exhausted ? 1 : nextBatchStart + 1;
+    const shownTo = exhausted
+      ? recommendedProducts.length
+      : Math.min(
           nextBatchStart + PRODUCT_BATCH_SIZE,
           recommendedProducts.length,
-        )}.`,
-      );
-      return;
-    }
-
+        );
     setProductBatchIndex(nextBatchIndex);
-    setChips((current) => current.filter((chip) => chip !== "Suggest more"));
-    addMessage({
-      role: "assistant",
-      content:
-        language === "Sinhala"
-          ? "මෙම item එකට ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
-          : language === "Singlish"
-            ? "Me item ekata match una products okkoma pennala iwrai. Query eka hari preferences hari wenas karannada?"
-            : "You've seen all the products matched for this item. Would you like to change the query or update your preferences?",
-    });
-    setStatus("All matched products for this item have been shown.");
+    if (exhausted) {
+      setChips((current) => current.filter((chip) => chip !== "Suggest more"));
+    }
+    setIsSending(true);
+    setActivityMessage(text.processing);
+
+    try {
+      const reply = await requestProductPageReply({
+        exhausted,
+        guided: true,
+        shownFrom,
+        shownTo,
+      });
+      addMessage({ role: "assistant", content: reply });
+      setStatus(
+        exhausted
+          ? "All matched products for this item have been shown."
+          : `Showing ranked products ${shownFrom}-${shownTo}.`,
+      );
+    } finally {
+      setActivityMessage("");
+      setIsSending(false);
+    }
   }
 
   async function handleSuggestMoreShopping() {
@@ -3779,39 +3994,38 @@ export function GenieAIController() {
 
     const nextBatchIndex = productBatchIndex + 1;
     const nextBatchStart = nextBatchIndex * PRODUCT_BATCH_SIZE;
-
-    if (nextBatchStart < recommendedProducts.length) {
-      setProductBatchIndex(nextBatchIndex);
-      addMessage({
-        role: "assistant",
-        content:
-          language === "Singlish"
-            ? "Thawa budget ekata galapena options pennanawa."
-            : language === "Sinhala"
-              ? "ඔබේ අයවැයට ගැළපෙන තවත් විකල්ප පෙන්වන්නම්."
-              : "Here are more options within your budget.",
-      });
-      setStatus(
-        `Showing ranked products ${nextBatchStart + 1}-${Math.min(
+    const exhausted = nextBatchStart >= recommendedProducts.length;
+    const shownFrom = exhausted ? 1 : nextBatchStart + 1;
+    const shownTo = exhausted
+      ? recommendedProducts.length
+      : Math.min(
           nextBatchStart + PRODUCT_BATCH_SIZE,
           recommendedProducts.length,
-        )}.`,
-      );
-      return;
-    }
-
+        );
     setProductBatchIndex(nextBatchIndex);
-    setChips((current) => current.filter((chip) => chip !== "Suggest more"));
-    addMessage({
-      role: "assistant",
-      content:
-        language === "Sinhala"
-          ? "ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට search query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
-          : language === "Singlish"
-            ? "Match una products okkoma pennala iwrai. Search query eka hari preferences hari wenas karannada?"
-            : "You've seen all the matched products. Would you like to change your search query or update your preferences?",
-    });
-    setStatus("All matched products have been shown.");
+    if (exhausted) {
+      setChips((current) => current.filter((chip) => chip !== "Suggest more"));
+    }
+    setIsSending(true);
+    setActivityMessage(text.processing);
+
+    try {
+      const reply = await requestProductPageReply({
+        exhausted,
+        guided: false,
+        shownFrom,
+        shownTo,
+      });
+      addMessage({ role: "assistant", content: reply });
+      setStatus(
+        exhausted
+          ? "All matched products have been shown."
+          : `Showing ranked products ${shownFrom}-${shownTo}.`,
+      );
+    } finally {
+      setActivityMessage("");
+      setIsSending(false);
+    }
   }
 
   function handleChipClick(chip: string) {
@@ -4083,12 +4297,11 @@ export function GenieAIController() {
     }
 
     setIsGiftMessageGenerating(true);
-    setStatus("Groq is generating a gift message.");
+    setStatus("Generating a gift message.");
 
     try {
       const nextPreferences = {
         ...giftMessagePreferences,
-        language: "English",
         suggestions:
           suggestions !== undefined
             ? suggestions
@@ -4101,7 +4314,7 @@ export function GenieAIController() {
         },
         body: JSON.stringify({
           giftMessagePreferences: nextPreferences,
-          language: "English",
+          language: nextPreferences.language,
           mode: "Gift Message",
           profile: normalizeShoppingProfile(profile),
           query: nextPreferences.suggestions || "Generate a gift message",
@@ -4130,6 +4343,54 @@ export function GenieAIController() {
   async function handleGiftMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await generateGiftMessage(giftMessagePreferences.suggestions);
+  }
+
+  async function handleGiftCardSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isGiftCardGenerating) return;
+
+    const product = buyBox.find((item) => item.id === giftCardProductId);
+    if (!product) {
+      setStatus("Select a product from the cart before generating a gift card.");
+      return;
+    }
+
+    setIsGiftCardGenerating(true);
+    setStatus("Groq is analyzing the product image and designing the gift card.");
+
+    try {
+      const response = await fetch("/api/ai/gift-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preferences: giftCardPreferences,
+          product: {
+            description: product.description,
+            id: product.id,
+            imageUrl: product.imageUrl,
+            name: product.name,
+          },
+        }),
+      });
+      const data = (await response.json()) as GiftCardResponse;
+      if (!response.ok) {
+        throw new Error(data.error ?? "Gift card generation failed.");
+      }
+      if (!data.imageDataUrl) {
+        throw new Error("Groq did not return a valid gift card.");
+      }
+
+      setGiftCardImage(data.imageDataUrl);
+      setGiftCardMessage(data.message ?? "");
+      setGiftCardAnalysis(data.analysis ?? "");
+      setGiftCardPalette(data.palette ?? []);
+      if (data.message?.trim()) setGiftMessage(data.message.trim());
+      setStatus("Gift card generated. Its message is also saved for checkout.");
+    } catch (error) {
+      setStatus(getErrorMessage(error));
+    } finally {
+      setIsGiftCardGenerating(false);
+    }
   }
 
   function handleModeChange(mode: string) {
@@ -4939,7 +5200,7 @@ export function GenieAIController() {
                 {renderCompareTool()}
               </div>
             ) : isGiftMessageMode ? (
-              <div className="mx-auto h-full w-full max-w-5xl">
+              <div className="mx-auto -mt-3 h-full w-full max-w-5xl sm:-mt-4">
                 {renderGiftMessageTool()}
               </div>
             ) : undefined

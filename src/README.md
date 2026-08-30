@@ -87,7 +87,8 @@ initial starter-chip pool locally, with no AI call. Commerce analytics remain lo
 Shopping replies use the latest three conversation messages for continuity.
 All suggested product cards are filtered against the active preset or custom
 budget before they reach the interface. Smart Shopping includes a working
-`Suggest more` chip that rotates or reloads additional budget-matched products.
+`Suggest more` pages through the stored ranked products locally and asks the
+Next.js AI route for reply text only; it does not rerun Python ranking.
 
 The shopping app now keeps provider routing inside the main experience without a separate admin dashboard.
 Hugging Face through Novita generates Sinhala and Singlish shopping-chat replies;
