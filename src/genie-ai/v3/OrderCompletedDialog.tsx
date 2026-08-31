@@ -1,0 +1,6 @@
+import { V3Icon } from "./Icon";
+
+export function OrderCompletedDialog({ onClose, open }: { onClose: () => void; open: boolean }) {
+  if (!open) return null;
+  return <div className="fixed inset-0 z-[100] grid place-items-center bg-[#0A1F3A]/45 p-4 backdrop-blur-sm"><button type="button" onClick={onClose} className="absolute inset-0" aria-label="Close order confirmation"/><section role="dialog" aria-modal="true" aria-labelledby="order-completed-title" className="relative z-10 w-full max-w-sm rounded-[20px] border border-[#E4E1D8] bg-white p-6 text-center shadow-[0_20px_48px_-20px_rgba(10,31,58,.45)]"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#EDF6EF] text-[#2E7D52]"><V3Icon name="check" className="h-7 w-7" /></span><p className="mt-4 text-[11px] font-bold uppercase tracking-[1.2px] text-[#B3872F]">Order confirmed</p><h2 id="order-completed-title" className="mt-1 text-xl font-bold text-[#0A1F3A]">Order completed</h2><p className="mt-2 text-sm leading-6 text-[#5B6B7A]">Your order has been recorded.</p><button type="button" onClick={onClose} className="mt-5 h-11 w-full rounded-[11px] bg-[#0B2748] text-sm font-bold text-white transition hover:bg-[#123661]">Done</button></section></div>;
+}

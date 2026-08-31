@@ -29,9 +29,11 @@ import { NavigationRail } from "./v3/NavigationRail";
 import { PreferencesDrawer } from "./v3/PreferencesDrawer";
 import { ProductDialog } from "./v3/ProductDialog";
 import { ProductGrid } from "./v3/ProductGrid";
+import { OrderCompletedDialog } from "./v3/OrderCompletedDialog";
 import { WelcomePanel } from "./v3/WelcomePanel";
 import { ChatMessageContent } from "./components/ChatMessageContent";
 import { CompareTool } from "./components/CompareTool";
+import { OrderTrackingTool } from "./components/OrderTrackingTool";
 import { ContextPanel } from "./components/ContextPanel";
 import {
   GiftCreationTool,
@@ -57,7 +59,6 @@ import {
   type ShoppingProfile,
   type SuggestedPrompt,
   type VoiceResponse,
-  getCheckoutResponseMessage,
 } from "./types";
 
 import {
@@ -200,6 +201,7 @@ export function GenieAIController() {
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false);
   const [isBuyBoxOpen, setIsBuyBoxOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isOrderCompletedOpen, setIsOrderCompletedOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modeSessions, setModeSessions] = useState<Record<string, ModeSession>>(
     {},
@@ -303,7 +305,8 @@ export function GenieAIController() {
         : "Read latest message aloud";
   const isCompareMode = activeMode.includes("Compare");
   const isGiftMessageMode = activeMode.includes("Message");
-  const isFormToolMode = isCompareMode || isGiftMessageMode;
+  const isOrderTrackingMode = activeMode === "Order Tracking";
+  const isFormToolMode = isCompareMode || isGiftMessageMode || isOrderTrackingMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
 
   useEffect(() => {
@@ -433,6 +436,7 @@ export function GenieAIController() {
     if (mode.includes("Event")) return localizedText.eventPrompt;
     if (mode.includes("Gift Box")) return localizedText.giftBoxPrompt;
     if (mode.includes("Compare")) return localizedText.comparePrompt;
+    if (mode === "Order Tracking") return "Enter a delivery location to predict preparation and travel time from Colombo.";
     return starterMessagesByLanguage[selectedLanguage][0].content;
   }
 
@@ -2707,8 +2711,9 @@ export function GenieAIController() {
     setIsCheckoutCreating(true);
     setCheckoutWarning("");
     setCheckoutUrl("");
-    setStatus("GenieAI is creating a guest-checkout link.");
+    setStatus("Completing your order.");
 
+    /*
     try {
       const response = await fetch("/api/ai/commerce", {
         method: "POST",
@@ -2753,6 +2758,16 @@ export function GenieAIController() {
     } finally {
       setIsCheckoutCreating(false);
     }
+    */
+
+    buyBox.forEach((product) => trackProductInteraction("purchase", product));
+    setBuyBox([]);
+    setGiftCardProductId("");
+    setCheckoutWarning("");
+    setIsCheckoutCreating(false);
+    setIsCheckoutModalOpen(false);
+    setIsOrderCompletedOpen(true);
+    setStatus("Order completed. Your cart has been cleared.");
   }
 
   async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
@@ -3098,7 +3113,7 @@ export function GenieAIController() {
     );
   }
 
-  const productSection = shouldShowProductSuggestions ? (
+  const productSection = shouldShowProductSuggestions && !isFormToolMode ? (
     <div className="mt-2 md:ml-[54px] md:mt-5">
       <ProductGrid
         addLabel={text.addToBuyBox}
@@ -3215,7 +3230,7 @@ export function GenieAIController() {
             product={selectedProduct}
           />
           <CartDrawer
-            checkoutLabel={text.createOrderLink}
+            checkoutLabel="Checkout"
             delivery={totals.delivery}
             formatPrice={formatPrice}
             items={buyBox}
@@ -3271,9 +3286,10 @@ export function GenieAIController() {
             profile={profile}
             setCheckoutDetails={setCheckoutDetails}
             setProfile={setProfile}
-            submitLabel={text.createOrderLink}
+            submitLabel="Complete order"
             warning={checkoutWarning}
           />
+          <OrderCompletedDialog open={isOrderCompletedOpen} onClose={() => setIsOrderCompletedOpen(false)} />
         </>
       }
     >
@@ -3290,6 +3306,8 @@ export function GenieAIController() {
               <div className="mx-auto -mt-3 h-full w-full max-w-5xl sm:-mt-4">
                 {renderGiftMessageTool()}
               </div>
+            ) : isOrderTrackingMode ? (
+              <OrderTrackingTool cities={deliveryCities} products={buyBox} />
             ) : undefined
           }
           contextPanel={renderContextPanel}

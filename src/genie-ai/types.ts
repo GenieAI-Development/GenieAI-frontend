@@ -25,6 +25,7 @@ export type IconName =
   | "settings"
   | "speaker"
   | "sparkles"
+  | "truck"
   | "trash"
   | "x";
 

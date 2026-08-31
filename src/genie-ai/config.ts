@@ -13,6 +13,7 @@ export const modes = [
   { name: "Gift Box Builder", icon: "gift" },
   { name: "Product Compare", icon: "search" },
   { name: "Gift Message", icon: "heart" },
+  { name: "Order Tracking", icon: "truck" },
 ] satisfies Array<{ icon: IconName; name: string }>;
 
 export const starterMessages: ChatMessage[] = [
@@ -73,6 +74,7 @@ export const modeIcons: Record<string, IconName> = {
   "Gift Message": "heart",
   "Product Compare": "search",
   "Smart Shopping": "cart",
+  "Order Tracking": "truck",
 };
 
 export const budgetOptions = [
@@ -806,6 +808,7 @@ export const iconPaths: Record<IconName, string> = {
   speaker: "M4 9v6h4l5 4V5L8 9H4Zm12 1a4 4 0 0 1 0 4m2-7a8 8 0 0 1 0 10",
   sparkles:
     "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Zm6 12 1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3ZM5 3l.8 2.2L8 6l-2.2.8L5 9l-.8-2.2L2 6l2.2-.8L5 3Z",
+  truck: "M3 6h11v11H3V6Zm11 4h4l3 3v4h-7v-7ZM7 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm11 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z",
   trash: "M4 7h16m-10 4v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3",
   x: "M6 6l12 12M18 6 6 18",
 };

@@ -18,6 +18,7 @@ const paths: Record<string, React.ReactNode> = {
   speaker: <><path d="M5 10v4h3l4 3V7l-4 3z"/><path d="M15 9c1 .8 1.5 1.8 1.5 3S16 14.2 15 15M17.5 6.5c1.8 1.5 2.7 3.3 2.7 5.5s-.9 4-2.7 5.5"/></>,
   sparkles: <><path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="m18.5 15 .8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z"/></>,
   trash: <><path d="M4 7h16M9 3h6l1 4H8zM7 7l1 14h8l1-14"/></>,
+  truck: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>,
   x: <path d="m5 5 14 14M19 5 5 19"/>,
 };
 
