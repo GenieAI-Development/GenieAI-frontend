@@ -28,7 +28,6 @@ import type {
   CatalogProductDetailResponse,
   CatalogSearchResponse,
   ProductSearchResult,
-  RankingEvent,
   ShoppingProfile,
 } from "./types";
 
@@ -84,12 +83,12 @@ export function normalizePythonProduct(value: unknown): Product | null {
 }
 
 export async function fetchPythonRankedProducts({
-  events,
+  chatHistory,
   profile,
   query,
   sessionId,
 }: {
-  events: RankingEvent[];
+  chatHistory: string[] | null;
   profile: ShoppingProfile;
   query: string;
   sessionId: string;
@@ -112,14 +111,14 @@ export async function fetchPythonRankedProducts({
       "X-Genie-Session-Id": sessionId,
     },
     body: JSON.stringify({
-      events,
+      chatHistory,
       preferences: {
-        budgetMax: budget.max_price,
-        budgetMin: budget.min_price,
-        category: profile.category,
-        deliveryCity: profile.city,
-        occasion: profile.occasion,
-        recipient: profile.recipient,
+        budgetMax: budget.max_price ?? null,
+        budgetMin: budget.min_price ?? null,
+        category: profile.category ?? null,
+        deliveryCity: profile.city ?? null,
+        occasion: profile.occasion ?? null,
+        recipient: profile.recipient ?? null,
       },
       query,
     }),

@@ -135,6 +135,7 @@ export type RankingEvent = {
     | "remove_from_cart"
     | "search"
     | "purchase";
+  eventId?: string;
   position?: number;
   price?: number;
   productId?: string;

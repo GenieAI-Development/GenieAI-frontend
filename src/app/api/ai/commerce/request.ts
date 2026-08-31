@@ -144,6 +144,7 @@ export function parseRankingEvents(value: unknown): RankingEvent[] {
       return {
         category: optionalString("category", 120),
         event,
+        eventId: optionalString("eventId", 100),
         position: optionalNumber("position"),
         price: optionalNumber("price"),
         productId: optionalString("productId", 160),
@@ -176,6 +177,18 @@ export function parseConversationHistory(value: unknown): ChatMessage[] {
       (message): message is { role: "user" | "assistant"; content: string } =>
         message !== null,
     )
+    .slice(-3);
+}
+
+export function parseUserChatHistory(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((message): message is string => typeof message === "string")
+    .map((message) => message.trim())
+    .filter(Boolean)
     .slice(-3);
 }
 

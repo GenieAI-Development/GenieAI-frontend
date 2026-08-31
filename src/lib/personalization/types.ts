@@ -10,6 +10,7 @@ export type PersonalizationEventType =
 export type PersonalizationEvent = {
   category?: string;
   event: PersonalizationEventType;
+  eventId?: string;
   position?: number;
   price?: number;
   productId?: string;
@@ -23,7 +24,9 @@ export type PersonalizationProfile = {
   preferredPriceMin: number | null;
   recentProductIds: string[];
   recentQueries: string[];
+  seenEventIds: string[];
   sessionId: string;
+  signalCount: number;
   updatedAt: string;
 };
 

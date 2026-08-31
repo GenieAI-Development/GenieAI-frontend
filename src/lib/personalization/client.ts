@@ -10,6 +10,7 @@ export type ClientPersonalizationEvent = {
 };
 
 export type PendingPersonalizationEvent = ClientPersonalizationEvent & {
+  eventId: string;
   timestamp: string;
 };
 
@@ -85,6 +86,7 @@ export function trackPersonalizationEvent(event: ClientPersonalizationEvent) {
       ...current,
       {
         ...event,
+        eventId: crypto.randomUUID(),
         timestamp: new Date().toISOString(),
       },
     ]);

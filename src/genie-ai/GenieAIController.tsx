@@ -68,7 +68,7 @@ import {
   contextFieldLabelOverrides,
   contextFieldLabels,
   contextFieldLabelsByLanguage,
-  contextFieldOptions,
+  getContextFieldOptionsForMode,
   contextQuestionOverrides,
   contextQuestions,
   emptyContextDraft,
@@ -750,23 +750,24 @@ export function GenieAIController() {
     draft = contextDraft,
   ) {
     const fallback = getDefaultPlanItems(mode, draft);
-
-    if (mode.includes("Event")) {
-      return fallback;
-    }
+    const maxItems = mode.includes("Gift Box")
+      ? getGiftBoxItemCount(draft)
+      : 8;
 
     return items.length > 0
-      ? items.slice(0, 4).map((item, index) => ({
-          label:
-            item
-              .replace(/^[-*\d.)\s]+/, "")
-              .split("-")[0]
-              .trim() ||
-            fallback[index]?.label ||
-            "gift",
-          quantity: fallback[index]?.quantity || "1 item",
-          searchTerm: fallback[index]?.searchTerm || getPlanSearchTerm(item),
-        }))
+      ? items.slice(0, maxItems).map((item, index) => {
+          const cleanedItem = item.replace(/^[-*\d.)\s]+/, "").trim();
+          const [rawLabel, ...quantityParts] = cleanedItem.split(/\s+-\s+/);
+
+          return {
+            label: rawLabel?.trim() || fallback[index]?.label || "gift",
+            quantity:
+              quantityParts.join(" - ").trim() ||
+              fallback[index]?.quantity ||
+              "1 item",
+            searchTerm: getPlanSearchTerm(rawLabel || cleanedItem),
+          };
+        })
       : fallback;
   }
 
@@ -1569,9 +1570,16 @@ export function GenieAIController() {
     const requestTask = taskOverride ?? getTaskForMode(mode);
     const pendingEvents = requestTask === "recommend" ? getPendingEvents() : [];
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 28000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 120000);
     const requestBody = JSON.stringify({
       cartIds: buyBox.map((product) => product.id),
+      chatHistory:
+        mode.includes("Event") || mode.includes("Gift Box")
+          ? null
+          : messages
+              .filter((message) => message.role === "user")
+              .slice(-3)
+              .map(({ content }) => content),
       conversationHistory: messages
         .filter(
           (message) => message.role === "user" || message.role === "assistant",
@@ -1663,16 +1671,16 @@ export function GenieAIController() {
     planItems = guidedPlanItems,
     profileOverride = profile,
     preferencesOverride = extendedPreferences,
-    draft = contextDraft,
   ) {
-    const itemCount = activeMode.includes("Gift Box")
-      ? getGiftBoxItemCount(draft)
-      : planItems.length;
+    const itemCount = Math.max(1, planItems.length);
     const itemBudget = divideBudgetAcrossItems(
       preferencesOverride.budget || profileOverride.budget,
       itemCount,
     );
     const itemSearchTerm = query.trim();
+    const modeCategory = activeMode.includes("Event")
+      ? "Events"
+      : profileOverride.category || preferencesOverride.giftType;
 
     return runCommerce(
       itemSearchTerm,
@@ -1680,7 +1688,7 @@ export function GenieAIController() {
       {
         ...profileOverride,
         budget: itemBudget,
-        category: itemSearchTerm,
+        category: modeCategory,
       },
       false,
       itemSearchTerm,
@@ -1688,7 +1696,7 @@ export function GenieAIController() {
       {
         ...preferencesOverride,
         budget: itemBudget,
-        giftType: itemSearchTerm,
+        giftType: modeCategory,
       },
       "recommend",
     );
@@ -1881,7 +1889,6 @@ export function GenieAIController() {
         planItems,
         requestProfile,
         requestExtendedPreferences,
-        requestDraft,
       );
       appendAssistantMessage(getGuidedPlanReply(planItems, 0, language));
       setChips(getGuidedReplyChips());
@@ -3108,7 +3115,7 @@ export function GenieAIController() {
         }}
         onSelect={selectContextOption}
         onSubmit={(includeContext) => void submitContextPanel(includeContext)}
-        options={contextFieldOptions}
+        options={getContextFieldOptionsForMode(activeMode)}
       />
     );
   }

@@ -11,6 +11,7 @@ const MAX_SESSION_PROFILES = 10_000;
 const CATEGORY_DECAY = 0.9;
 const MAX_RECENT_PRODUCTS = 20;
 const MAX_RECENT_QUERIES = 10;
+const MAX_SEEN_EVENT_IDS = 500;
 
 type StoredProfile = PersonalizationProfile & {
   expiresAt: number;
@@ -39,7 +40,9 @@ function createProfile(sessionId: string, now: number): StoredProfile {
     priceSignalWeight: 0,
     recentProductIds: [],
     recentQueries: [],
+    seenEventIds: [],
     sessionId,
+    signalCount: 0,
     updatedAt: new Date(now).toISOString(),
   };
 }
@@ -75,16 +78,18 @@ function toPublicProfile(profile: StoredProfile): PersonalizationProfile {
     categoryScores: { ...profile.categoryScores },
     preferredPriceMax: profile.preferredPriceMax,
     preferredPriceMin: profile.preferredPriceMin,
-    recentProductIds: [...profile.recentProductIds],
-    recentQueries: [...profile.recentQueries],
+    recentProductIds: [...(profile.recentProductIds ?? [])],
+    recentQueries: [...(profile.recentQueries ?? [])],
+    seenEventIds: [...(profile.seenEventIds ?? [])],
     sessionId: profile.sessionId,
+    signalCount: profile.signalCount ?? 0,
     updatedAt: profile.updatedAt,
   };
 }
 
-export function recordPersonalizationEvent(
+export function recordPersonalizationEvents(
   sessionId: string,
-  event: PersonalizationEvent,
+  events: PersonalizationEvent[],
 ) {
   const now = Date.now();
   pruneProfiles(now);
@@ -94,53 +99,95 @@ export function recordPersonalizationEvent(
     existing && existing.expiresAt > now
       ? existing
       : createProfile(sessionId, now);
-  const eventWeight = personalizationEventWeights[event.event];
+  profile.seenEventIds ??= [];
+  profile.signalCount ??= 0;
+  profile.priceSignalTotal ??= 0;
+  profile.priceSignalWeight ??= 0;
+  profile.recentProductIds ??= [];
+  profile.recentQueries ??= [];
+  const newEvents = events.filter((event) => {
+    const eventId =
+      event.eventId ||
+      [event.timestamp, event.event, event.productId, event.query]
+        .filter(Boolean)
+        .join(":");
+
+    if (!eventId || profile.seenEventIds.includes(eventId)) {
+      return false;
+    }
+
+    event.eventId = eventId;
+    return true;
+  });
+
+  if (newEvents.length === 0) {
+    return toPublicProfile(profile);
+  }
 
   for (const category of Object.keys(profile.categoryScores)) {
     profile.categoryScores[category] =
       profile.categoryScores[category] * CATEGORY_DECAY;
   }
 
-  if (event.category) {
-    profile.categoryScores[event.category] =
-      (profile.categoryScores[event.category] ?? 0) + eventWeight;
+  for (const event of newEvents) {
+    const eventWeight = personalizationEventWeights[event.event];
+    const category = event.category?.trim().toLowerCase();
+
+    profile.seenEventIds.push(event.eventId!);
+    profile.signalCount += 1;
+
+    if (category) {
+      profile.categoryScores[category] =
+        (profile.categoryScores[category] ?? 0) + eventWeight;
+    }
+
+    if (event.productId && eventWeight >= 1) {
+      profile.recentProductIds = addRecentValue(
+        profile.recentProductIds,
+        event.productId,
+        MAX_RECENT_PRODUCTS,
+      );
+    }
+
+    if (event.query) {
+      profile.recentQueries = addRecentValue(
+        profile.recentQueries,
+        event.query,
+        MAX_RECENT_QUERIES,
+      );
+    }
+
+    if (
+      typeof event.price === "number" &&
+      Number.isFinite(event.price) &&
+      event.price >= 0 &&
+      eventWeight >= 1
+    ) {
+      profile.priceSignalTotal += event.price * eventWeight;
+      profile.priceSignalWeight += eventWeight;
+      const preferredPrice =
+        profile.priceSignalTotal / profile.priceSignalWeight;
+      profile.preferredPriceMin = Math.max(
+        0,
+        Math.round(preferredPrice * 0.75),
+      );
+      profile.preferredPriceMax = Math.round(preferredPrice * 1.25);
+    }
   }
 
-  if (event.productId) {
-    profile.recentProductIds = addRecentValue(
-      profile.recentProductIds,
-      event.productId,
-      MAX_RECENT_PRODUCTS,
-    );
-  }
-
-  if (event.query) {
-    profile.recentQueries = addRecentValue(
-      profile.recentQueries,
-      event.query,
-      MAX_RECENT_QUERIES,
-    );
-  }
-
-  if (
-    typeof event.price === "number" &&
-    Number.isFinite(event.price) &&
-    event.price >= 0 &&
-    eventWeight > 0 &&
-    event.event !== "impression"
-  ) {
-    profile.priceSignalTotal += event.price * eventWeight;
-    profile.priceSignalWeight += eventWeight;
-    const preferredPrice =
-      profile.priceSignalTotal / profile.priceSignalWeight;
-    profile.preferredPriceMin = Math.max(0, Math.round(preferredPrice * 0.75));
-    profile.preferredPriceMax = Math.round(preferredPrice * 1.25);
-  }
+  profile.seenEventIds = profile.seenEventIds.slice(-MAX_SEEN_EVENT_IDS);
 
   profile.expiresAt = now + PROFILE_TTL_MS;
   profile.updatedAt = new Date(now).toISOString();
   profiles.set(sessionId, profile);
   return toPublicProfile(profile);
+}
+
+export function recordPersonalizationEvent(
+  sessionId: string,
+  event: PersonalizationEvent,
+) {
+  return recordPersonalizationEvents(sessionId, [event]);
 }
 
 export function getPersonalizationProfile(sessionId: string) {

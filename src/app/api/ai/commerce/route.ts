@@ -13,6 +13,7 @@ import {
 import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
 import { type Product, toProduct } from "@/lib/productCatalog";
 import { getRandomInitialProducts } from "@/lib/supabaseProductCatalog";
+import { rerankProducts } from "@/lib/reranking/service";
 import { getGroqMessageAnalysis } from "./analysis";
 import {
   fetchPythonRankedProducts,
@@ -79,6 +80,7 @@ import {
   parseProfile,
   parseRankingEvents,
   parseStringArray,
+  parseUserChatHistory,
 } from "./request";
 import type { MessageAnalysis } from "./types";
 
@@ -106,10 +108,17 @@ export async function POST(request: Request) {
   const preserveProfile = bodyRecord?.preserveProfile === true;
   const cartIds = parseStringArray(bodyRecord?.cartIds, 30);
   const requestedProductIds = parseStringArray(bodyRecord?.productIds, 3);
-  const rankingEvents = parseRankingEvents(bodyRecord?.events);
+  const rankingEvents = parseRankingEvents(bodyRecord?.events).map((event) => ({
+    ...event,
+    timestamp: event.timestamp ?? new Date().toISOString(),
+  }));
   const conversationHistory = parseConversationHistory(
     bodyRecord?.conversationHistory,
   );
+  const chatHistory =
+    mode.includes("Event") || mode.includes("Gift Box")
+      ? null
+      : parseUserChatHistory(bodyRecord?.chatHistory);
   const profile = parseProfile(bodyRecord?.profile);
   const submittedExtendedPreferences = parseExtendedPreferences(
     getSubmittedPreferenceRecord(bodyRecord, mode),
@@ -304,11 +313,16 @@ export async function POST(request: Request) {
     const effectiveProfile = preserveProfile
       ? profile
       : getFreshProfile(profile, resolvedMessageAnalysis.preferences);
-    const effectiveExtendedPreferences = mergeExtendedPreferences(
-      submittedExtendedPreferences,
-      resolvedMessageAnalysis.extendedPreferences,
-      resolvedMessageAnalysis.preferences,
-    );
+    const isGuidedRecommendation =
+      task === "recommend" &&
+      (mode.includes("Event") || mode.includes("Gift Box"));
+    const effectiveExtendedPreferences = isGuidedRecommendation
+      ? submittedExtendedPreferences
+      : mergeExtendedPreferences(
+          submittedExtendedPreferences,
+          resolvedMessageAnalysis.extendedPreferences,
+          resolvedMessageAnalysis.preferences,
+        );
     const searchProfile = getExtendedSearchProfile(
       effectiveProfile,
       effectiveExtendedPreferences,
@@ -321,9 +335,6 @@ export async function POST(request: Request) {
     const activeBudgetFilter = parseBudgetFilter(
       effectiveExtendedPreferences.budget,
     );
-    const isGuidedRecommendation =
-      task === "recommend" &&
-      (mode.includes("Event") || mode.includes("Gift Box"));
     const searchQuery =
       productIdsForCompare.length >= 2
         ? productIdsForCompare.join(" ")
@@ -386,12 +397,19 @@ export async function POST(request: Request) {
 
     if (task === "recommend") {
       const sessionId = await getOrCreatePersonalizationSessionId();
-      const products = await fetchPythonRankedProducts({
-        events: rankingEvents,
+      const candidates = await fetchPythonRankedProducts({
+        chatHistory,
         profile: searchProfile,
-        query: searchQuery || query,
+        query,
         sessionId,
       });
+      const ranking = await rerankProducts({
+        events: rankingEvents,
+        products: candidates,
+        query,
+        sessionId,
+      });
+      const products = ranking.products;
 
       if (!apiKey) {
         return NextResponse.json(
@@ -442,6 +460,10 @@ export async function POST(request: Request) {
         delivery: null,
         mode,
         products,
+        ranking: {
+          fallback: ranking.fallback,
+          source: ranking.source,
+        },
         recommendations,
       });
     }
