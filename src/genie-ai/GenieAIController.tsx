@@ -2187,71 +2187,10 @@ export function GenieAIController() {
     }
   }
 
-  function getProductPageReplyFallback(exhausted: boolean, guided: boolean) {
-    if (exhausted) {
-      return language === "Sinhala"
-        ? guided
-          ? "මෙම item එකට ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
-          : "ගැළපුණු සියලුම products පෙන්වා අවසන්. ඔබට search query එක හෝ preferences වෙනස් කරන්න අවශ්‍යද?"
-        : language === "Singlish"
-          ? guided
-            ? "Me item ekata match una products okkoma pennala iwrai. Query eka hari preferences hari wenas karannada?"
-            : "Match una products okkoma pennala iwrai. Search query eka hari preferences hari wenas karannada?"
-          : guided
-            ? "You've seen all the products matched for this item. Would you like to change the query or update your preferences?"
-            : "You've seen all the matched products. Would you like to change your search query or update your preferences?";
-    }
+  const allProductsShownReply =
+    "You've seen all the matched products. Update your preferences to find more.";
 
-    return language === "Sinhala"
-      ? "ඔබේ preferences වලට ගැළපෙන ඊළඟ products පෙන්වන්නම්."
-      : language === "Singlish"
-        ? "Oyage preferences walata match wena ilanga products pennanawa."
-        : "Here are the next matched products for your preferences.";
-  }
-
-  async function requestProductPageReply({
-    exhausted,
-    guided,
-    shownFrom,
-    shownTo,
-  }: {
-    exhausted: boolean;
-    guided: boolean;
-    shownFrom: number;
-    shownTo: number;
-  }) {
-    try {
-      const response = await fetch("/api/ai/commerce", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exhausted,
-          language,
-          mode: activeMode,
-          profile,
-          query: latestUserQuery ?? pendingUserRequest,
-          shownFrom,
-          shownTo,
-          task: "productPageReply",
-          total: recommendedProducts.length,
-        }),
-      });
-      const data = (await response.json().catch(() => null)) as {
-        error?: string;
-        reply?: string;
-      } | null;
-
-      if (!response.ok || !data?.reply?.trim()) {
-        throw new Error(data?.error || "AI reply generation failed.");
-      }
-
-      return data.reply.trim();
-    } catch {
-      return getProductPageReplyFallback(exhausted, guided);
-    }
-  }
-
-  async function handleSuggestMoreGuidedItem() {
+  function handleSuggestMoreGuidedItem() {
     if (isSending || guidedPlanItems.length === 0) {
       return;
     }
@@ -2270,29 +2209,17 @@ export function GenieAIController() {
     if (exhausted) {
       setChips((current) => current.filter((chip) => chip !== "Suggest more"));
     }
-    setIsSending(true);
-    setActivityMessage(text.processing);
-
-    try {
-      const reply = await requestProductPageReply({
-        exhausted,
-        guided: true,
-        shownFrom,
-        shownTo,
-      });
-      addMessage({ role: "assistant", content: reply });
-      setStatus(
-        exhausted
-          ? "All matched products for this item have been shown."
-          : `Showing ranked products ${shownFrom}-${shownTo}.`,
-      );
-    } finally {
-      setActivityMessage("");
-      setIsSending(false);
+    if (exhausted) {
+      addMessage({ role: "assistant", content: allProductsShownReply });
     }
+    setStatus(
+      exhausted
+        ? "All matched products for this item have been shown."
+        : `Showing ranked products ${shownFrom}-${shownTo}.`,
+    );
   }
 
-  async function handleSuggestMoreShopping() {
+  function handleSuggestMoreShopping() {
     if (isSending) {
       return;
     }
@@ -2311,26 +2238,14 @@ export function GenieAIController() {
     if (exhausted) {
       setChips((current) => current.filter((chip) => chip !== "Suggest more"));
     }
-    setIsSending(true);
-    setActivityMessage(text.processing);
-
-    try {
-      const reply = await requestProductPageReply({
-        exhausted,
-        guided: false,
-        shownFrom,
-        shownTo,
-      });
-      addMessage({ role: "assistant", content: reply });
-      setStatus(
-        exhausted
-          ? "All matched products have been shown."
-          : `Showing ranked products ${shownFrom}-${shownTo}.`,
-      );
-    } finally {
-      setActivityMessage("");
-      setIsSending(false);
+    if (exhausted) {
+      addMessage({ role: "assistant", content: allProductsShownReply });
     }
+    setStatus(
+      exhausted
+        ? "All matched products have been shown."
+        : `Showing ranked products ${shownFrom}-${shownTo}.`,
+    );
   }
 
   function handleChipClick(chip: string) {
@@ -2346,9 +2261,9 @@ export function GenieAIController() {
 
     if (chip === "Suggest more") {
       if (activeMode === "Smart Shopping") {
-        void handleSuggestMoreShopping();
+        handleSuggestMoreShopping();
       } else {
-        void handleSuggestMoreGuidedItem();
+        handleSuggestMoreGuidedItem();
       }
       return;
     }
