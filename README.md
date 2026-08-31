@@ -1,8 +1,8 @@
 # GenieAI
 
-GenieAI is a responsive, multilingual gift-shopping assistant built with Next.js. It combines conversational shopping, Python-based product ranking, guided event and gift-box planning, product comparison, gift-message generation, image and voice input, delivery checks, and checkout preparation in one interface.
+GenieAI is a responsive, multilingual gift-shopping assistant built with Next.js. It combines conversational shopping, Supabase RAG, Groq-based product reranking, guided event and gift-box planning, product comparison, gift-message generation, image and voice input, delivery checks, and checkout preparation in one interface.
 
-The runnable Next.js application is in [`src`](src). Browser code calls only local Next.js API routes. Those server routes securely coordinate the Python ranking service, Groq, Hugging Face through Novita, and the commerce MCP service.
+The runnable Next.js application is in [`src`](src). Browser code calls only local Next.js API routes. Those server routes securely coordinate Supabase, Groq, Hugging Face, and the commerce MCP service.
 
 ## Contents
 
@@ -17,7 +17,7 @@ The runnable Next.js application is in [`src`](src). Browser code calls only loc
 - [Prerequisites](#prerequisites)
 - [Local setup](#local-setup)
 - [Environment variables](#environment-variables)
-- [Python ranking contract](#python-ranking-contract)
+- [Internal RAG ranking contract](#internal-rag-ranking-contract)
 - [Next.js API routes](#nextjs-api-routes)
 - [Application modes](#application-modes)
 - [State and persistence](#state-and-persistence)
@@ -37,7 +37,7 @@ The runnable Next.js application is in [`src`](src). Browser code calls only loc
 - Gift Box Builder with total-budget allocation across box items
 - Up to 12 ranked products per recommendation request
 - Four product cards displayed at a time
-- Local product paging without rerunning Python ranking
+- Local product paging without rerunning RAG or reranking
 - AI-generated replies for each Suggest more action
 - Product comparison initiated directly from product cards
 - AI comparison insights with up to four percentage dimensions
@@ -59,39 +59,40 @@ The runnable Next.js application is in [`src`](src). Browser code calls only loc
 flowchart LR
   browser["GenieAI browser UI"]
   next["Next.js API routes"]
-  python["Python ranking service"]
+  supabase["Supabase pgvector"]
+  hf["Hugging Face embeddings"]
   groq["Groq"]
   novita["Hugging Face via Novita"]
   mcp["Commerce MCP"]
 
   browser -->|"chat, preferences, events, tools"| next
-  next -->|"recommendation query + secure session header"| python
-  python -->|"up to 12 ranked products"| next
-  next -->|"replies, plans, comparison, vision, speech"| groq
+  next -->|"query embedding"| hf
+  next -->|"vector/keyword product search"| supabase
+  next -->|"reranking, replies, plans, comparison, vision, speech"| groq
   next -->|"selected non-English generation"| novita
   next -->|"initial catalog, product details, delivery, checkout"| mcp
   next -->|"normalized response"| browser
 ```
 
-The Python service ranks recommendation results. It is not called for initial showcase products, local Suggest more paging, plan generation, product comparison lookup, delivery checks, gift-message generation, or checkout creation.
+Next.js owns the complete recommendation pipeline. Supabase retrieves at least 20 candidates when available, Groq selects the best 12, and interaction events optionally personalize their final order.
 
 ## Product recommendation flow
 
 1. The browser collects the query, active preferences, and pending personalization events.
 2. It sends one request to `POST /api/ai/commerce` with `task: "recommend"`.
 3. Next.js reads or creates the secure personalization session cookie.
-4. Next.js sends the query, normalized preferences, and events to `AI_SERVICE_URL/v1/commerce/recommendations`.
-5. The Python service returns up to 12 final products in ranked order.
-6. Next.js normalizes Python product fields into the UI product schema.
+4. Next.js embeds the query and searches Supabase pgvector, with keyword and live-catalog fallbacks.
+5. Groq reranks the candidates and selects up to 12 products; failed reranking preserves retrieval order.
+6. If events exist, Next.js applies the session personalization score; otherwise it preserves Groq order.
 7. Next.js generates the conversational reply using only the returned products.
 8. The browser stores all 12 products and displays the first four.
 9. Only the events included in a successful recommendation request are removed from the browser queue.
 
-The Python session ID, backend bearer token, internal personalization profile, and internal ranking details are never sent to browser code.
+The secure session ID, Supabase key, Hugging Face token, internal personalization profile, and internal ranking details are never sent to browser code.
 
 ### Default product showcase
 
-The first-load showcase uses `task: "initial"`. It loads catalog products through the commerce MCP and does not require the Python backend. It still requires the commerce MCP endpoint to be reachable.
+The first-load showcase uses `task: "initial"`. It loads random in-stock products from the saved Supabase catalog and does not run RAG or reranking.
 
 ## Guided mode flow
 
@@ -99,13 +100,13 @@ Event Planner and Gift Box Builder separate plan generation from product ranking
 
 1. The UI collects the guided-mode context.
 2. Next.js/Groq generates the item plan first.
-3. No broad catalog or Python product search runs during plan generation.
+3. No broad catalog or RAG product search runs during plan generation.
 4. The total budget is divided across plan items.
 5. The UI requests recommendations for only the current plan item.
-6. Next.js sends that item query, item category, per-item budget, recipient, occasion, and pending events to Python.
+6. Next.js sends that item query, item category, per-item budget, recipient, occasion, and pending events through the internal ranking pipeline.
 7. Next and Previous item actions request products only for the newly selected item.
 
-The active mode, full plan, current plan index, preferences, products, and product-page index remain inside the Next.js application state. Python does not receive the UI mode or complete plan.
+The active mode, full plan, current plan index, preferences, products, and product-page index remain inside the Next.js application state. The RAG layer receives only the product-search query, structured preferences, and events.
 
 ### Budget allocation
 
@@ -124,7 +125,7 @@ Each ranked response can contain up to 12 products:
 | Second Suggest more | Ranks 9–12 | Cards switch locally; Next.js generates reply text |
 | Next action/fourth state | None | Generates the “all matched products shown” reply and invites a query/preference change |
 
-Suggest more never calls Python, searches the catalog, or reranks. It calls the AI-only `productPageReply` task for conversational text. If AI reply generation fails, the UI uses a localized fallback sentence.
+Suggest more never reruns RAG, searches the catalog, or reranks. It calls the AI-only `productPageReply` task for conversational text. If AI reply generation fails, the UI uses a localized fallback sentence.
 
 ## Personalization events
 
@@ -145,7 +146,7 @@ Queue behavior:
 - maximum 100 pending events
 - duplicate impressions for the same product/query are removed
 - events are attached only to recommendation requests
-- sent events are cleared only after a successful Python response
+- sent events are cleared only after a successful recommendation response
 - events remain queued when a request fails
 - an in-memory queue is used if `sessionStorage` is unavailable
 
@@ -160,7 +161,7 @@ There is no `/api/personalization/events` endpoint. `GET /api/personalization/se
 - ESLint 9
 - Groq hosted models
 - Hugging Face Inference Providers through Novita
-- Python recommendation/reranking service
+- Supabase pgvector retrieval with Groq reranking
 - Commerce MCP over streamable HTTP
 - IndexedDB, `localStorage`, and `sessionStorage` for browser persistence
 - Netlify Next.js deployment support
@@ -220,8 +221,8 @@ GenieAI-frontend/
 - Node.js 20 or newer
 - npm
 - a Groq API key
-- a running Python ranking service for recommendation searches
-- a shared token configured in both Next.js and the Python service
+- a Supabase project with the product and embedding SQL applied
+- a Hugging Face token for query embeddings
 - access to the commerce MCP service
 - optionally, a Hugging Face token for Novita-backed language flows
 
@@ -254,9 +255,9 @@ Use [`src/env.local.example`](src/env.local.example) as the template. Secrets mu
 | Variable | Required | Purpose |
 |---|---|---|
 | `GROQ_API_KEY` | Yes | Groq chat, planning, comparison, vision, and transcription. `GROQ_TOKEN` is also accepted by the code. |
-| `AI_SERVICE_URL` | For recommendations | Python service base URL, such as `http://localhost:8000`. |
-| `AI_SERVICE_TOKEN` | For recommendations | Bearer token shared with the Python service. Keep server-only. |
-| `HF_TOKEN` | Optional | Hugging Face Inference Providers access. `HUGGINGFACE_TOKEN` is also accepted. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL. |
+| `SUPABASE_SECRET_KEY` | Yes | Server-only Supabase access for product retrieval. |
+| `HF_TOKEN` | For semantic search | Hugging Face query-embedding access. `HUGGINGFACE_TOKEN` is also accepted. |
 | `COMMERCE_MCP_URL` | Optional | Overrides the default commerce MCP endpoint. |
 
 ### Model selection and timeouts
@@ -267,6 +268,7 @@ Use [`src/env.local.example`](src/env.local.example) as the template. Secrets mu
 | `GROQ_PROCESSING_MODEL` | Message/context processing model. |
 | `GROQ_CONTEXT_MODEL` | Context-analysis override. |
 | `GROQ_COMMERCE_MODEL` | Commerce reasoning override. |
+| `GROQ_RERANK_MODEL` | Product relevance reranker. Defaults to `openai/gpt-oss-20b`. |
 | `GROQ_ENGLISH_CHAT_MODEL` | English commerce and local product-page reply model. |
 | `GROQ_SINHALA_CHAT_MODEL` | Sinhala commerce and local product-page reply model. |
 | `GROQ_SINGLISH_CHAT_MODEL` | Singlish commerce and local product-page reply model. |
@@ -306,9 +308,9 @@ Use [`src/env.local.example`](src/env.local.example) as the template. Secrets mu
 
 ```dotenv
 GROQ_API_KEY=your_groq_key
-AI_SERVICE_URL=http://localhost:8000
-AI_SERVICE_TOKEN=the_same_token_used_by_python
-HF_TOKEN=optional_hugging_face_token
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your_server_only_supabase_key
+HF_TOKEN=your_hugging_face_token
 
 GROQ_ENGLISH_CHAT_MODEL=openai/gpt-oss-120b
 GROQ_PROCESSING_MODEL=openai/gpt-oss-120b
@@ -320,20 +322,12 @@ GROQ_TOTAL_TIMEOUT_MS=10000
 MCP_REQUEST_TIMEOUT_MS=4000
 ```
 
-## Python ranking contract
+## Internal RAG ranking contract
 
-Next.js calls:
+The optional direct endpoint is:
 
 ```text
-POST {AI_SERVICE_URL}/v1/commerce/recommendations
-```
-
-Server-added headers:
-
-```http
-Authorization: Bearer <AI_SERVICE_TOKEN>
-X-Genie-Session-Id: <secure-session-id>
-Content-Type: application/json
+POST /api/ai/rag/search
 ```
 
 Example request:
@@ -362,28 +356,34 @@ Example request:
 }
 ```
 
-Example Python response:
+Example response:
 
 ```json
 {
   "products": [
     {
       "id": "product-45",
-      "title": "Pink Rose Bouquet",
+      "name": "Pink Rose Bouquet",
       "description": "Fresh roses for birthdays",
       "price": 4500,
       "currency": "LKR",
       "category": "Flowers",
-      "image": "https://example.com/rose.jpg",
-      "inStock": true,
-      "url": "https://example.com/products/product-45",
-      "finalScore": 0.91
+      "imageUrl": "https://example.com/rose.jpg",
+      "stock": 1,
+      "stockLabel": "In stock",
+      "url": "https://example.com/products/product-45"
     }
-  ]
+  ],
+  "meta": {
+    "personalized": true,
+    "rerankerFallback": false,
+    "retrievalFallback": false,
+    "source": "supabase-vector"
+  }
 }
 ```
 
-The response may contain up to 12 products. The adapter accepts common field variants including `title`/`name`, `image`/`imageUrl`/`image_url`, `inStock`/`in_stock`, and numeric or `{ amount, currency }` prices. Invalid products without an ID and name are discarded.
+The response contains up to 12 products. Internal similarity, relevance, personalization, and session-profile values are not exposed.
 
 ## Next.js API routes
 
@@ -391,10 +391,10 @@ The response may contain up to 12 products. The adapter accepts common field var
 
 The main task-based orchestration route.
 
-| Task | Responsibility | Python called? |
+| Task | Responsibility | Ranking path |
 |---|---|---:|
-| `initial` | Load default showcase products through commerce MCP | No |
-| `recommend` | Send query, preferences, and events to Python; generate reply from returned products | Yes |
+| `initial` | Load default showcase products from Supabase | No |
+| `recommend` | Run RAG, Groq reranking, optional personalization, and generate the reply | Internal Next.js pipeline |
 | `productPageReply` | Generate text for locally paged products or the exhausted state | No |
 | `eventPlan` | Generate an Event Planner item plan before product search | No |
 | `giftBox` | Generate a Gift Box item plan before product search | No |
@@ -435,7 +435,7 @@ See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for request/response details 
 ### Smart Shopping
 
 - collects category, budget, occasion, and recipient preferences
-- sends recommendation requests to Python
+- sends recommendation requests through the internal RAG pipeline
 - displays four of up to 12 ranked products
 - supports local Suggest more paging
 - adds products to the Buy Box
@@ -445,7 +445,7 @@ See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for request/response details 
 - collects event type, participant/venue context, and total budget
 - generates the plan before searching for products
 - allocates a per-item budget
-- requests Python products only for the current plan item
+- requests ranked products only for the current plan item
 - supports Next item, Previous item, and local Suggest more
 
 ### Gift Box Builder
@@ -453,7 +453,7 @@ See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for request/response details 
 - collects recipient, theme, item count, and total budget
 - generates the box plan before product search
 - divides the total budget across selected items
-- requests Python products only for the current item
+- requests ranked products only for the current item
 
 ### Product Compare
 
@@ -502,7 +502,7 @@ The product popup displays the product image, price, and full description.
 | Capability | Primary provider | Fallback/degraded behavior |
 |---|---|---|
 | Context analysis | Groq | Local preference heuristics |
-| Python-ranked shopping reply | Groq reasoning/reply | Route-level fallback response |
+| RAG-ranked shopping reply | Groq reasoning/reply | Retrieval/reranker fallbacks and route-level response |
 | Local product-page reply | Groq | Localized fixed sentence |
 | Event/Gift Box plan | Groq | Normalized local plan handling |
 | English gift message | Groq only | Generic local gift message when no provider starts |
@@ -564,9 +564,9 @@ npm run build
 
 Recommended manual checks:
 
-- default showcase renders four cards without Python configuration
+- default showcase renders four cards from Supabase
 - a recommendation returns and preserves up to 12 ranked products
-- Suggest more shows 5–8, then 9–12, without a Python call
+- Suggest more shows 5–8, then 9–12, without rerunning ranking
 - the fourth display state hides cards and generates the exhausted reply
 - Event/Gift Box plan generation occurs before item ranking
 - per-item budgets match total budget divided by item count
@@ -585,25 +585,25 @@ Recommended manual checks:
 - publish `.next`
 - use `@netlify/plugin-nextjs`
 
-Configure all server environment variables in the deployment platform. Never expose `AI_SERVICE_TOKEN`, Groq credentials, Hugging Face credentials, or commerce credentials through `NEXT_PUBLIC_` variables.
+Configure all server environment variables in the deployment platform. Never expose `SUPABASE_SECRET_KEY`, Groq credentials, Hugging Face credentials, or commerce credentials through `NEXT_PUBLIC_` variables.
 
-The deployed Next.js server must be able to reach both the Python ranking URL and commerce MCP endpoint. Browser microphone features require HTTPS outside localhost.
+The deployed Next.js server must be able to reach Supabase, Hugging Face, Groq, and the commerce MCP endpoint. Browser microphone features require HTTPS outside localhost.
 
 ## Troubleshooting
 
 ### Default showcase works, but searches fail
 
-The default showcase uses commerce MCP while recommendation searches use Python. Check `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, the Python `/v1/commerce/recommendations` route, and matching backend token configuration.
+Check that the Supabase embedding SQL and backfill were run and that `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and `HF_TOKEN` are configured. The live commerce catalog is used when Supabase retrieval cannot supply candidates.
 
 ### Default showcase is empty
 
-Check commerce MCP connectivity, `COMMERCE_MCP_URL`, search-tool configuration, and `MCP_REQUEST_TIMEOUT_MS`.
+Check Supabase connectivity, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and whether the saved product table contains in-stock cake and flower products.
 
-### Python returns products, but cards are empty
+### RAG returns products, but cards are empty
 
-Each product needs a non-empty `id` and either `title` or `name`. Confirm the response has a top-level `products` array and uses supported image, stock, and price fields.
+Each product needs a non-empty `id` and `name`. Confirm the response has a top-level `products` array and the standard product-card fields.
 
-### Suggest more unexpectedly calls Python
+### Suggest more unexpectedly reruns ranking
 
 The client should call `task: "productPageReply"`, not `task: "recommend"`. Product cards must be sliced from the stored 12-product response.
 
@@ -613,7 +613,7 @@ Confirm the guided item request sends the current item search term as both the i
 
 ### AI routes return credential errors
 
-Set `GROQ_API_KEY` or `GROQ_TOKEN`, then restart the Next.js server. Set `HF_TOKEN` only for flows that use Novita.
+Set `GROQ_API_KEY` or `GROQ_TOKEN`, plus `HF_TOKEN` for semantic query embeddings, then restart the Next.js server.
 
 ### Voice input fails
 
@@ -647,8 +647,8 @@ Then rerun TypeScript validation.
 
 - [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) — detailed API requests, responses, environment variables, and flow diagram
 - [`ai-usage-and-models.txt`](ai-usage-and-models.txt) — model usage notes
-- [`frontend-todo/FRONTEND_TODO.md`](frontend-todo/FRONTEND_TODO.md) — frontend/Python integration checklist
-- [`backend-todo/FRONTEND_BACKEND_INTEGRATION.md`](backend-todo/FRONTEND_BACKEND_INTEGRATION.md) — Python backend contract and implementation notes
+- [`frontend-todo/FRONTEND_TODO.md`](frontend-todo/FRONTEND_TODO.md) — frontend/ranking integration checklist
+- [`backend-todo/FRONTEND_BACKEND_INTEGRATION.md`](backend-todo/FRONTEND_BACKEND_INTEGRATION.md) — future separate-backend contract and implementation notes
 - [`guidelines`](guidelines) — design prototypes and reference material
 
 ## License

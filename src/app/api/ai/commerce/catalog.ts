@@ -1,11 +1,10 @@
-import { asRecord, getNumber, getString } from "@/lib/aiPayload";
 import { commerceTools, createCommerceMcpClient } from "@/lib/commerceMcp";
-import { cleanProductDescription } from "@/lib/productDescription";
 import {
   type CatalogSearchProduct,
   type Product,
   toProduct,
 } from "@/lib/productCatalog";
+import { rankCommerceProducts } from "../rag/integration";
 import { getCachedValue } from "./cache";
 import {
   COMMON_GIFT_SEARCH_QUERY,
@@ -33,115 +32,6 @@ import type {
 } from "./types";
 
 const productSearchCache = new Map<string, CacheEntry<ProductSearchResult>>();
-
-export function normalizePythonProduct(value: unknown): Product | null {
-  const record = asRecord(value);
-  const id = getString(record, "id")?.trim();
-  const name =
-    getString(record, "title")?.trim() || getString(record, "name")?.trim();
-
-  if (!id || !name) {
-    return null;
-  }
-
-  const priceRecord = asRecord(record?.price);
-  const directPrice = getNumber(record, "price");
-  const price = directPrice ?? getNumber(priceRecord, "amount") ?? 0;
-  const categoryValue = record?.category;
-  const category =
-    (typeof categoryValue === "string" ? categoryValue.trim() : "") ||
-    getString(asRecord(categoryValue), "name")?.trim() ||
-    "General";
-  const inStock =
-    record?.inStock === true ||
-    record?.in_stock === true ||
-    (typeof record?.stock === "number" && record.stock > 0);
-
-  return {
-    id,
-    name,
-    imageUrl:
-      getString(record, "image")?.trim() ||
-      getString(record, "imageUrl")?.trim() ||
-      getString(record, "image_url")?.trim() ||
-      "/product-images/gift-box.svg",
-    category,
-    price,
-    currency:
-      getString(record, "currency")?.trim() ||
-      getString(priceRecord, "currency")?.trim() ||
-      "LKR",
-    stock: inStock ? 1 : 0,
-    stockLabel: inStock ? "In stock" : "Out of stock",
-    eta: "Delivery availability is confirmed during checkout",
-    description: cleanProductDescription(
-      getString(record, "description")?.trim() ||
-      getString(record, "summary")?.trim() ||
-      "Product matched by GenieAI.",
-    ),
-    url: getString(record, "url")?.trim() || "#",
-  };
-}
-
-export async function fetchPythonRankedProducts({
-  events,
-  profile,
-  query,
-  sessionId,
-}: {
-  events: RankingEvent[];
-  profile: ShoppingProfile;
-  query: string;
-  sessionId: string;
-}) {
-  const serviceUrl = process.env.AI_SERVICE_URL?.trim().replace(/\/+$/, "");
-  const serviceToken = process.env.AI_SERVICE_TOKEN?.trim();
-
-  if (!serviceUrl || !serviceToken) {
-    throw new Error(
-      "Python ranking is not configured. Set AI_SERVICE_URL and AI_SERVICE_TOKEN.",
-    );
-  }
-
-  const budget = parseBudgetFilter(profile.budget);
-  const response = await fetch(`${serviceUrl}/v1/commerce/recommendations`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${serviceToken}`,
-      "Content-Type": "application/json",
-      "X-Genie-Session-Id": sessionId,
-    },
-    body: JSON.stringify({
-      events,
-      preferences: {
-        budgetMax: budget.max_price,
-        budgetMin: budget.min_price,
-        category: profile.category,
-        deliveryCity: profile.city,
-        occasion: profile.occasion,
-        recipient: profile.recipient,
-      },
-      query,
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) {
-    await response.body?.cancel().catch(() => undefined);
-    throw new Error(`Python ranking failed with status ${response.status}.`);
-  }
-
-  const responseBody = asRecord(await response.json().catch(() => null));
-  if (!responseBody || !Array.isArray(responseBody.products)) {
-    throw new Error("Python ranking returned an invalid products response.");
-  }
-
-  return responseBody.products
-    .map(normalizePythonProduct)
-    .filter((product): product is Product => product !== null)
-    .slice(0, MAX_RANKED_PRODUCTS);
-}
 
 export function getBudgetSearchReply(
   search: ProductSearchResult,
@@ -171,6 +61,7 @@ export async function searchCatalogProducts(
   query: string,
   profile: ShoppingProfile,
   rawQuery = query,
+  limit = MAX_RANKED_PRODUCTS,
 ): Promise<ProductSearchResult> {
   const cacheKey = JSON.stringify({
     budget: profile.budget,
@@ -179,6 +70,7 @@ export async function searchCatalogProducts(
     query,
     rawQuery,
     recipient: profile.recipient,
+    limit,
   });
 
   return getCachedValue(
@@ -186,7 +78,7 @@ export async function searchCatalogProducts(
     cacheKey,
     PRODUCT_SEARCH_CACHE_TTL_MS,
     MAX_PRODUCT_SEARCH_CACHE_ENTRIES,
-    () => searchCatalogProductsUncached(mcp, query, profile, rawQuery),
+    () => searchCatalogProductsUncached(mcp, query, profile, rawQuery, limit),
   );
 }
 
@@ -195,6 +87,7 @@ export async function searchCatalogProductsUncached(
   query: string,
   profile: ShoppingProfile,
   rawQuery = query,
+  limit = MAX_RANKED_PRODUCTS,
 ): Promise<ProductSearchResult> {
   const budgetFilter = parseBudgetFilter(rawQuery, profile.budget);
   const searchTerms =
@@ -204,7 +97,7 @@ export async function searchCatalogProductsUncached(
   const baseParams = {
     currency: "LKR",
     in_stock_only: true,
-    limit: MAX_RANKED_PRODUCTS,
+    limit: Math.max(1, Math.min(60, Math.round(limit))),
     response_format: "json",
     sort: "relevance",
   };
@@ -261,7 +154,7 @@ export async function searchCatalogProductsUncached(
       .filter((product) =>
         isProductRelevantToPreferences(product, query, profile),
       )
-      .slice(0, MAX_RANKED_PRODUCTS);
+      .slice(0, Math.max(1, Math.min(60, Math.round(limit))));
   }
 
   if (!hasBudgetFilter(budgetFilter)) {
@@ -298,6 +191,41 @@ export async function searchCatalogProductsUncached(
     results: [],
     usedNearbyBudgetFallback: false,
   };
+}
+
+export async function searchRankedCommerceProducts({
+  events,
+  profile,
+  query,
+  sessionId,
+}: {
+  events: RankingEvent[];
+  profile: ShoppingProfile;
+  query: string;
+  sessionId: string;
+}) {
+  const result = await rankCommerceProducts({
+    events,
+    preferences: profile,
+    query,
+    sessionId,
+    fallbackCandidates: async () => {
+      const mcp = await createCommerceMcpClient();
+      const search = await searchCatalogProducts(
+        mcp,
+        query,
+        profile,
+        query,
+        20,
+      );
+
+      return search.results
+        .map((product) => toProduct(product))
+        .filter((product): product is Product => product !== null);
+    },
+  });
+
+  return result.products.slice(0, MAX_RANKED_PRODUCTS);
 }
 
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {

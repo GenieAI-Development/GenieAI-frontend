@@ -15,10 +15,10 @@ import { type Product, toProduct } from "@/lib/productCatalog";
 import { getRandomInitialProducts } from "@/lib/supabaseProductCatalog";
 import { getGroqMessageAnalysis } from "./analysis";
 import {
-  fetchPythonRankedProducts,
   getBudgetSearchReply,
   searchCatalogProducts,
   searchProductsByIds,
+  searchRankedCommerceProducts,
   withTimeout,
 } from "./catalog";
 import {
@@ -386,7 +386,7 @@ export async function POST(request: Request) {
 
     if (task === "recommend") {
       const sessionId = await getOrCreatePersonalizationSessionId();
-      const products = await fetchPythonRankedProducts({
+      const products = await searchRankedCommerceProducts({
         events: rankingEvents,
         profile: searchProfile,
         query: searchQuery || query,
