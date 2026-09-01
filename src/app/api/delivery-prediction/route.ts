@@ -229,8 +229,8 @@ export async function POST(request: Request) {
   try {
     const body = asRecord(await request.json());
     const location = getString(body, "location")?.trim();
-    const rawItems = Array.isArray(body?.items) ? body.items : [];
-    const items = rawItems
+    const rawCartItems = Array.isArray(body?.cartItems) ? body.cartItems : [];
+    const items = rawCartItems
       .map((item) => typeof item === "string" ? item.trim().slice(0, 180) : "")
       .filter(Boolean)
       .slice(0, MAX_ITEMS);
@@ -238,7 +238,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter a valid delivery location." }, { status: 400 });
     }
     if (items.length === 0) {
-      return NextResponse.json({ error: "Add at least one cart product or describe the order." }, { status: 400 });
+      return NextResponse.json({ error: "Add at least one cart product before tracking delivery." }, { status: 400 });
     }
 
     const destination = await geocodeLocation(location);

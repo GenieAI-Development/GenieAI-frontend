@@ -1565,6 +1565,7 @@ export function GenieAIController() {
     preserveProfile = false,
     extendedPreferencesOverride = extendedPreferences,
     taskOverride?: string,
+    forceProductSearch = false,
   ) {
     const requestProfile = normalizeShoppingProfile(profileOverride);
     const requestTask = taskOverride ?? getTaskForMode(mode);
@@ -1587,6 +1588,7 @@ export function GenieAIController() {
         .slice(-3)
         .map(({ content, role }) => ({ content, role })),
       events: pendingEvents,
+      forceProductSearch,
       language,
       mode,
       profile: requestProfile,
@@ -1656,7 +1658,10 @@ export function GenieAIController() {
         }
 
         applyCommerceResponse(data, applyPreferenceUpdates);
-        if (requestTask === "recommend") {
+        if (
+          requestTask === "recommend" &&
+          data.productSearchPerformed !== false
+        ) {
           clearPendingEvents(pendingEvents);
         }
         return data;
@@ -1699,6 +1704,7 @@ export function GenieAIController() {
         giftType: modeCategory,
       },
       "recommend",
+      true,
     );
   }
 
@@ -2125,14 +2131,28 @@ export function GenieAIController() {
   }
 
   async function handleGuidedCustomMessage(content: string) {
-    setStatus("Groq is answering and finding related guided options.");
-    const commerceData =
-      guidedPlanItems.length > 0
-        ? await runGuidedItemCommerce(content)
-        : await runCommerce(content);
+    setStatus("Groq is analyzing your message.");
+    const commerceData = await runCommerce(
+      content,
+      activeMode,
+      profile,
+      true,
+      content,
+      false,
+      extendedPreferences,
+      "recommend",
+    );
     appendAssistantMessage(getCommerceReply(commerceData));
-    setChips(getGuidedReplyChips());
-    setStatus("Related guided options loaded.");
+    setChips(
+      commerceData.productSearchPerformed === false
+        ? []
+        : getGuidedReplyChips(),
+    );
+    setStatus(
+      commerceData.productSearchPerformed === false
+        ? "GenieAI replied without searching products."
+        : "Related guided options loaded.",
+    );
   }
 
   async function handleNextGuidedItem() {
@@ -2325,12 +2345,6 @@ export function GenieAIController() {
     if (!content || isSending) {
       return;
     }
-
-    void trackPersonalizationEvent({
-      category: starterGiftType || profile.category || undefined,
-      event: "search",
-      query: content,
-    });
 
     const nextMessages: ChatMessage[] = [
       ...messages,
@@ -3182,6 +3196,7 @@ export function GenieAIController() {
           onCompareDone={() => void handleCompareSelectionDone()}
           onLanguageChange={handleLanguageChange}
           onOpenCart={() => setIsBuyBoxOpen(true)}
+          onOpenPreferences={() => setIsLeftPanelOpen(true)}
         />
       }
       navigation={
@@ -3189,7 +3204,6 @@ export function GenieAIController() {
           activeMode={activeMode}
           modes={modes}
           onModeChange={handleModeChange}
-          onOpenPreferences={() => setIsLeftPanelOpen(true)}
         />
       }
       composer={

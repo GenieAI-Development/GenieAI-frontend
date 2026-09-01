@@ -15,6 +15,7 @@ type Props = {
   onClearHistory: () => void;
   onLanguageChange: (language: GenieLanguage) => void;
   onOpenCart: () => void;
+  onOpenPreferences: () => void;
   clearLabel: string;
 };
 
@@ -59,6 +60,9 @@ export function AppHeader(props: Props) {
           ) : null}
         </div>
         <button type="button" onClick={props.onClearHistory} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[#E4E1D8] text-[#5B6B7A] hover:bg-[#E7EEF7] hover:text-[#1E4D8C]" title={props.clearLabel} aria-label={props.clearLabel}><V3Icon name="trash" className="h-4 w-4" /></button>
+        <button type="button" onClick={props.onOpenPreferences} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E4E1D8] text-[#31577F] transition hover:border-[#9EB7D2] hover:bg-[#F5F8FC] sm:w-auto sm:gap-1.5 sm:rounded-[10px] sm:px-3" aria-label="Open preferences">
+          <V3Icon name="settings" className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">Preferences</span>
+        </button>
         <button type="button" onClick={props.onOpenCart} className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#0A1F3A] text-xs font-semibold text-white sm:flex sm:w-auto sm:gap-1.5 sm:px-3 sm:text-sm" aria-label="Open cart">
           <V3Icon name="cart" className="h-4 w-4" /><span className="hidden sm:inline">Cart</span><span className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-[#C89B3C] px-1 py-0.5 text-center text-[9px] font-bold leading-3 text-[#0A1F3A] sm:static sm:min-w-0 sm:px-1.5 sm:text-[10px]">{props.cartCount}</span>
         </button>

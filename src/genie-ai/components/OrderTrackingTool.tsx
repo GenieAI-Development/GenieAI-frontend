@@ -73,7 +73,6 @@ export function OrderTrackingTool({
   products: Product[];
 }) {
   const [location, setLocation] = useState("");
-  const [orderDescription, setOrderDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<PredictionResult | null>(null);
@@ -81,19 +80,14 @@ export function OrderTrackingTool({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const customItems = orderDescription
-      .split(/[,\n]/u)
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const items = cartItems.length > 0 ? cartItems : customItems;
     setError("");
     setResult(null);
     if (!location.trim()) {
       setError("Enter a delivery town, area, or postcode.");
       return;
     }
-    if (items.length === 0) {
-      setError("Add products to the cart or describe the order items.");
+    if (cartItems.length === 0) {
+      setError("Add at least one product to your cart before tracking delivery.");
       return;
     }
 
@@ -102,7 +96,7 @@ export function OrderTrackingTool({
       const response = await fetch("/api/delivery-prediction", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location: location.trim(), items }),
+        body: JSON.stringify({ location: location.trim(), cartItems }),
       });
       const data = (await response.json()) as PredictionResult & { error?: string };
       if (!response.ok) throw new Error(data.error || "Delivery prediction failed.");
@@ -157,12 +151,7 @@ export function OrderTrackingTool({
                 ))}
               </div>
             </div>
-          ) : (
-            <label className="grid gap-1.5 text-xs font-semibold text-[#31577F]">
-              Order items
-              <textarea value={orderDescription} onChange={(event) => setOrderDescription(event.target.value)} placeholder="Describe the items, separated by commas" rows={3} className="resize-none rounded-[11px] border border-[#B8CBE0] bg-white px-3.5 py-3 text-sm font-medium text-[#0B2748] outline-none transition placeholder:text-[#9AA7B2] focus:border-[#3D74B8] focus:ring-2 focus:ring-[#D7E2EF]" />
-            </label>
-          )}
+          ) : <p className="rounded-[13px] border border-dashed border-[#D7E2EF] bg-white px-3.5 py-4 text-center text-xs leading-5 text-[#5B6B7A]">Your cart is empty. Add products in Smart Shopping before tracking delivery.</p>}
 
           {error ? <p role="alert" className="rounded-[11px] border border-[#E9B9AA] bg-[#FFF4EF] px-3.5 py-2.5 text-xs font-medium text-[#A64E32]">{error}</p> : null}
           <button type="submit" disabled={isLoading} className="flex h-11 items-center justify-center gap-2 rounded-[11px] bg-[#0B2748] px-5 text-sm font-bold text-white transition hover:bg-[#123661] disabled:cursor-wait disabled:opacity-60">

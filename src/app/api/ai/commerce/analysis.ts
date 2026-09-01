@@ -88,11 +88,53 @@ export function parseMessageAnalysis(
         ),
         requestedGiftType,
       },
+      requiresProductSearch: parsed?.requiresProductSearch === true,
       searchQuery: searchQuery || null,
     };
   } catch {
     return null;
   }
+}
+
+export function shouldSearchProductsLocally(message: string) {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (
+    /^(hi|hello|hey|good\s+(morning|afternoon|evening)|thanks?|thank\s+you|bye|goodbye)[!.?\s]*$/iu.test(
+      normalized,
+    ) ||
+    /\b(who are you|what are you|what can you do|how are you|help me use|your name)\b/iu.test(
+      normalized,
+    )
+  ) {
+    return false;
+  }
+
+  const productRequest =
+    /\b(find|show|search|recommend|suggest|buy|shop|looking for|need|want)\b[\s\S]*\b(product|gift|flower|rose|cake|chocolate|perfume|fashion|watch|hamper|basket|card|decor|snack|sweet|jewelry|skincare)\b/iu.test(
+      normalized,
+    ) ||
+    /\b(product|gift|flower|rose|cake|chocolate|perfume|fashion|watch|hamper|basket|decor|snack|sweet|jewelry|skincare)\b/iu.test(
+      normalized,
+    );
+  const deliveryOnly =
+    /\b(delivery|deliver|shipping|ship|arrive|arrival|same[-\s]?day|delivery fee)\b|බෙදාහැර|ඩිලිවරි/iu.test(
+      normalized,
+    ) && !productRequest;
+
+  if (deliveryOnly) {
+    return false;
+  }
+
+  return (
+    productRequest ||
+    /\b(budget|under|below|above|over|between|recipient|birthday|anniversary|wedding|graduation)\b/iu.test(
+      normalized,
+    )
+  );
 }
 
 export async function getGroqMessageAnalysis(
@@ -112,13 +154,14 @@ export async function getGroqMessageAnalysis(
       {
         role: "system",
         content:
-          "Analyze only the latest user request; selectedLanguage is authoritative. Return two preference layers. preferences contains only normalized visible preset changes explicitly stated now. extendedPreferences contains the exact, specific English search meaning explicitly stated now for budget, recipient, occasion, and giftType; return null for every field not changed in the latest request. Translate Sinhala or Singlish preference meaning into concise English search text. Never copy older preferences from recentConversation into an update. Classify intent as question, command, or conversation. Normalize visible budgets and categories only to the supplied preset options. Return JSON only and do not answer the user.",
+          "Analyze only the latest user request; selectedLanguage is authoritative. Decide requiresProductSearch first. Set it true only when the latest message asks to find, recommend, show, compare, or update product results, or provides shopping constraints that should refresh products. Set it false for greetings, identity/capability questions, thanks, general conversation, and delivery-only questions or checks. Return two preference layers. preferences contains only normalized visible preset changes explicitly stated now. extendedPreferences contains the exact, specific English search meaning explicitly stated now for budget, recipient, occasion, and giftType; return null for every field not changed in the latest request. Translate Sinhala or Singlish preference meaning into concise English search text. Never copy older preferences from recentConversation into an update. Classify intent as question, command, or conversation. Normalize visible budgets and categories only to the supplied preset options. Return JSON only and do not answer the user.",
       },
       {
         role: "user",
         content: JSON.stringify({
           expectedSchema: {
             intent: "question | command | conversation",
+            requiresProductSearch: "boolean",
             preferences: {
               budget:
                 "Under Rs. 2,500 | Rs. 2,500 - 5,000 | Rs. 5,000 - 10,000 | Above Rs. 10,000 | Other | null",

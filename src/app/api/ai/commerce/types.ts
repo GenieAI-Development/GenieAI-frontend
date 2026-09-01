@@ -36,6 +36,7 @@ export type MessageAnalysis = {
   extendedPreferences: ExtendedPreferenceUpdates;
   intent: MessageIntent;
   preferences: PreferenceSnapshot;
+  requiresProductSearch: boolean;
   searchQuery: string | null;
 };
 
@@ -163,6 +164,7 @@ export type CommerceResponse = {
   giftMessage: string;
   giftUserPreference?: ExtendedPreferences;
   mode: string;
+  productSearchPerformed?: boolean;
   recommendations: CommerceRecommendation[];
   reply: string;
 };

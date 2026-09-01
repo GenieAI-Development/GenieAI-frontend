@@ -52,6 +52,18 @@ export function isDeliveryRequested(message: string) {
   );
 }
 
+export function getLocalDeliveryRuleReply(language: string) {
+  if (language === "Sinhala") {
+    return "ඕනෑම භාණ්ඩයක් බෙදාහැරීමට අවම වශයෙන් දින 1ක් අවශ්‍යයි. එම නිසා අවශ්‍ය බෙදාහැරීමේ දිනයට අවම වශයෙන් දින 1කට පෙර ඇණවුම ලබා දෙන්න.";
+  }
+
+  if (language === "Singlish") {
+    return "Onema item ekak deliver karanna aduma tharamin dawas 1k yanawa. E nisa delivery eka ona dinata aduma tharamin dawas 1kata kalin order karanna.";
+  }
+
+  return "Delivery takes at least 1 day for every item. Please place your order at least 1 day before the required delivery date.";
+}
+
 export function getRandomInitialChips() {
   return [...INITIAL_REPLY_CHIPS].sort(() => Math.random() - 0.5).slice(0, 2);
 }

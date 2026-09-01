@@ -14,7 +14,10 @@ import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/ident
 import { type Product, toProduct } from "@/lib/productCatalog";
 import { getRandomInitialProducts } from "@/lib/supabaseProductCatalog";
 import { rerankProducts } from "@/lib/reranking/service";
-import { getGroqMessageAnalysis } from "./analysis";
+import {
+  getGroqMessageAnalysis,
+  shouldSearchProductsLocally,
+} from "./analysis";
 import {
   fetchPythonRankedProducts,
   getBudgetSearchReply,
@@ -71,6 +74,7 @@ import {
 } from "./recommendations";
 import {
   getLocalAnalytics,
+  getLocalDeliveryRuleReply,
   getPreferenceResponseForMode,
   getRandomInitialChips,
   getShoppingReplyChips,
@@ -106,6 +110,7 @@ export async function POST(request: Request) {
   const query = getString(bodyRecord, "query") ?? "";
   const userMessage = getString(bodyRecord, "userMessage") ?? query;
   const preserveProfile = bodyRecord?.preserveProfile === true;
+  const forceProductSearch = bodyRecord?.forceProductSearch === true;
   const cartIds = parseStringArray(bodyRecord?.cartIds, 30);
   const requestedProductIds = parseStringArray(bodyRecord?.productIds, 3);
   const rankingEvents = parseRankingEvents(bodyRecord?.events).map((event) => ({
@@ -308,6 +313,7 @@ export async function POST(request: Request) {
             recipient: locallyDetectedRecipient,
             requestedGiftType: null,
           },
+          requiresProductSearch: shouldSearchProductsLocally(userMessage),
           searchQuery: null,
         };
     const effectiveProfile = preserveProfile
@@ -348,6 +354,31 @@ export async function POST(request: Request) {
                   searchProfile,
                 )
               : getSearchQuery(query, searchProfile, mode));
+
+    if (
+      task === "recommend" &&
+      !forceProductSearch &&
+      isDeliveryRequested(userMessage)
+    ) {
+      return NextResponse.json({
+        ...fallbackResponse,
+        analytics: {
+          buyBoxHealth: "Delivery policy provided",
+          conversionSignal: "Delivery information request",
+          nextBestAction: "Order at least one day before delivery",
+          risk: "Orders placed less than one day ahead cannot be delivered on time",
+        },
+        chips: [],
+        delivery: null,
+        mode,
+        productSearchPerformed: false,
+        products: [],
+        recommendations: [],
+        reply: getLocalDeliveryRuleReply(
+          resolvedMessageAnalysis.detectedLanguage,
+        ),
+      });
+    }
 
     if (task === "eventPlan" || task === "giftBox") {
       if (!apiKey) {
@@ -390,6 +421,57 @@ export async function POST(request: Request) {
         chips: [],
         delivery: null,
         mode,
+        products: [],
+        recommendations: [],
+      });
+    }
+
+    if (
+      task === "recommend" &&
+      !forceProductSearch &&
+      !resolvedMessageAnalysis.requiresProductSearch
+    ) {
+      if (!apiKey) {
+        return NextResponse.json(
+          { error: getMissingGroqKeyMessage() },
+          { status: 500 },
+        );
+      }
+
+      const commerce = await getGroqCommerce(
+        apiKey,
+        resolvedMessageAnalysis.detectedLanguage,
+        mode,
+        "reply",
+        query,
+        userMessage,
+        [],
+        null,
+        replyPreferenceProfile,
+        resolvedMessageAnalysis,
+        "",
+        null,
+        conversationHistory,
+      );
+
+      if (commerce instanceof NextResponse) {
+        return commerce;
+      }
+
+      return NextResponse.json({
+        ...commerce,
+        analytics: getLocalAnalytics({
+          delivery: null,
+          deliveryRequested: false,
+          intent: resolvedMessageAnalysis.intent,
+          products: [],
+          profile: replyPreferenceProfile,
+          recommendations: [],
+        }),
+        chips: [],
+        delivery: null,
+        mode,
+        productSearchPerformed: false,
         products: [],
         recommendations: [],
       });
@@ -459,6 +541,7 @@ export async function POST(request: Request) {
             : getShoppingReplyChips(),
         delivery: null,
         mode,
+        productSearchPerformed: true,
         products,
         ranking: {
           fallback: ranking.fallback,

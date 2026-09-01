@@ -74,6 +74,7 @@ export const SUPPORTED_TASKS = new Set([
   "initial",
   "productPageReply",
   "recommend",
+  "reply",
 ]);
 
 export const fallbackResponse: CommerceResponse = {

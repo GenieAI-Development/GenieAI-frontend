@@ -53,6 +53,7 @@ export type CommerceResponse = {
     occasion: string;
     recipient: string;
   };
+  productSearchPerformed?: boolean;
   products?: Product[];
   recommendations?: Array<{
     id: string;
