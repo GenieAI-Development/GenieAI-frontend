@@ -11,6 +11,7 @@ Concise HTTP reference for the public API routes.
 | `POST` | `/api/ai/image-analysis` | Analyze an image for product-search hints |
 | `POST` | `/api/ai/gift-card` | Generate a product-matched Gift Card image |
 | `POST` | `/api/ai/voice-messages` | Transcribe English audio |
+| `POST` | `/api/ai/checkout-details` | Extract checkout form fields from a voice transcript |
 | `POST` | `/api/ai/commerce` | Search, compare, plan, generate gift messages, and check out |
 
 Use your deployed application origin as the base URL:
@@ -533,6 +534,7 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `COMMERCE_CHECK_DELIVERY_TOOL` | Commerce MCP delivery-check tool name. |
 | `COMMERCE_CREATE_ORDER_TOOL` | Commerce MCP order-creation tool name. |
 | `GROQ_REPLY_MODEL` | Optional chatbot model override. |
+| `GROQ_CHECKOUT_DETAILS_MODEL` | Optional checkout voice-detail extraction model; defaults to `openai/gpt-oss-20b`. |
 | `GROQ_ENGLISH_CHAT_MODEL` | Optional English commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_CHAT_MODEL` | Optional Sinhala commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
