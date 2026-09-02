@@ -552,7 +552,9 @@ export async function POST(request: Request) {
     }
 
     if (task === "initial") {
-      const products = await getRandomInitialProducts(MAX_RANKED_PRODUCTS);
+      // The welcome grid is intentionally a small random sample of the entire
+      // local catalog, rather than a category-specific collection.
+      const products = await getRandomInitialProducts(4);
       const recommendations = fallbackRecommendations(products);
 
       return NextResponse.json({
@@ -564,8 +566,8 @@ export async function POST(request: Request) {
           risk: "Saved catalog availability may differ from live availability",
         },
         catalog: {
-          source: "supabase",
-          strategy: "random-in-stock-cakes-and-flowers",
+          source: "local",
+          strategy: "four-random-in-stock-local-products",
         },
         chips: [],
         delivery: null,

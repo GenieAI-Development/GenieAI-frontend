@@ -1129,72 +1129,34 @@ export function GenieAIController() {
     let isMounted = true;
 
     async function loadInitialProducts() {
-      const maxAttempts = 3;
-
-      async function requestInitialProducts(attempt: number) {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 7000);
-
-        try {
-          const response = await fetch("/api/ai/commerce", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              cartIds: [],
-              mode: "Smart Shopping",
-              profile: normalizeShoppingProfile(initialShoppingProfile),
-              query: "gift",
-              task: "initial",
-            }),
-            signal: controller.signal,
-          });
-          const data = (await response.json()) as CommerceResponse & {
-            error?: string;
-          };
-
-          if (!response.ok) {
-            throw new Error(data.error ?? "Live product load failed.");
-          }
-
-          if (!data.products || data.products.length === 0) {
-            throw new Error(
-              `The live catalog returned no starter products on attempt ${attempt}.`,
-            );
-          }
-
-          return data;
-        } finally {
-          window.clearTimeout(timeoutId);
-        }
-      }
-
       try {
-        let data: (CommerceResponse & { error?: string }) | null = null;
+        setStatus("Loading starter products from the local catalog.");
+        const response = await fetch("/api/ai/commerce", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            cartIds: [],
+            mode: "Smart Shopping",
+            profile: normalizeShoppingProfile(initialShoppingProfile),
+            query: "gift",
+            task: "initial",
+          }),
+        });
+        const data = (await response.json()) as CommerceResponse & {
+          error?: string;
+        };
 
-        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          if (!isMounted) {
-            return;
-          }
-
-          setStatus(
-            attempt === 1
-              ? "The live catalog is loading starter products."
-              : `The live catalog returned empty/error. Retrying ${attempt}/${maxAttempts}.`,
-          );
-
-          try {
-            data = await requestInitialProducts(attempt);
-            break;
-          } catch (error) {
-            if (attempt === maxAttempts) {
-              throw error;
-            }
-          }
+        if (!response.ok) {
+          throw new Error(data.error ?? "Starter product load failed.");
         }
 
-        if (!isMounted || !data) {
+        if (!data.products || data.products.length === 0) {
+          throw new Error("The local starter catalog returned no products.");
+        }
+
+        if (!isMounted) {
           return;
         }
 

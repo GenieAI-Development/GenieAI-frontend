@@ -24,6 +24,7 @@ GenieAI is a multilingual gift-shopping assistant built with Next.js, React, and
 ## Features
 
 - Smart Shopping with preference collection and recent user-message context.
+- AI cart product analysis that scores each product pairing, identifies weak or duplicate combinations, and suggests a more balanced gift bundle.
 - Event Planner with LLM-generated item lists and per-item product requests.
 - Gift Box Builder with LLM-generated contents and total-budget allocation.
 - RAG ///////////////////
@@ -300,6 +301,9 @@ npm run dev
 | `AI_SERVICE_URL` | Yes for recommendations | Python recommendation service URL |
 | `AI_SERVICE_TOKEN` | Yes for recommendations | Shared Python service bearer token |
 | `HF_TOKEN` | Recommended | Hosted HF reranker and HF Inference access; `HUGGINGFACE_TOKEN` also works |
+| `QODER_PAT` | Yes for Qoder features | Server-side Qoder Cloud personal access token |
+| `QODER_ENV_ID` | Yes for Qoder features | Qoder Cloud environment ID |
+| `QODER_PRODUCT_MATCHING_AGENT_ID` | Yes for cart matching | ID of the `genie-product-matching` agent; falls back to `QODER_AGENT_ID` |
 
 - Keep every value server-only.
 - Never use the `NEXT_PUBLIC_` prefix for credentials or service tokens.

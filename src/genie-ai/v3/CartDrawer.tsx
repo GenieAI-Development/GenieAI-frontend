@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Drawer } from "./Drawer";
 import { V3Icon } from "./Icon";
 import type { GenieProduct } from "./types";
+import { ProductMatchDialog } from "./ProductMatchDialog";
 
 type Props = {
   canCheckout: boolean;
@@ -24,6 +25,7 @@ export function CartDrawer(props: Props) {
       <div className="mt-auto rounded-[18px] bg-[#0A1F3A] p-5 text-white shadow-[0_12px_28px_-18px_rgba(10,31,58,.8)]">
         <div className="space-y-2 text-xs text-white/70"><p className="flex justify-between"><span>Subtotal</span><span>{props.formatPrice(props.subtotal)}</span></p><p className="flex justify-between"><span>Delivery</span><span>{props.formatPrice(props.delivery)}</span></p></div>
         <p className="mt-3 flex justify-between border-t border-white/15 pt-3 font-serif text-lg font-bold"><span>Total</span><span>{props.formatPrice(props.total)}</span></p>
+        <ProductMatchDialog items={props.items} />
         {!props.canCheckout ? <p className="mt-4 text-center text-xs leading-5 text-white/70">Add a product to your cart before checkout.</p> : null}
         <button type="button" disabled={!props.canCheckout} onClick={props.onCheckout} className="mt-4 w-full rounded-[11px] bg-[linear-gradient(#C89B3C,#B3872F)] px-4 py-3 text-sm font-bold text-[#0A1F3A] disabled:cursor-not-allowed disabled:bg-[#D7E2EF] disabled:text-[#6C7C8C]">{props.checkoutLabel}</button>
       </div>
