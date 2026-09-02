@@ -101,7 +101,10 @@ export function parseCommerceResponse(
       },
       chips: parseChipArray(parsed?.chips, 6),
       comparisonInsights: [],
-      eventPlan: parseStringArray(parsed?.eventPlan, 8),
+      eventPlan: parseStringArray(
+        parsed?.eventPlan,
+        mode.includes("Event") ? 4 : 8,
+      ),
       giftMessage: getString(parsed, "giftMessage") ?? "",
       mode: getString(parsed, "mode") ?? mode,
       recommendations: parseRecommendations(parsed?.recommendations, products),

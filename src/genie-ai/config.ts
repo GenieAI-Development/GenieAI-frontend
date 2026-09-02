@@ -128,14 +128,6 @@ export const participantOptions = [
 
 export const venueOptions = ["Home", "Office", "Hotel", "Outdoor"];
 
-export const giftBoxThemeOptions = [
-  "Chocolate",
-  "Flowers",
-  "Perfume",
-  "Wellness",
-  "Party",
-];
-
 export const itemCountOptions = ["2 items", "3 items", "4 items", "5+ items"];
 
 export const shoppingContextFields: ContextField[] = [
@@ -151,7 +143,7 @@ export function getContextFieldsForMode(mode: string): ContextField[] {
   }
 
   if (mode.includes("Gift Box")) {
-    return ["boxRecipient", "giftBoxTheme", "itemCount", "budget"];
+    return ["boxRecipient", "itemCount", "budget"];
   }
 
   return shoppingContextFields;
@@ -166,7 +158,6 @@ export const contextQuestions: Record<
     budget: "What is your budget?",
     category: "Gift type?",
     eventType: "What type of event are you planning?",
-    giftBoxTheme: "What gift box theme should I use?",
     itemCount: "How many items?",
     occasion: "What is the occasion?",
     participants: "How many participants?",
@@ -183,7 +174,6 @@ export const contextQuestions: Record<
     budget: "Budget eka keeyada?",
     category: "Gift type eka?",
     eventType: "Event type eka?",
-    giftBoxTheme: "Gift box theme eka mokakda?",
     itemCount: "Box ekata items keeyak oneda?",
     occasion: "Occasion eka?",
     participants: "Keedenek enawada?",
@@ -201,7 +191,6 @@ export const contextQuestionOverrides: Record<
     boxRecipient: "මෙම gift box එක කාටද?",
     category: "Gift type එක මොකක්ද?",
     eventType: "Event එක මොකක්ද?",
-    giftBoxTheme: "Gift box theme එක මොකක්ද?",
     itemCount: "Box එකට items කීයක් දාන්නද?",
     participants: "Participants කී දෙනෙක් ඉන්නවද?",
     venue: "Event එක තියෙන්නේ කොහෙද?",
@@ -210,7 +199,6 @@ export const contextQuestionOverrides: Record<
     boxRecipient: "Gift box eka kaatada?",
     category: "Gift type eka?",
     eventType: "Event type eka?",
-    giftBoxTheme: "Gift box theme eka mokakda?",
     itemCount: "Box ekata items keeyak oneda?",
     participants: "Keedenek enawada?",
     venue: "Event eka koheda thiyenne?",
@@ -228,7 +216,6 @@ export const contextFieldOptions: Record<ContextField, string[]> = {
   budget: budgetOptions,
   category: giftTypeOptions,
   eventType: eventTypeOptions,
-  giftBoxTheme: giftBoxThemeOptions,
   itemCount: itemCountOptions,
   occasion: occasionOptions,
   participants: participantOptions,
@@ -251,7 +238,6 @@ export const contextFieldLabels: Record<ContextField, string> = {
   budget: "Budget",
   category: "Gift type",
   eventType: "Event type",
-  giftBoxTheme: "Theme",
   itemCount: "Items",
   occasion: "Occasion",
   participants: "Participants",
@@ -269,7 +255,6 @@ export const contextFieldLabelsByLanguage: Record<
     budget: "Budget",
     category: "Gift type",
     eventType: "Event type",
-    giftBoxTheme: "Theme",
     itemCount: "Items",
     occasion: "Occasion",
     participants: "Participants",
@@ -281,7 +266,6 @@ export const contextFieldLabelsByLanguage: Record<
     budget: "Budget",
     category: "Gift type",
     eventType: "Event type",
-    giftBoxTheme: "Theme",
     itemCount: "Items",
     occasion: "Occasion",
     participants: "Participants",
@@ -300,7 +284,6 @@ export const contextFieldLabelOverrides: Record<
     budget: "Budget",
     category: "Gift type",
     eventType: "Event type",
-    giftBoxTheme: "Theme",
     itemCount: "Items",
     occasion: "අවස්ථාව",
     participants: "Participants",
@@ -312,7 +295,6 @@ export const contextFieldLabelOverrides: Record<
     budget: "Budget",
     category: "Gift type",
     eventType: "Event type",
-    giftBoxTheme: "Theme",
     itemCount: "Items",
     occasion: "Occasion",
     participants: "Participants",
@@ -326,7 +308,6 @@ export const emptyContextDraft: ContextDraft = {
   budget: "",
   category: "",
   eventType: "",
-  giftBoxTheme: "",
   itemCount: "",
   occasion: "",
   participants: "",

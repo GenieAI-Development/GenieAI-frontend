@@ -671,48 +671,7 @@ export function GenieAIController() {
     draft: ContextDraft,
   ): GuidedPlanItem[] {
     if (mode.includes("Gift Box")) {
-      const theme = draft.giftBoxTheme || draft.category || profile.category;
       const itemCount = getGiftBoxItemCount(draft);
-
-      if (theme === "Flowers") {
-        return [
-          { label: "flowers", quantity: "1 bouquet", searchTerm: "flowers" },
-          {
-            label: "chocolates",
-            quantity: `${Math.max(1, itemCount - 1)} boxes`,
-            searchTerm: "chocolate",
-          },
-          { label: "card", quantity: "1 card", searchTerm: "greeting card" },
-        ];
-      }
-
-      if (theme === "Perfume") {
-        return [
-          { label: "perfume", quantity: "1 bottle", searchTerm: "perfume" },
-          {
-            label: "chocolates",
-            quantity: `${Math.max(1, itemCount - 1)} boxes`,
-            searchTerm: "chocolate",
-          },
-          {
-            label: "flowers",
-            quantity: "1 small bouquet",
-            searchTerm: "flowers",
-          },
-        ];
-      }
-
-      if (theme === "Party") {
-        return [
-          { label: "cake", quantity: "1kg", searchTerm: "cake" },
-          {
-            label: "party pack",
-            quantity: `${itemCount} items`,
-            searchTerm: "party pack",
-          },
-          { label: "chocolates", quantity: "1 box", searchTerm: "chocolate" },
-        ];
-      }
 
       return [
         {
@@ -752,7 +711,9 @@ export function GenieAIController() {
     const fallback = getDefaultPlanItems(mode, draft);
     const maxItems = mode.includes("Gift Box")
       ? getGiftBoxItemCount(draft)
-      : 8;
+      : mode.includes("Event")
+        ? 4
+        : 8;
 
     return items.length > 0
       ? items.slice(0, maxItems).map((item, index) => {
@@ -1745,7 +1706,6 @@ export function GenieAIController() {
       budget: draft.budget || baseProfile.budget,
       category:
         draft.category ||
-        draft.giftBoxTheme ||
         draft.eventType ||
         baseProfile.category,
       occasion: draft.occasion || draft.eventType || baseProfile.occasion,

@@ -138,7 +138,6 @@ export type ContextField =
   | "boxRecipient"
   | "category"
   | "eventType"
-  | "giftBoxTheme"
   | "itemCount"
   | "participants"
   | "venue";
