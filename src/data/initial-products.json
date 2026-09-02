@@ -1,0 +1,616 @@
+{
+  "products": [
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1578915698413_dsc_8761_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Heavenly Blend 5 Piece Chocolate Cup Cakes",
+      "price_amount": 3010,
+      "product_id": "CAKE00KA001027",
+      "product_url": "https://www.kapruka.com/buyonline/heavenly-blend-5-piece-chocola/kid/cake00ka001027",
+      "stock_level": "low",
+      "summary": "cakes - Cupcake, Kaprukacakes, Cupcake/jars, Cupcake/jars Kapruka Cakes Indulge In The Delightful Taste Of Heavenly Blend 5 Piece Chocolate Cup Cakes, Perfect For Small Celebrations And Joyful Mome..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1582108875898_dsc_3256_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Happy Chocolate Gateau Cake",
+      "price_amount": 8500,
+      "product_id": "CAKE00KA001051",
+      "product_url": "https://www.kapruka.com/buyonline/happy-chocolate-gateau-cake/kid/cake00ka001051",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Gateaus, Gateaus Kapruka Cakes Indulge In The Rich Taste Of The Happy Chocolate Gateau Cake, Perfect For Any Celebration. This Delicious Cake Features A Chocolate Base With A ..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1595577718958_dsc_4723_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Snow Stripes Brownie Cake",
+      "price_amount": 6790,
+      "product_id": "CAKE00KA001082",
+      "product_url": "https://www.kapruka.com/buyonline/snow-stripes-brownie-cake/kid/cake00ka001082",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Chocolate, Chocolate Kapruka Cakes Indulge In The Delightful Snow Stripes Brownie Cake, Perfect For Sharing With Your Loved Ones On Special Occasions. Available At Kapruka In ..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1600844725407_dsc_3367_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Happy Birthday Beauty Ribbon Cake",
+      "price_amount": 5550,
+      "product_id": "CAKE00KA001115",
+      "product_url": "https://www.kapruka.com/buyonline/happy-birthday-beauty-ribbon-c/kid/cake00ka001115",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Celebrate Your Birthday In Style With The Delightful Happy Birthday Beauty Ribbon Cake From Kapruka. This Beautifully Crafted Cake Is Not Only..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1634541990845_dsc_3682_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Choco Eye Chocolate Chip Gateaux",
+      "price_amount": 7010,
+      "product_id": "CAKE00KA001203",
+      "product_url": "https://www.kapruka.com/buyonline/choco-eye-chocolate-chip-gatea/kid/cake00ka001203",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Gateaus, Gateaus Kapruka Cakes Make Every Moment A Celebration With The Choco Eye Chocolate Chip Gateaux, Perfect For Birthdays Or Special Occasions. Delight In The Richness O..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1634541989628_dsc_3595_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Choco Land, Chocolate Loaded Gateaux",
+      "price_amount": 7400,
+      "product_id": "CAKE00KA001204",
+      "product_url": "https://www.kapruka.com/buyonline/choco-land-chocolate-loaded-ga/kid/cake00ka001204",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Gateaus, Gateaus Kapruka Cakes Indulge In The Choco Land Chocolate Loaded Gateaux From Kapruka, Perfect For Chocolate Lovers In Sri Lanka. This Delightful Cake Combines The Fl..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1642994441674_dsc_8673_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Kapruka Blueberry Cheese Cake",
+      "price_amount": 12500,
+      "product_id": "CAKE00KA001264",
+      "product_url": "https://www.kapruka.com/buyonline/kapruka-blueberry-cheese-cake/kid/cake00ka001264",
+      "stock_level": "low",
+      "summary": "cakes - Lmt_colombo, Kaprukacakes, Cheese, Cheese Kapruka Cakes Order A Freshly Baked Blueberry Cheesecake In Sri Lanka, Crafted With A Mari Biscuit Base, Superfine Butter, Fresh Cream, Yogurt, And..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1651642117073_dsc_5485-8_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "To My Beautiful Mom` Ribbon Cake",
+      "price_amount": 4910,
+      "product_id": "CAKE00KA001304",
+      "product_url": "https://www.kapruka.com/buyonline/to-my-beautiful-mom-ribbon-cake/kid/cake00ka001304",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes The To My Beautiful Mom Ribbon Cake From Kapruka Is A Delightful Treat For Your Special Mom. This Cake Is Not Only Delicious But Also A Feast ..."
+    },
+    {
+      "assigned_category": "cakes_and_desserts",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1654493341951_dsc_7226_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Land Of Princess Cupcakes - 12 Pieces",
+      "price_amount": 3380,
+      "product_id": "CAKE00KA001307",
+      "product_url": "https://www.kapruka.com/buyonline/land-of-princess-cupcakes-12-p/kid/cake00ka001307",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Cupcake/jars, Cupcake/jars Kapruka Cakes The Land Of Princess Cupcakes Is A Delightful Treat Perfect For Any Princess-themed Party Or Birthday Celebration. Made Fresh Daily Wi..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1709105629982_dsc_1179.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Midnight Rose Velvet Ribbon Cake",
+      "price_amount": 5520,
+      "product_id": "CAKE00KA001614",
+      "product_url": "https://www.kapruka.com/buyonline/midnight-rose-velvet-ribbon-ca/kid/cake00ka001614",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Discover The Midnight Rose Velvet Ribbon Cake, A Stunning Delight Available At Kapruka In Sri Lanka. This Cake Is Both Beautiful And Delicious..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1714999336539_dsc_1693.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Purple Passion Flower Ribbon Cake",
+      "price_amount": 7640,
+      "product_id": "CAKE00KA001651",
+      "product_url": "https://www.kapruka.com/buyonline/purple-passion-flower-ribbon-c/kid/cake00ka001651",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Indulge In The Charm Of The Purple Passion Flower Cake, A Beautiful Creation Perfect For Celebrating Life s Special Moments. This Lovely Rice ..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1715678101021_cake00ka001647.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Orchid Dreamland Birthday Celebration Ribbon Cake Tower",
+      "price_amount": 12600,
+      "product_id": "CAKE00KA001653",
+      "product_url": "https://www.kapruka.com/buyonline/orchid-dreamland-birthday-cele/kid/cake00ka001653",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes The Orchid Dreamland Birthday Celebration Ribbon Cake Tower Is A Beautiful Choice For Your Special Day. With Its Stunning Design, This Cake Ad..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1730108589195_3d.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Rose Garden 3D Ribbon Cake",
+      "price_amount": 6200,
+      "product_id": "CAKE00KA001747",
+      "product_url": "https://www.kapruka.com/buyonline/rose-garden-3d-ribbon-cake/kid/cake00ka001747",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Discover The Beauty Of The Rose Garden 3D Ribbon Cake, A Delightful Creation Available At Kapruka. Perfect For Birthdays, Anniversaries, Or Sp..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1745582086791_woah.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Mosaic Flower Sculpture Ribbon Cake",
+      "price_amount": 6500,
+      "product_id": "CAKE00KA001878",
+      "product_url": "https://www.kapruka.com/buyonline/mosaic-flower-sculpture-ribbon/kid/cake00ka001878",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Celebrate Special Moments With The Mosaic Flower Sculpture Ribbon Cake, Available At Kapruka In Sri Lanka. This Exquisite Cake Is A Perfect Ch..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1745665770851_dsc05790.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Citrus Blossom Delight Ribbon Bento Cake",
+      "price_amount": 3400,
+      "product_id": "CAKE00KA001879",
+      "product_url": "https://www.kapruka.com/buyonline/citrus-blossom-delight-ribbon-/kid/cake00ka001879",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Mini/bentocakes, Mini/bentocakes Kapruka Cakes The Citrus Blossom Delight Ribbon Bento Cake Is A Mini Celebration Cake Sized For Intimate Gifting, Ideal As A Mother s Day Bent..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1745665304745_dsc05734.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Eternal Rose Ribbon Cake",
+      "price_amount": 4850,
+      "product_id": "CAKE00KA001880",
+      "product_url": "https://www.kapruka.com/buyonline/eternal-rose-ribbon-cake/kid/cake00ka001880",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes The Eternal Rose Ribbon Cake Is A Special Treat For Any Occasion. This Heart-shaped Cake Is Decorated With A Single Beautiful Rose And Delicat..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1746148735775_dsc05854.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Blossom Bouquet Ribbon Cake",
+      "price_amount": 7150,
+      "product_id": "CAKE00KA001888",
+      "product_url": "https://www.kapruka.com/buyonline/blossom-bouquet-ribbon-cake/kid/cake00ka001888",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Celebrate Your Mom With The Blossom Bouquet Ribbon Cake, A Sweet And Elegant Treat From Kapruka. This Cake Is A Work Of Art, Covered With Colo..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1766985888635_dsc01557.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Happy Anniversary Pure Love Ribbon Cake With Fresh White Roses",
+      "price_amount": 12600,
+      "product_id": "CAKE00KA002059",
+      "product_url": "https://www.kapruka.com/buyonline/happy-anniversary-pure-love-ri/kid/cake00ka002059",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Loveandromance, Loveandromance Kapruka Cakes Celebrate Your Love With The Happy Anniversary Pure Love Ribbon Cake, Available At Kapruka In Sri Lanka. This Elegant Cake Is Perf..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1777972151907_dsc03921.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "`Adaraniya Amma` Luxe Orchid Ribbon Cake",
+      "price_amount": 7800,
+      "product_id": "CAKE00KA002153",
+      "product_url": "https://www.kapruka.com/buyonline/adaraniya-amma-luxe-orchid-rib/kid/cake00ka002153",
+      "stock_level": "low",
+      "summary": "cakes - Tomother, Kaprukacakes, Specialoccasion, Specialoccasion Kapruka Cakes The Adaraniya Amma Luxe Orchid Ribbon Cake Is A Gold Leaf Cake Crafted To Honour A Mother s Love. Finished In A Rich, ..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1730268188079_tresleches.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Dilmah Rose And French Vanilla Tres Leches Cake",
+      "price_amount": 5350,
+      "product_id": "CAKEDC00107",
+      "product_url": "https://www.kapruka.com/buyonline/dilmah-rose-and-french-vanilla/kid/cakedc00107",
+      "stock_level": "low",
+      "summary": "cakes - T-loungebydilmah, General, General T-Lounge by Dilmah This Dilmah Rose And French Vanilla Tres Leches Cake Is A Soft, Spongy Dessert Soaked In A Rich Three-milk Blend For Exceptional Moistn..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1569494262866_dsc_6929_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Divine Flower Basket Cake",
+      "price_amount": 3830,
+      "product_id": "CAKEDIV00144",
+      "product_url": "https://www.kapruka.com/buyonline/divine-flower-basket-cake/kid/cakediv00144",
+      "stock_level": "low",
+      "summary": "cakes - Divine, General, General Divine Discover The Divine Flower Basket Cake, A Delightful Treat Perfect For Any Celebration. Available At Kapruka, This Cake Combines Beauty And Flavor For A Memo..."
+    },
+    {
+      "assigned_category": "flower_bouquets",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1782298252059_dsc07053.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Divine Ribbon Cake Small Flower Deco Cake",
+      "price_amount": 8170,
+      "product_id": "CAKEDIV00345",
+      "product_url": "https://www.kapruka.com/buyonline/divine-ribbon-cake-small-flowe/kid/cakediv00345",
+      "stock_level": "low",
+      "summary": "cakes - Divine, General, General Divine Divine Ribbon Cake Small Flower Deco Cake Is A Classic Ribbon Cake Layered With Soft Vanilla And Chocolate Sponge, Finished With Smooth Buttercream Icing. Ha..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1694057660390_dsc_0199_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Sweet Ribboned Surprise - Ribbon Mini , Bento Cake With Cupcakes",
+      "price_amount": 3260,
+      "product_id": "CAKE00KA001543",
+      "product_url": "https://www.kapruka.com/buyonline/sweet-ribboned-surprise-ribbon/kid/cake00ka001543",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Mini/bentocakes, Mini/bentocakes Kapruka Cakes Dive Into The Delightful Sweet Ribboned Surprise, Available At Kapruka. This Bento-style Dessert Is Perfect For Small Celebratio..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1696929479154_dsc_6878.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Milk N Tangy Orange Bliss Gateau Cake",
+      "price_amount": 4890,
+      "product_id": "CAKE00KA001559",
+      "product_url": "https://www.kapruka.com/buyonline/milk-n-tangy-orange-bliss-gate/kid/cake00ka001559",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Gateaus, Gateaus Kapruka Cakes Dive Into The Delicious World Of The Milk N Tangy Orange Bliss Gateau Cake. This Cake Is A Tasty Mix Of Vanilla Sponge And Tangy Orange Filling...."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1717159185060_dsc_5365.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Father`s Sweet Family Cake- Chocolate Cake",
+      "price_amount": 6980,
+      "product_id": "CAKE00KA001667",
+      "product_url": "https://www.kapruka.com/buyonline/father-s-sweet-family-cake-cho/kid/cake00ka001667",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Celebrate Your Father With The Sweet And Thoughtful Father s Sweet Family Cake, Available At Kapruka. Perfect For Any Special Occasion, This C..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1722429144570_dsc_1323.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Cotton Candy Celebration Ribbon Cake",
+      "price_amount": 9500,
+      "product_id": "CAKE00KA001692",
+      "product_url": "https://www.kapruka.com/buyonline/cotton-candy-celebration-ribbo/kid/cake00ka001692",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Celebrate Your Special Moments With The Cotton Candy Celebration Ribbon Cake, Available At Kapruka. This Cake Brings Joy To Your Birthday Or E..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1737540332656_lovessss.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Loves Sweet Embrace Vanilla Sponge Cake",
+      "price_amount": 4640,
+      "product_id": "CAKE00KA001815",
+      "product_url": "https://www.kapruka.com/buyonline/loves-sweet-embrace-vanilla-sp/kid/cake00ka001815",
+      "stock_level": "low",
+      "summary": "cakes - Valentine, Kaprukacakes, Loveandromance, Loveandromance Kapruka Cakes Loves Sweet Embrace Vanilla Sponge Cake Is A Delightful Treat Designed To Convey Romance And Affection. Perfect For Hea..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1750324360134_dsc04594.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "LOL Surprise Starburst Kid`s Birthday Ribbon Cake",
+      "price_amount": 8700,
+      "product_id": "CAKE00KA001938",
+      "product_url": "https://www.kapruka.com/buyonline/lol-surprise-starburst-kid-s-b/kid/cake00ka001938",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthdaycharacters, Birthdaycharacters Kapruka Cakes Celebrate Your Special Day With A Burst Of Fun And Color With The LOL Surprise Starburst Kid s Birthday Ribbon Cake. Perfe..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1759125353953_dsc09748.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Happy Kids Ribbon Cake",
+      "price_amount": 6980,
+      "product_id": "CAKE00KA001986",
+      "product_url": "https://www.kapruka.com/buyonline/happy-kids-ribbon-cake/kid/cake00ka001986",
+      "stock_level": "low",
+      "summary": "cakes - Kaprukacakes, Birthday, Birthday Kapruka Cakes Celebrate Special Occasions With The Happy Kids Ribbon Cake, A Delightful Creation Available At Kapruka In Sri Lanka. This Two-tier Cake Is Pe..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1777365481614_dsc07484.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Amma`s Sweet Blossom Ribbon Cake",
+      "price_amount": 6620,
+      "product_id": "CAKE00KA002147",
+      "product_url": "https://www.kapruka.com/buyonline/amma-s-sweet-blossom-ribbon-ca/kid/cake00ka002147",
+      "stock_level": "low",
+      "summary": "cakes - Bestseller, Tomother, Birthday, Birthdaycake, Momtobe, Kaprukacakes, Specialoccasion, Specialoccasion Kapruka Cakes Amma s Sweet Blossom Ribbon Cake Is A Soft, Sweet Cake Crafted To Celebra..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1673931210738_dsc_8362_m.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Divine Love Cake",
+      "price_amount": 3980,
+      "product_id": "CAKEDIV00265",
+      "product_url": "https://www.kapruka.com/buyonline/divine-love-cake/kid/cakediv00265",
+      "stock_level": "low",
+      "summary": "cakes - Divine, General, General Divine Indulge In The Delightful Taste Of The Divine Love Cake, A Perfect Blend Of Rich Ingredients Available At Kapruka. This Traditional Sri Lankan Treat Is Craft..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1398152655520_2main.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Chocolate Truffle Gateau(GMC)",
+      "price_amount": 5560,
+      "product_id": "CAKEGMC00100",
+      "product_url": "https://www.kapruka.com/buyonline/chocolate-truffle-gateau-gmc/kid/cakegmc00100",
+      "stock_level": "low",
+      "summary": "cakes - Lmt_colombo, Gerardmendischocolatier, Chocolate, Chocolate Gerard Mendis Chocolatier Indulge In The Chocolate Truffle Gateau, A Delightful Creation By Gerard Mendis Chocolatier. This Cake, ..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1401896010145_chocolate-pavlova.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Chocolate Pavlova(GMC)",
+      "price_amount": 5770,
+      "product_id": "CAKEGMC00110",
+      "product_url": "https://www.kapruka.com/buyonline/chocolate-pavlova-gmc/kid/cakegmc00110",
+      "stock_level": "low",
+      "summary": "cakes - Gerardmendischocolatier, General, General Gerard Mendis Chocolatier Indulge In The Irresistible Chocolate Pavlova From Gerard Mendis Chocolatier, Available At Kapruka. A Delightful Treat Cr..."
+    },
+    {
+      "assigned_category": "chocolates_and_candy",
+      "currency": "LKR",
+      "description": null,
+      "image_url": "https://static2.kapruka.com/product-image/width=330,quality=93,f=auto/shops/cakes/productImages/zoom/1401896119174_chcocolate-brandy-harlem.jpg",
+      "in_stock": true,
+      "kapruka_category": {
+        "id": "cat_general",
+        "name": "General",
+        "slug": "general"
+      },
+      "name": "Chocolate Brandy Harlem(GMC)",
+      "price_amount": 6540,
+      "product_id": "CAKEGMC00111",
+      "product_url": "https://www.kapruka.com/buyonline/chocolate-brandy-harlem-gmc/kid/cakegmc00111",
+      "stock_level": "low",
+      "summary": "cakes - Gerardmendischocolatier, Chocolate, Chocolate Gerard Mendis Chocolatier The Chocolate Brandy Harlem Cake From Gerard Mendis Chocolatier Is A Rich Dark Chocolate Truffle Cake Infused With Br..."
+    }
+  ]
+}

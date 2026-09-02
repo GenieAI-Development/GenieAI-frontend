@@ -12,7 +12,7 @@ import {
 } from "@/lib/commerceMcp";
 import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
 import { type Product, toProduct } from "@/lib/productCatalog";
-import { getRandomInitialProducts } from "@/lib/supabaseProductCatalog";
+import { getRandomInitialProducts } from "@/lib/initialProductCatalog";
 import { rerankProducts } from "@/lib/reranking/service";
 import {
   getGroqMessageAnalysis,

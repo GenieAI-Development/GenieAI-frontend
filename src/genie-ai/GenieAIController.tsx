@@ -3251,6 +3251,7 @@ export function GenieAIController() {
             product={selectedProduct}
           />
           <CartDrawer
+            canCheckout={buyBox.length > 0}
             checkoutLabel="Checkout"
             delivery={totals.delivery}
             formatPrice={formatPrice}

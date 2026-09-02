@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import Image from "next/image";
 import type { Product } from "@/lib/productCatalog";
 import { V3Icon } from "../v3/Icon";
+import { DeliveryRouteMap } from "./DeliveryRouteMap";
 
 type PredictionResult = {
   warehouse: { name: string; latitude: number; longitude: number };
@@ -15,6 +16,7 @@ type PredictionResult = {
   };
   inputs: {
     distanceKm: number;
+    routeCoordinates: Array<[number, number]>;
     routeDurationMinutes: number;
     traffic: string;
     orderType: string;
@@ -109,7 +111,7 @@ export function OrderTrackingTool({
   }
 
   return (
-    <section className="mx-auto w-full max-w-4xl px-3 pb-8 pt-1 sm:px-5">
+    <section className="mx-auto w-full max-w-6xl px-3 pb-8 pt-1 sm:px-5">
       <div className="overflow-hidden rounded-[20px] border border-[#D7E2EF] bg-[#F8FAFD] shadow-[0_18px_44px_-34px_rgba(10,31,58,.5)]">
         <header className="border-b border-[#D7E2EF] bg-white px-5 py-4 sm:px-6">
           <div className="flex items-center gap-3">
@@ -169,11 +171,10 @@ export function OrderTrackingTool({
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <article className="rounded-[14px] border border-[#D7E2EF] bg-white p-4"><p className="text-[10px] font-bold uppercase tracking-[1px] text-[#7D8994]">Sourcing + preparation</p><p className="mt-1 text-xl font-bold text-[#0B2748]">{formatDuration(result.prediction.preparationMinutes)}</p><p className="mt-1 text-[10px] text-[#7D8994]">Items are sourced in parallel; calculated to warehouse</p></article>
+              <article className="rounded-[14px] border border-[#D7E2EF] bg-white p-4"><p className="text-[10px] font-bold uppercase tracking-[1px] text-[#7D8994]">Sourcing + preparation</p><p className="mt-1 text-xl font-bold text-[#0B2748]">{formatDuration(result.prediction.preparationMinutes)}</p></article>
               <article className="rounded-[14px] border border-[#D7E2EF] bg-white p-4"><p className="text-[10px] font-bold uppercase tracking-[1px] text-[#7D8994]">Travel estimate</p><p className="mt-1 text-xl font-bold text-[#0B2748]">{formatDuration(result.prediction.travelMinutes)}</p></article>
             </div>
-            <p className="mt-3 rounded-[12px] border border-[#E4E1D8] bg-[#FFFDF8] px-3.5 py-3 text-xs leading-5 text-[#5B6B7A]">{result.prediction.preparationReason}</p>
-
+            {result.inputs.routeCoordinates.length >= 2 ? <div className="mt-3"><DeliveryRouteMap warehouse={result.warehouse} destination={result.destination} routeCoordinates={result.inputs.routeCoordinates} /></div> : null}
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <WeatherCard label="Warehouse weather" location={result.warehouse.name} weather={result.weather.warehouse} />
               <WeatherCard label="Destination weather" location={result.destination.name} weather={result.weather.destination} />
@@ -182,9 +183,8 @@ export function OrderTrackingTool({
               <span>{result.inputs.distanceKm} km driving-route distance</span>
               <span>{result.inputs.traffic} traffic</span>
               <span>{result.inputs.itemCount} item{result.inputs.itemCount === 1 ? "" : "s"}</span>
-              <span>Weather: {result.weather.source}</span>
             </div>
-            <p className="mt-3 text-[10px] leading-4 text-[#7D8994]">Prediction is an estimate, not a guaranteed delivery commitment. Road routing and operational delays may differ.</p>
+            <p className="mt-3 text-[12px] leading-4 text-[#7D8994]">Prediction is an estimate, not a guaranteed delivery commitment. Road routing and operational delays may differ.</p>
           </div>
         ) : null}
       </div>

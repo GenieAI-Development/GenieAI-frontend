@@ -56,19 +56,33 @@ function getSriLankaTimeParts() {
 async function getDrivingRoute(first: LocationPoint, second: LocationPoint) {
   const coordinates = `${first.longitude},${first.latitude};${second.longitude},${second.latitude}`;
   const url = new URL(`${OSRM_ROUTE_URL}/${coordinates}`);
-  url.searchParams.set("overview", "false");
+  url.searchParams.set("overview", "full");
+  url.searchParams.set("geometries", "geojson");
   const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error("A driving route could not be calculated for this delivery location.");
   const data = asRecord(await response.json());
   const route = asRecord(Array.isArray(data?.routes) ? data.routes[0] : null);
   const distanceMeters = getNumber(route, "distance");
   const durationSeconds = getNumber(route, "duration");
+  const routeGeometry = asRecord(route?.geometry);
+  const routeCoordinates = Array.isArray(routeGeometry?.coordinates)
+    ? routeGeometry.coordinates
+        .map((coordinate): [number, number] | null =>
+          Array.isArray(coordinate) &&
+          typeof coordinate[0] === "number" &&
+          typeof coordinate[1] === "number"
+            ? [coordinate[0], coordinate[1]]
+            : null,
+        )
+        .filter((coordinate): coordinate is [number, number] => coordinate !== null)
+    : [];
   if (data?.code !== "Ok" || distanceMeters === null || durationSeconds === null) {
     throw new Error("No drivable route was found for this delivery location.");
   }
   return {
     distanceKm: distanceMeters / 1000,
     durationMinutes: durationSeconds / 60,
+    routeCoordinates,
   };
 }
 
@@ -264,6 +278,7 @@ export async function POST(request: Request) {
       weather: { warehouse: warehouseWeather, destination: destinationWeather, source: "Open-Meteo" },
       inputs: {
         distanceKm: Number(route.distanceKm.toFixed(2)),
+        routeCoordinates: route.routeCoordinates,
         routeDurationMinutes: Math.round(route.durationMinutes),
         traffic,
         orderType: getOrderType(items),

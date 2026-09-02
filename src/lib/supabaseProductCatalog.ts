@@ -20,7 +20,7 @@ const REQUEST_TIMEOUT_MS = 6000;
 const RANDOM_SAMPLE_MULTIPLIER = 3;
 const MAX_SAMPLE_ROUNDS = 3;
 const INITIAL_EXCLUDED_PRODUCT_PATTERN = /\bbiscuits?\b/iu;
-const INITIAL_CATEGORIES = ["cakes_and_desserts", "flower_bouquets"] as const;
+const INITIAL_CAKE_CATEGORY = "cakes_and_desserts";
 
 function getSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/$/, "");
@@ -231,28 +231,17 @@ function shuffleProducts(products: Product[]) {
 export async function getRandomInitialProducts(limit: number) {
   const safeLimit = Math.max(2, Math.min(24, Math.round(limit)));
   const { secretKey, url } = getSupabaseConfig();
-  const cakeLimit = Math.ceil(safeLimit / 2);
-  const flowerLimit = safeLimit - cakeLimit;
   const excludeInitialBiscuits = (product: Product) =>
     !INITIAL_EXCLUDED_PRODUCT_PATTERN.test(
       `${product.name} ${product.category} ${product.description}`,
     );
-  const [cakes, flowers] = await Promise.all([
-    getRandomProductsForCategory(
-      url,
-      secretKey,
-      INITIAL_CATEGORIES[0],
-      cakeLimit,
-      excludeInitialBiscuits,
-    ),
-    getRandomProductsForCategory(
-      url,
-      secretKey,
-      INITIAL_CATEGORIES[1],
-      flowerLimit,
-      excludeInitialBiscuits,
-    ),
-  ]);
+  const cakes = await getRandomProductsForCategory(
+    url,
+    secretKey,
+    INITIAL_CAKE_CATEGORY,
+    safeLimit,
+    excludeInitialBiscuits,
+  );
 
-  return shuffleProducts([...cakes, ...flowers]).slice(0, safeLimit);
+  return shuffleProducts(cakes).slice(0, safeLimit);
 }
