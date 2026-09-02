@@ -52,8 +52,13 @@ export async function getGroqCommerce(
     ? "In Smart Shopping mode, reply with one compact but detailed paragraph that can be up to three sentences."
     : "The reply must be one short paragraph.";
   const huggingFaceApiKey = getHuggingFaceApiKey();
+  const useHuggingFaceLanguageReplies =
+    process.env.USE_HF_LANGUAGE_REPLIES === "true";
   const directReplyPromise =
-    language !== "English" && huggingFaceApiKey && !isPlanOnlyTask
+    language !== "English" &&
+    useHuggingFaceLanguageReplies &&
+    huggingFaceApiKey &&
+    !isPlanOnlyTask
       ? getHuggingFaceNovitaReply(huggingFaceApiKey, {
           messages: [
             {
