@@ -298,6 +298,7 @@ npm run dev
 | Variable | Required | Purpose |
 |---|---:|---|
 | `GROQ_API_KEY` | Yes | Groq credential; `GROQ_TOKEN` is also accepted |
+| `GROQ_PRODUCT_MATCHING_MODEL` | No | Groq model used when Qoder cart analysis fails; defaults to `openai/gpt-oss-120b` |
 | `AI_SERVICE_URL` | Yes for recommendations | Python recommendation service URL |
 | `AI_SERVICE_TOKEN` | Yes for recommendations | Shared Python service bearer token |
 | `HF_TOKEN` | Recommended | Hosted HF reranker and HF Inference access; `HUGGINGFACE_TOKEN` also works |
