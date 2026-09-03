@@ -9,7 +9,9 @@ Concise HTTP reference for the public API routes.
 | `POST` | `/api/ai/chatbot` | Multilingual shopping chat |
 | `POST` | `/api/ai/context-analysis` | Extract shopping preferences from text |
 | `POST` | `/api/ai/image-analysis` | Analyze an image for product-search hints |
+| `POST` | `/api/ai/gift-card` | Generate a product-matched Gift Card image |
 | `POST` | `/api/ai/voice-messages` | Transcribe English audio |
+| `POST` | `/api/ai/checkout-details` | Extract checkout form fields from a voice transcript |
 | `POST` | `/api/ai/commerce` | Search, compare, plan, generate gift messages, and check out |
 
 Use your deployed application origin as the base URL:
@@ -150,6 +152,51 @@ If vision is temporarily unavailable, the endpoint may return `200` with `"fallb
 
 Errors: `400` for a missing file, `413` above the size limit, `500` for missing credentials, and upstream/`502` errors for analysis failures.
 
+## Gift Card image generation
+
+`POST /api/ai/gift-card`
+
+Analyzes one cart product image with Groq and renders a safe SVG Gift Card in Next.js.
+
+### Request
+
+```json
+{
+  "product": {
+    "id": "product-45",
+    "name": "Pink Rose Bouquet",
+    "description": "Fresh pink roses wrapped for gifting",
+    "imageUrl": "https://example.com/rose.jpg"
+  },
+  "preferences": {
+    "language": "English",
+    "style": "Elegant",
+    "theme": "Auto-match product",
+    "occasion": "Birthday",
+    "recipient": "Mother",
+    "receiverName": "Nimali",
+    "senderName": "Kamal",
+    "instructions": "Keep the wish short and warm"
+  }
+}
+```
+
+`product.id`, `product.imageUrl`, and a valid selected cart product are required by the frontend. The Card tab lives inside the Gift Message window and prefills language, occasion, and recipient from active shopping preferences when available. Remote HTTP(S) images and supported raster data URLs are passed as Groq vision input. Bundled local SVG product artwork is read from `public` and supplied as bounded SVG context without exposing arbitrary files.
+
+### Response — `200`
+
+```json
+{
+  "analysis": "Soft pink floral styling matches the bouquet and birthday mood.",
+  "imageDataUrl": "data:image/svg+xml;base64,...",
+  "message": "Wishing you a beautiful birthday filled with love.",
+  "model": "qwen/qwen3.6-27b",
+  "palette": ["#FFF8F4", "#5E2945", "#E8A4B8"]
+}
+```
+
+The server validates colors, motif, and text lengths, escapes all text, and renders a fixed 1200×800 SVG template. Optional `receiverName` and `senderName` values are displayed as “To” and “From”; blank values add no name text. Groq never supplies executable SVG or HTML. Errors: `400` when no valid product is selected, `500` when the Groq key is missing, and upstream/`502` errors when generation fails.
+
 ## Voice transcription
 
 `POST /api/ai/voice-messages`
@@ -199,15 +246,16 @@ A task-based endpoint for the live GenieAI catalog.
 |---|---|---|
 | `initial` | Load initial products | `query` |
 | `recommend` | Search and recommend products | `query`, `userMessage`, preferences |
-| `eventPlan` | Search and create an event checklist | `eventUserPreference` |
-| `giftBox` | Search and build a gift-box list | `giftUserPreference` |
+| `productPageReply` | Generate text after locally paging stored products; never calls Python or the catalog | `shownFrom`, `shownTo`, `total`, `exhausted` |
+| `eventPlan` | Create an event checklist without ranking products | `eventUserPreference` |
+| `giftBox` | Create a gift-box list without ranking products | `giftUserPreference` |
 | `compare` | Compare live products and generate scored AI insights | `productIds` |
 | `checkout` | Create a guest-checkout link | `cartIds`, `profile`, `checkout` |
 | `giftMessage` | Generate a gift-card message | `giftMessagePreferences` |
 
 `task` defaults to `recommend`.
 
-Order tracking has been removed. Sending `"task": "track"` or any other unsupported task returns `400` with `{"error":"Unsupported commerce task."}`.
+Delivery prediction has been removed. Sending `"task": "track"` or any other unsupported task returns `400` with `{"error":"Unsupported commerce task."}`.
 
 ### Common request
 
@@ -249,6 +297,7 @@ Order tracking has been removed. Sending `"task": "track"` or any other unsuppor
 | `extendedPreferences` | object | `budget`, `giftType`, `occasion`, `recipient`. |
 | `eventUserPreference` | object | Preferences for Event Planner. |
 | `giftUserPreference` | object | Preferences for Gift Box Builder. |
+| `events` | array | Buffered interaction events attached only to recommendation requests. Accepted events are `search`, `impression`, `view`, `compare`, `add_to_cart`, `remove_from_cart`, and `purchase`; at most 100 are forwarded. |
 | `cartIds` | string[] | Up to 30 product IDs; required for checkout. |
 | `productIds` | string[] | Two IDs are required by the current UI comparison flow. The API parses up to 3 IDs. |
 | `conversationHistory` | array | Final 3 valid user/assistant messages. |
@@ -277,9 +326,15 @@ Order tracking has been removed. Sending `"task": "track"` or any other unsuppor
 }
 ```
 
-Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose at most four ranked products and four recommendations.
+Products include `id`, `name`, `imageUrl`, `category`, `price`, `currency`, `stock`, `stockLabel`, `description`, and `url`; live products may also include `apiDetails`. Recommendations include `id`, `fitScore` (`0–100`), and `reason`. Product-search responses expose up to 12 products in ranked order and up to four recommendation explanations. The frontend shows ranks 1–4 initially, 5–8 after the first Suggest more click, and 9–12 after the second. Each Suggest more action switches cards locally, then calls the AI-only `productPageReply` task for conversational text. It never calls Python, searches the catalog, or reranks. The next action after ranks 9–12 is the fourth display state: it returns no products and generates the “all matched products shown” reply.
 
 ### Guided Event and Gift Box budgets
+
+Guided modes use two ordered requests. The `eventPlan` or `giftBox` request first
+generates only the item plan and returns no products. Next.js retains that plan,
+the current item index, and the active mode. It then sends a `recommend` request
+for only the current item's search term and category; the Python payload does not
+receive the frontend mode or the complete plan.
 
 In the GenieAI frontend, a budget selected for Event Planner or Gift Box Builder
 is the total budget for the whole plan, not a budget for every item. The initial
@@ -442,8 +497,9 @@ Some degraded states intentionally return `200`, including local recommendations
 
 ## Frontend consumption notes
 
+- Product interactions are buffered in browser `sessionStorage` instead of being posted individually. Only events included in a successful Python ranking request are removed; failed requests retain them for retry.
 - The product-details popup uses the product `imageUrl`, `price`, `currency`, and full `description`. Other product metadata is not shown in that popup.
-- The Product Compare tab renders only `name`, formatted price, full `description`, and `comparisonInsights`. Product IDs are transport identifiers and are not displayed.
+- The Product Compare tab renders `name`, formatted price, full `description`, and up to four `comparisonInsights`. Preference-dependent percentages are `null` when their required preference is unset—for example, Occasion Match is blank without an occasion. A final score is displayed alongside the insights and is calculated as the rounded arithmetic mean of non-null scores only. Product IDs are transport identifiers and are not displayed.
 - Comparison selection happens on product cards; the user does not type IDs into the comparison page.
 
 ## Command-line examples
@@ -469,6 +525,8 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 |---|---|
 | `GROQ_API_KEY` | Groq chat, vision, and transcription access. `GROQ_TOKEN` is also accepted. |
 | `HF_TOKEN` | Optional non-English generation through Hugging Face. `HUGGINGFACE_TOKEN` is also accepted. |
+| `AI_SERVICE_URL` | Base URL of the Python ranking backend, for example `http://localhost:8000`. Recommendation requests are sent to `/v1/commerce/recommendations`. |
+| `AI_SERVICE_TOKEN` | Server-only bearer token shared with the Python ranking backend. Never prefix it with `NEXT_PUBLIC_`. |
 | `COMMERCE_MCP_URL` | Optional commerce MCP endpoint override. |
 | `COMMERCE_SEARCH_PRODUCTS_TOOL` | Commerce MCP product-search tool name. |
 | `COMMERCE_GET_PRODUCT_TOOL` | Commerce MCP product-detail tool name. |
@@ -476,15 +534,18 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `COMMERCE_CHECK_DELIVERY_TOOL` | Commerce MCP delivery-check tool name. |
 | `COMMERCE_CREATE_ORDER_TOOL` | Commerce MCP order-creation tool name. |
 | `GROQ_REPLY_MODEL` | Optional chatbot model override. |
+| `GROQ_CHECKOUT_DETAILS_MODEL` | Optional checkout voice-detail extraction model; defaults to `openai/gpt-oss-20b`. |
 | `GROQ_ENGLISH_CHAT_MODEL` | Optional English commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_CHAT_MODEL` | Optional Sinhala commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
-| `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `llama-3.3-70b-versatile`. |
+| `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_COMPARE_MODEL` | Optional comparison-insights model override. Defaults to `openai/gpt-oss-20b`; the comparison-specific fallback is `openai/gpt-oss-120b`. |
 | `GROQ_GIFT_MESSAGE_MODEL` | English gift-message model. Defaults to `openai/gpt-oss-20b`; English falls back only to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_GIFT_MESSAGE_MODEL` | Groq fallback model for Sinhala gift messages. |
 | `GROQ_SINGLISH_GIFT_MESSAGE_MODEL` | Groq fallback model for Singlish gift messages. |
 | `GROQ_VISION_MODEL` | Optional image-analysis model override. |
 | `GROQ_VISION_BACKUP_MODEL` | Optional image-analysis fallback-model override. |
+| `GROQ_GIFT_CARD_MODEL` | Gift Card vision/art-direction model. Defaults to `qwen/qwen3.6-27b`. |
+| `GROQ_GIFT_CARD_BACKUP_MODEL` | Gift Card fallback model. Defaults to `qwen/qwen3.8-27b`. |
 | `GROQ_BACKUP_MODEL` | Optional first general Groq text fallback model. |
 | `GROQ_BACKUP_MODELS` | Optional comma-separated general Groq text fallback models. |
 | `GROQ_REQUEST_TIMEOUT_MS` | Per-model Groq timeout; clamped to 3–30 seconds and defaults to 5 seconds. |
@@ -500,3 +561,64 @@ Keep credentials on the server and never include them in client requests.
 - Prevent duplicate checkout submissions; no idempotency key is currently supported.
 - Treat AI output as untrusted text and escape it for its rendering context.
 - Prices, stock, delivery availability, and checkout details can change; use the latest response.
+
+## Frontend API calling flow
+
+```mermaid
+flowchart TD
+  frontend["GenieAI frontend"]
+  textFlow["Shared text submission flow"]
+  contextApi["POST /api/ai/context-analysis"]
+  imageApi["POST /api/ai/image-analysis"]
+  giftCardApi["POST /api/ai/gift-card"]
+  voiceApi["POST /api/ai/voice-messages"]
+  commerceApi["POST /api/ai/commerce"]
+  groq["Groq AI services"]
+  novita["Novita Hugging Face"]
+  pythonRanking["Python ranking backend"]
+  commerceMcp["Commerce MCP catalog and checkout"]
+
+  frontend -->|"Initial product load"| commerceApi
+  frontend -->|"Typed message"| textFlow
+  textFlow -->|"First-message preference extraction"| contextApi
+  contextApi -->|"AI extraction when configured"| groq
+  groq -->|"Normalized preferences"| contextApi
+  contextApi -->|"Preferences"| textFlow
+  textFlow -->|"Ready or guided shopping request"| commerceApi
+
+  frontend -->|"Compare, checkout, gift message, plan, or product recommendation"| commerceApi
+  commerceApi -->|"Query + preferences + events + secure session header"| pythonRanking
+  pythonRanking -->|"Up to 12 final products in ranked order"| commerceApi
+  commerceApi -->|"Initial catalog, compare, delivery, and checkout operations"| commerceMcp
+  commerceMcp -->|"Catalog, delivery, or checkout data"| commerceApi
+  commerceApi -->|"Replies using ranked products, plan generation, comparison, and English gift message"| groq
+  groq -->|"Generated or scored output"| commerceApi
+  commerceApi -->|"Non-English replies and gift messages when configured"| novita
+  novita -->|"Generated non-English text"| commerceApi
+  commerceApi -->|"Products, plan, insights, checkout, or message"| frontend
+
+  frontend -->|"Image upload"| imageApi
+  imageApi -->|"Vision analysis"| groq
+  groq -->|"Vision result"| imageApi
+  imageApi -->|"Search hints"| frontend
+  frontend -->|"Search using image hints"| commerceApi
+
+  frontend -->|"Selected cart product + card preferences"| giftCardApi
+  giftCardApi -->|"Product-image analysis and art direction"| groq
+  groq -->|"Validated palette, motif, and copy"| giftCardApi
+  giftCardApi -->|"Safe SVG data image"| frontend
+
+  frontend -->|"English voice recording"| voiceApi
+  voiceApi -->|"Speech transcription"| groq
+  groq -->|"Transcript result"| voiceApi
+  voiceApi -->|"Transcript"| textFlow
+```
+
+The diagram shows the main successful request paths. The local preference
+analysis, filename-based image hints, deterministic comparison insights, and
+other degraded responses documented above may return without completing an AI
+provider call.
+
+`/api/ai/chatbot` remains available as a standalone public route, but the
+current GenieAI frontend uses the commerce endpoint for shopping conversation
+and product workflows.

@@ -144,3 +144,12 @@ vite.config.ts.timestamp-*
 
 # Idea
 .idea/
+
+reranker-pipeline/
+backend-todo/
+frontend-todo/
+guidelines/
+kapruka-gift-data/
+scripts/
+delivery-predictions/
+old-codes/

@@ -105,6 +105,37 @@ export const deliveryCities = [
   "Yakkala",
 ] as const;
 
+// Kept separate from deliveryCities so checkout can continue to offer the
+// complete service-area list while delivery prediction stays easy to scan.
+export const mainDeliveryCities = [
+  "Colombo",
+  "Kandy",
+  "Galle",
+  "Jaffna",
+  "Negombo",
+  "Kurunegala",
+  "Anuradhapura",
+  "Trincomalee",
+  "Batticaloa",
+  "Matara",
+  "Ratnapura",
+  "Badulla",
+  "Nuwara Eliya",
+  "Hambantota",
+  "Kalutara",
+  "Gampaha",
+  "Kegalle",
+  "Puttalam",
+  "Vavuniya",
+  "Polonnaruwa",
+  "Ampara",
+  "Mannar",
+  "Mullaitivu",
+  "Kilinochchi",
+  "Monaragala",
+  "Matale",
+] as const;
+
 export const locationTypes = [
   "House",
   "Apartment",

@@ -1,511 +1,344 @@
-# MCP AI Shopping Platform
+# GenieAI
 
-GenieAI is a multilingual AI-assisted shopping experience built with Next.js. It combines hosted LLMs, a live commerce MCP integration, guided shopping flows, delivery checks, product comparison, gift message generation, image-based search hints, and voice input into a single ecommerce workspace.
+GenieAI is a multilingual gift-shopping assistant built with Next.js, React, and TypeScript.
 
-The app lives in the [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src) directory and is designed around real catalog operations rather than mock product recommendations. The frontend talks to local Next.js API routes, and those routes orchestrate Groq, Hugging Face via Novita, and the commerce MCP server.
+- Keeps provider credentials, the Python service token, and anonymous session IDs on the server.
+- Sends browser traffic only to local Next.js API routes.
+- Supports English, Sinhala, and Singlish.
 
-## Table of Contents
+## Contents
 
-- [Project Overview](#project-overview)
-- [Core Features](#core-features)
-- [How the App Works](#how-the-app-works)
-- [Tech Stack](#tech-stack)
-- [Repository Structure](#repository-structure)
-- [Prerequisites](#prerequisites)
-- [Local Setup](#local-setup)
-- [Environment Variables](#environment-variables)
-- [Available Scripts](#available-scripts)
-- [Pages and Routes](#pages-and-routes)
-- [API Reference](#api-reference)
-- [AI Model Routing](#ai-model-routing)
-- [Commerce MCP Integration](#commerce-mcp-integration)
-- [User Flows](#user-flows)
-- [Architecture Notes](#architecture-notes)
-- [Operational Behavior and Safeguards](#operational-behavior-and-safeguards)
-- [Troubleshooting](#troubleshooting)
-- [Deployment Notes](#deployment-notes)
-- [Additional Project Files](#additional-project-files)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Recommendation flow](#recommendation-flow)
+- [Mode flows](#mode-flows)
+- [Reranking and personalization](#reranking-and-personalization)
+- [Fine-tuned reranker model](#fine-tuned-reranker-model)
+- [API routes](#api-routes)
+- [Repository layout](#repository-layout)
+- [Setup](#setup)
+- [Important environment variables](#important-environment-variables)
+- [Provider responsibilities](#provider-responsibilities)
+- [Vercel hosting](#vercel-hosting)
 
-## Project Overview
+## Features
 
-This project implements the GenieAI shopping assistant for gifting and commerce use cases. Instead of offering only chat, it supports the full journey:
+- Smart Shopping with preference collection and recent user-message context.
+- AI cart product analysis that scores each product pairing, identifies weak or duplicate combinations, and suggests a more balanced gift bundle.
+- Event Planner with LLM-generated item lists and per-item product requests.
+- Gift Box Builder with LLM-generated contents and total-budget allocation.
+- RAG ///////////////////
+- Hugging Face CrossEncoder relevance ranking for all 12 returned candidates.
+- Rule-based session personalization using category, price, and recency signals.
+- Product comparison, delivery checks, cart state, and checkout preparation.
+- Image search and voice search.
+- Gift messages, product-aware downloadable SVG gift cards generation.
+- Per-mode persisted chats, preferences, plans, products, and paging state.
 
-- understanding shopping intent and user context
-- retrieving live products from the commerce MCP backend
-- ranking and explaining product matches
-- checking delivery feasibility for a city and date
-- comparing real products by product ID
-- preparing checkout-ready cart details
-- generating gift card messages
-- using images and voice as shopping inputs
+## Architecture
 
-The app supports `English`, `Sinhala`, and `Singlish` in different parts of the experience, with explicit prompt logic to preserve the intended language style.
+```mermaid
+flowchart LR
+  subgraph Browser
+    UI[GenieAI UI]
+    Events[sessionStorage event queue]
+    State[IndexedDB / localStorage]
+  end
 
-## Core Features
+  subgraph Next.js server
+    Commerce[Commerce API]
+    Rerank[Reranking service]
+    Profile[24-hour session profile]
+    Tools[Context, image, voice, gift APIs]
+  end
 
-- `Smart Shopping`: conversational product discovery with guided context collection
-- `Event Planner`: structured planning flow for birthdays, office events, and gatherings
-- `Gift Box Builder`: guided multi-item gift box creation
-- `Product Compare`: compare two real catalog products
-- `Gift Message`: generate or refine gift-card copy in multiple supported language styles
-- `Buy Box`: lightweight cart-style sidebar for selected products and checkout preparation
-- `Delivery Checks`: asks the commerce MCP for city/date availability when the user requests delivery details
-- `Image Analysis`: analyzes an uploaded image and turns it into shopping hints and a search query
-- `Voice Input`: speech-to-text for English shopping input
-- `Read Aloud`: browser speech synthesis for the latest English assistant reply
+  Python[Python recommendation service]
+  HF[Hugging Face CrossEncoder Space]
+  Groq[Groq]
+  Novita[Hugging Face via Novita]
+  MCP[Commerce MCP]
 
-## How the App Works
-
-At a high level:
-
-1. The user interacts with the UI rendered by [`src/genie-ai/GenieAIApp.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/genie-ai/GenieAIApp.tsx).
-2. The app collects chat history, selected mode, shopping profile, cart state, and language choice.
-3. The frontend calls local API routes under [`src/app/api/ai`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/app/api/ai).
-4. Those routes call one or more of:
-   - Groq hosted models
-   - Hugging Face Inference Providers via Novita
-   - commerce MCP tools
-5. The backend returns a normalized JSON response containing reply text, products, recommendations, delivery status, chips, analytics, or task-specific results.
-6. The UI updates product cards, chat bubbles, guided chips, the buy box, and any delivery or checkout information.
-
-## Tech Stack
-
-- `Next.js 16`
-- `React 19`
-- `TypeScript`
-- `Tailwind CSS 4`
-- `ESLint 9`
-- `Groq API` for chat, reasoning, image analysis, and speech-to-text
-- `Hugging Face Inference Providers` via Novita for selected reply generation
-- `Commerce MCP` for live commerce operations
-
-## Repository Structure
-
-```text
-MCP-AI-Shopping-Platform/
-|-- README.md
-|-- usage.md
-|-- ai-usage-and-models.txt
-|-- netlify.toml
-|-- Doc/
-|   |-- Overview.docx
-|   `-- sample.html
-`-- src/
-    |-- app/
-    |   |-- api/ai/
-    |   |   |-- chatbot/route.ts
-    |   |   |-- commerce/route.ts
-    |   |   |-- context-analysis/route.ts
-    |   |   |-- image-analysis/route.ts
-    |   |   `-- voice-messages/route.ts
-    |   |-- ai-chatbot/page.tsx
-    |   |-- demo-video/page.tsx
-    |   |-- features/page.tsx
-    |   |-- image-analysis/page.tsx
-    |   |-- voice-messages/page.tsx
-    |   |-- globals.css
-    |   |-- layout.tsx
-    |   `-- page.tsx
-    |-- genie-ai/
-    |   `-- GenieAIApp.tsx
-    |-- lib/
-    |   |-- aiPayload.ts
-    |   |-- deliveryLocations.ts
-    |   |-- groqHosted.ts
-    |   |-- huggingFaceNovita.ts
-    |   |-- commerceMcp.ts
-    |   `-- productCatalog.ts
-    |-- public/
-    |-- env.local.example
-    `-- package.json
+  UI --> Commerce
+  UI <--> Events
+  UI <--> State
+  Commerce -->|query + preferences + history| Python
+  Python -->|12 candidates| Commerce
+  Commerce --> Rerank
+  Rerank --> HF
+  Rerank <--> Profile
+  Commerce --> Groq
+  Tools --> Groq
+  Tools --> Novita
+  Commerce --> MCP
+  Commerce -->|final products + reply| UI
 ```
 
-## Prerequisites
+- Python retrieves and filters the candidate products.
+- Next.js owns the final product order.
+- Next.js applies the HF CrossEncoder, personalization rules, and reply generation after Python responds.
 
-- `Node.js 20+` recommended
-- `npm`
-- a `Groq API key`
-- a `Hugging Face token` with Inference Providers permission
-- network access to the commerce MCP endpoint
+## Recommendation flow
 
-## Local Setup
+```mermaid
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant N as commerce API
+  participant P as search API
+  participant H as HF reranker
+  participant S as Session profile
+  participant G as Groq
 
-The runnable application is inside [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src), so run commands there.
-
-1. Install dependencies:
-
-```powershell
-cd src
-npm install
+  B->>N: query, preferences, history, buffered events
+  N->>P: query, preferences, history
+  P-->>N: products
+  N->>S: Deduplicate and apply events
+  N->>H: query + products
+  H-->>N: raw relevance scores
+  N->>S: Read preference signals
+  N->>N: Sort products by final score
+  N->>G: Generate reply from final products
+  N-->>B: reply + final product order
+  B->>B: Clear successfully sent events
 ```
 
-2. Create a local environment file:
-
-```powershell
-Copy-Item env.local.example .env.local
-```
-
-3. Update `.env.local` with your API keys and any optional model overrides.
-
-4. Start the development server:
-
-```powershell
-npm run dev
-```
-
-5. Open [http://localhost:3000](http://localhost:3000).
-
-## Environment Variables
-
-The default template is [`src/env.local.example`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/env.local.example).
-
-### Required
-
-- `GROQ_API_KEY`
-- `HF_TOKEN`
-
-### Commerce and Provider Configuration
-
-- `COMMERCE_MCP_URL`
-- `COMMERCE_SEARCH_PRODUCTS_TOOL`
-- `COMMERCE_GET_PRODUCT_TOOL`
-- `COMMERCE_LIST_DELIVERY_CITIES_TOOL`
-- `COMMERCE_CHECK_DELIVERY_TOOL`
-- `COMMERCE_CREATE_ORDER_TOOL`
-- `MCP_REQUEST_TIMEOUT_MS`
-- `GROQ_REQUEST_TIMEOUT_MS`
-- `GROQ_TOTAL_TIMEOUT_MS`
-- `HF_NOVITA_REPLY_TIMEOUT_MS`
-
-### Text Model Selection
-
-- `HF_NOVITA_REPLY_MODEL`
-- `GROQ_REPLY_MODEL`
-- `GROQ_PROCESSING_MODEL`
-- `GROQ_CONTEXT_MODEL`
-- `GROQ_COMMERCE_MODEL`
-- `GROQ_ENGLISH_CHAT_MODEL`
-- `GROQ_SINHALA_CHAT_MODEL`
-- `GROQ_SINGLISH_CHAT_MODEL`
-- `GROQ_GIFT_MESSAGE_MODEL`
-- `GROQ_SINHALA_GIFT_MESSAGE_MODEL`
-- `GROQ_SINGLISH_GIFT_MESSAGE_MODEL`
-- `GROQ_BACKUP_MODEL`
-
-### Vision Models
-
-- `GROQ_VISION_MODEL`
-- `GROQ_VISION_BACKUP_MODEL`
-
-### Demo Page
-
-- `NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL`
-
-### Default Example
-
-```dotenv
-GROQ_API_KEY=your_groq_key_here
-HF_TOKEN=your_hugging_face_token_with_inference_permission
-
-HF_NOVITA_REPLY_MODEL=Qwen/Qwen2.5-72B-Instruct:novita
-HF_NOVITA_REPLY_TIMEOUT_MS=4500
-GROQ_REPLY_MODEL=openai/gpt-oss-120b
-GROQ_PROCESSING_MODEL=llama-3.3-70b-versatile
-GROQ_CONTEXT_MODEL=llama-3.3-70b-versatile
-GROQ_COMMERCE_MODEL=llama-3.3-70b-versatile
-GROQ_ENGLISH_CHAT_MODEL=openai/gpt-oss-120b
-GROQ_SINHALA_CHAT_MODEL=openai/gpt-oss-120b
-GROQ_SINGLISH_CHAT_MODEL=llama-3.3-70b-versatile
-GROQ_GIFT_MESSAGE_MODEL=llama-3.3-70b-versatile
-GROQ_SINHALA_GIFT_MESSAGE_MODEL=openai/gpt-oss-120b
-GROQ_SINGLISH_GIFT_MESSAGE_MODEL=llama-3.3-70b-versatile
-GROQ_BACKUP_MODEL=qwen/qwen3.6-27b
-GROQ_REQUEST_TIMEOUT_MS=5000
-GROQ_TOTAL_TIMEOUT_MS=10000
-MCP_REQUEST_TIMEOUT_MS=4000
-GROQ_VISION_MODEL=qwen/qwen3.6-27b
-GROQ_VISION_BACKUP_MODEL=qwen/qwen3.6-27b
-```
-
-## Available Scripts
-
-Run these from [`src`](D:/Projects/AI/MCP-AI-Shopping-Platform/src):
-
-```powershell
-npm run dev
-npm run build
-npm run start
-npm run lint
-```
-
-## Pages and Routes
-
-### UI Pages
-
-- `/`: main workspace
-- `/features`: feature overview and mode guide
-- `/demo-video`: embedded demo video page
-- `/ai-chatbot`: loads the same app shell
-- `/image-analysis`: loads the same app shell
-- `/voice-messages`: loads the same app shell
-
-### Internal API Routes
-
-- `/api/ai/commerce`
-- `/api/ai/context-analysis`
-- `/api/ai/chatbot`
-- `/api/ai/image-analysis`
-- `/api/ai/voice-messages`
-
-## API Reference
-
-### `POST /api/ai/commerce`
-
-Main orchestration route for shopping and commerce tasks.
-
-Supports multiple tasks, including:
-
-- `initial`: initial live product load
-- `recommend`: general shopping reply and product recommendation flow
-- `compare`: compare product IDs
-- `checkout`: create a GenieAI checkout link
-- `track`: track an order
-- `giftMessage`: generate gift card text
-
-Typical responsibilities:
-
-- analyzes the message and preferences
-- builds a product search query
-- fetches live products from the commerce MCP
-- filters by budget when needed
-- requests delivery checks when the user asks for delivery
-- ranks or compares products with AI
-- returns chips, analytics, normalized preferences, and product cards
-
-### `POST /api/ai/context-analysis`
-
-Analyzes the first shopping message and extracts:
-
-- `budget`
-- `recipient`
-- `occasion`
-- `category`
-- `requestedGiftType`
-- `missingFields`
-
-This route mixes local heuristics with Groq analysis and preserves the selected language as authoritative.
-
-### `POST /api/ai/chatbot`
-
-Standalone chat route for lightweight multilingual chatbot testing. It accepts message history and a selected language, then returns one short reply paragraph.
-
-### `POST /api/ai/image-analysis`
-
-Accepts multipart form uploads with an `image` file. It sends the image to a Groq vision model and returns:
-
-- a short `summary`
-- visual `labels`
-- `visibleText`
-- `productHints`
-- a `searchQuery`
-
-If Groq vision is temporarily unavailable, it falls back to filename-based hint generation.
-
-### `POST /api/ai/voice-messages`
-
-Accepts multipart form uploads with an `audio` file and `language=en`.
-
-Behavior:
-
-- uses Groq `whisper-large-v3-turbo`
-- supports English voice search only
-- rejects unclear or non-recognized transcripts with a retry response
-- does not handle read-aloud, because read-aloud is browser-side speech synthesis
-
-## AI Model Routing
-
-The routing behavior in code is task-specific rather than a single-model setup.
-
-### Main Patterns
-
-- `Groq` handles most analysis, ranking, comparison, context extraction, vision, and speech-to-text tasks
-- `Hugging Face via Novita` is used for selected direct reply generation, especially non-English style-sensitive responses
-- `Browser speech synthesis` handles read-aloud locally with no server model
-- `Commerce MCP` handles live commerce data and operations
-
-### Current Default Routing Notes
-
-Based on the repository's current code and config files:
-
-- `/api/ai/context-analysis`: Groq
-- `/api/ai/image-analysis`: Groq vision
-- `/api/ai/voice-messages`: Groq Whisper
-- `/api/ai/chatbot`: Groq
-- `/api/ai/commerce`:
-  - live search, delivery checks, and order creation come from the commerce MCP
-  - comparison, ranking, reasoning, and most commerce responses come from Groq
-  - gift-message generation may use Novita first for non-English variants, then Groq fallback
-
-Because model selection is environment-driven, check:
-
-- [`ai-usage-and-models.txt`](D:/Projects/AI/MCP-AI-Shopping-Platform/ai-usage-and-models.txt)
-- [`usage.md`](D:/Projects/AI/MCP-AI-Shopping-Platform/usage.md)
-- [`src/env.local.example`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/env.local.example)
-
-for the current documented defaults.
-
-## Commerce MCP Integration
-
-The MCP client implementation is in [`src/lib/commerceMcp.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/commerceMcp.ts).
-
-Important behavior:
-
-- uses the configured commerce MCP endpoint
-- initializes an MCP session and sends `notifications/initialized`
-- reuses a short-lived session for performance
-- expires sessions after 10 minutes
-- handles both JSON and SSE-style MCP responses
-- retries on invalid or expired session errors for most tools
-- enforces a request timeout with `AbortController`
-
-The commerce route uses MCP for operations such as:
-
-- product search
-- product detail retrieval
-- delivery checks
-- order creation
-
-## User Flows
+- Context analysis decides whether the latest message requires product search.
+- Product requests continue through the search API, HF reranking, and personalization pipeline.
+- Greetings, identity or capability questions, general conversation, and delivery-only checks use a text-only Next.js reply.
+- Text-only replies skip Python and HF, return an empty product list, and hide existing product cards.
+
+## Mode flows
 
 ### Smart Shopping
 
-1. User enters a natural request.
-2. Context analysis extracts budget, recipient, occasion, and gift type.
-3. The app asks for missing fields using guided chips.
-4. The backend fetches matching live products from the commerce MCP.
-5. AI ranks and explains the product matches.
-6. The user adds products to the buy box or asks for more suggestions.
+- Sends the current user query.
+- Sends active category, budget, city, occasion, and recipient preferences.
+- Sends up to three previous user messages in oldest-to-newest order.
+- Excludes assistant messages and the current query from history.
+- Sends `[]` when there are no earlier user messages.
 
 ### Event Planner
 
-1. User chooses the mode.
-2. The UI collects event type, participant count, venue, and budget.
-3. The commerce route searches for relevant products and builds a guided planning response.
-4. The user continues using the guided controls under product cards.
+```mermaid
+flowchart TD
+  A[User submits event preferences] --> B[LLM generates item list]
+  B --> C[Choose current item]
+  C --> D[Divide selected budget by generated item count]
+  D --> E[Request Python products for current item]
+  E --> F[HF rerank]
+  F --> G[Personalize]
+  G --> H[Display final products]
+  H -->|Next / Previous item| C
+```
+
+- Generates the item list before product search.
+- Uses the current generated item as `query`.
+- Uses `Events` as the preference category.
+- Divides both ends of a budget range by the generated-item count.
+- Sends `chatHistory: null`.
+- Keeps participants and venue in Next.js unless they materially improve the item query.
 
 ### Gift Box Builder
 
-1. User selects recipient, theme, item count, and budget.
-2. The system searches live products that fit the theme and budget.
-3. The user iterates with guided actions and adds products to the buy box.
+- Generates the box-item list before product search.
+- Uses the current generated item as `query`.
+- Keeps the selected gift-box theme/category as the preference category.
+- Divides the total budget range by the generated-item count.
+- Sends `chatHistory: null`.
+- Uses the same Next/Previous item behavior as Event Planner.
 
-### Product Compare
+## Reranking and personalization
 
-1. User copies real product IDs from product cards.
-2. The app fetches those products from the live catalog.
-3. AI generates a concise comparison or falls back to a deterministic local summary.
+### Relevance ranking
 
-### Checkout
+- Uses the fine-tuned CrossEncoder model `ramitha2002/genieai-product-reranker`.
+- Uses the HF Space `ramitha2002/product-reranker-model-api` and its `/rerank` API.
+- Sends every Python candidate with `top_n` equal to the candidate count.
+- Uses product name/title, description, and category as model text inputs.
+- Treats `rerankerScore` as a raw score that is comparable only within one query.
+- Clamps raw scores to `[-20, 20]` before sigmoid normalization.
+- Keeps Python order as the relevance baseline when the HF request fails or times out.
 
-1. User adds products to the buy box.
-2. User provides recipient, sender, city, date, and address details.
-3. The app validates required checkout fields.
-4. The commerce MCP creates a guest checkout link.
+### Hyper-personalization
 
-## Architecture Notes
+| Event | Weight |
+|---|---:|
+| `search` | 0.5 |
+| `impression` | 0.1 |
+| `view` | 1.0 |
+| `compare` | 1.5 |
+| `add_to_cart` | 3.0 |
+| `remove_from_cart` | -1.0 |
+| `purchase` | 5.0 |
 
-### Frontend
+- Browser events include an `eventId` for retry-safe deduplication.
+- The session profile remembers up to 500 event IDs.
+- Existing category scores decay by `0.9` when a new event batch is applied.
+- Positive interactions with a weight of at least `1` influence price affinity and recent-product tracking.
+- A recently interacted product receives a `0.25` repeat penalty.
+- Profiles expire after 24 hours of inactivity.
+- The current profile store is process-local; use Redis before deploying multiple Next.js instances.
 
-- Main app shell: [`src/genie-ai/GenieAIApp.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/genie-ai/GenieAIApp.tsx)
-- App entry page: [`src/app/page.tsx`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/app/page.tsx)
-- Shared UI logic includes:
-  - multilingual copy and mode switching
-  - guided chip flows
-  - chat state persistence
-  - buy box/cart state
-  - image upload and voice recording
-  - browser speech synthesis
+### Score calculation
 
-### Backend Helpers
+```text
+relevance = sigmoid(rerankerScore)
 
-- [`src/lib/groqHosted.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/groqHosted.ts): Groq requests, retries, and fallback behavior
-- [`src/lib/huggingFaceNovita.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/huggingFaceNovita.ts): Novita-hosted Hugging Face requests
-- [`src/lib/productCatalog.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/productCatalog.ts): product normalization and formatting
-- [`src/lib/deliveryLocations.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/deliveryLocations.ts): delivery city and location handling
-- [`src/lib/aiPayload.ts`](D:/Projects/AI/MCP-AI-Shopping-Platform/src/lib/aiPayload.ts): payload parsing and model output cleanup
+preferenceScore =
+  0.70 × categoryAffinity
+  + 0.30 × priceAffinity
+  - recentProductPenalty
 
-## Operational Behavior and Safeguards
+finalScore = 0.75 × relevance + 0.25 × preferenceScore
+```
 
-The code includes several important constraints and guardrails:
+- Scores are clamped to `[0, 1]`.
+- Cold sessions omit `preferenceScore`; final order follows relevance alone.
+- Final product data includes `finalScore`.
+- Successful HF results also include `rerankerScore`.
 
-- only the latest few conversation turns are reused in some model calls to keep prompts focused
-- budget-aware filtering is applied to product results before rendering
-- MCP requests are timeout-bounded
-- product searches and normalized city lookups are cached
-- delivery checks are only triggered when the message actually asks about delivery
-- non-past delivery dates are enforced for checkout and delivery flows
-- image uploads are capped at `4 MB`
-- audio uploads are capped at `12 MB`
-- voice search is English-only
-- unclear speech returns a retry instruction instead of unreliable text
-- some model outputs are cleaned with `stripModelThinking` before use
+## Fine-tuned reranker model
 
-## Troubleshooting
+- Starts from the CrossEncoder base model `cross-encoder/ms-marco-MiniLM-L6-v2`.
+- Fine-tunes on the public `tasksource/esci` dataset, a processed mirror of Amazon ESCI.
+- Uses public data only; no GenieAI customer queries, catalog data, or other private examples are included in training.
+- Focuses by default on ten gift-shopping categories:
+  - cakes and desserts
+  - flower bouquets
+  - chocolates and candy
+  - perfume and fragrance
+  - jewelry
+  - fashion and accessories
+  - gift baskets and hampers
+  - skincare and beauty sets
+  - personalized gifts
+  - home decor and candles
+- Retains whole query groups, including irrelevant candidates, so ranking training reflects real product-search choices.
+- Maps ESCI labels to graded relevance: Exact `1.00`, Substitute `0.70`, Complement `0.35`, and Irrelevant `0.00`.
+- Uses the official ESCI train/test split.
+- Uses two epochs, batch size 32, learning rate `2e-5`, and a maximum input length of 384 by default.
+- Evaluates the fine-tuned model against the public base model with NDCG@10, MRR, and HitRate@4.
+- Publishes the trained artifact as `ramitha2002/genieai-product-reranker` for hosted inference.
 
-### App starts but AI routes fail
+## API routes
 
-Check:
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/ai/commerce` | POST | Main commerce orchestration and final ranking |
+| `/api/ai/rerank` | POST | Standalone HF and personalization reranking pipeline |
+| `/api/ai/context-analysis` | POST | Preference and language extraction |
+| `/api/ai/chatbot` | POST | Standalone multilingual chatbot |
+| `/api/ai/image-analysis` | POST | Image shopping hints |
+| `/api/ai/gift-card` | POST | Safe SVG gift-card generation |
+| `/api/ai/voice-messages` | POST | English voice transcription |
+| `/api/delivery-prediction` | POST | Delivery prediction support |
+| `/api/personalization/session` | GET | HTTP-only anonymous session cookie |
 
-- `GROQ_API_KEY` is set
-- `HF_TOKEN` is set when Novita-backed flows are needed
-- the dev server was restarted after `.env.local` changes
+| Commerce task | Python | HF rerank | Purpose |
+|---|---:|---:|---|
+| `initial` | No | No | Default product showcase |
+| `recommend` | Yes | Yes | Final product recommendations |
+| `productPageReply` | No | No | Reply for local product paging |
+| `eventPlan` | No | No | Event item-list generation |
+| `giftBox` | No | No | Gift-box item-list generation |
+| `compare` | No | No | Two-product comparison |
+| `giftMessage` | No | No | Gift-message text |
+| `checkout` | No | No | Checkout preparation |
 
-### Live product search fails
 
-Check:
 
-- network access to the configured commerce MCP endpoint
-- `COMMERCE_MCP_URL` if you overrode it
-- timeout settings if the MCP backend is slow
+## Repository layout
 
-### Voice input does not work
+```text
+GenieAI-frontend/
+├── README.md
+└── src/
+    ├── app/api/ai/
+    │   ├── commerce/
+    │   ├── rerank/route.ts
+    │   ├── context-analysis/route.ts
+    │   ├── image-analysis/route.ts
+    │   ├── gift-card/route.ts
+    │   └── voice-messages/route.ts
+    ├── genie-ai/GenieAIController.tsx
+    ├── lib/personalization/
+    ├── lib/reranking/
+    ├── lib/commerceMcp.ts
+    ├── lib/groqHosted.ts
+    ├── env.local.example
+    └── package.json
+```
 
-Check:
+## Setup
 
-- you are sending English speech
-- the uploaded or recorded audio is under 12 MB
-- the browser granted microphone access
+Prerequisites:
 
-### Image analysis fails
+- Node.js 20 or newer.
+- npm.
+- Running Python recommendation service.
+- Shared token configured in Python and Next.js.
+- Groq API key.
+- Hugging Face token recommended for the hosted reranker.
+- Commerce MCP access for showcase, delivery, comparison, and checkout.
 
-Check:
+Run from the repository root:
 
-- the file is under 4 MB
-- the Groq vision model is available
-- your Groq key has access to the configured model
+```powershell
+Set-Location src
+npm install
+Copy-Item env.local.example .env.local
+npm run dev
+```
 
-### Demo video page is blank
+- Open [http://localhost:3000](http://localhost:3000).
+- Restart the server after changing `.env.local`.
 
-Set:
+## Important environment variables
 
-- `NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL`
+| Variable | Required | Purpose |
+|---|---:|---|
+| `GROQ_API_KEY` | Yes | Groq credential; `GROQ_TOKEN` is also accepted |
+| `GROQ_PRODUCT_MATCHING_MODEL` | No | Groq model used when Qoder cart analysis fails; defaults to `openai/gpt-oss-120b` |
+| `AI_SERVICE_URL` | Yes for recommendations | Python recommendation service URL |
+| `AI_SERVICE_TOKEN` | Yes for recommendations | Shared Python service bearer token |
+| `HF_TOKEN` | Recommended | Hosted HF reranker and HF Inference access; `HUGGINGFACE_TOKEN` also works |
+| `QODER_PAT` | Yes for Qoder features | Server-side Qoder Cloud personal access token |
+| `QODER_ENV_ID` | Yes for Qoder features | Qoder Cloud environment ID |
+| `QODER_PRODUCT_MATCHING_AGENT_ID` | Yes for cart matching | ID of the `genie-product-matching` agent; falls back to `QODER_AGENT_ID` |
 
-The page accepts a Google Drive file URL and converts it to an embeddable preview URL.
+- Keep every value server-only.
+- Never use the `NEXT_PUBLIC_` prefix for credentials or service tokens.
+- See [`src/env.local.example`](src/env.local.example) for the full optional configuration list.
 
-## Deployment Notes
+## Provider responsibilities
 
-- [`netlify.toml`](D:/Projects/AI/MCP-AI-Shopping-Platform/netlify.toml) is present, so Netlify deployment is expected or supported
-- all AI services are remote; no model weights are downloaded locally
-- environment variables must be configured in the deployment platform
-- browser-only features like microphone access and speech synthesis depend on client support
+| Capability | Provider / model | Fallback or note |
+|---|---|---|
+| Candidate retrieval and hard filters | Python recommendation service | Returns 12 eligible products |
+| Relevance reranking | Fine-tuned CrossEncoder `ramitha2002/genieai-product-reranker` via HF Space `ramitha2002/product-reranker-model-api` | Python order becomes relevance baseline |
+| Session personalization | Next.js rule engine | Cold sessions use relevance only |
+| Context, commerce replies, guided plans | Groq `openai/gpt-oss-120b` | Local/route fallback behavior |
+| Product comparison and English gift messages | Groq `openai/gpt-oss-20b` | Deterministic or generic fallback |
+| Sinhala and Singlish responses | Groq `openai/gpt-oss-120b` | HF Novita can assist selected language flows |
+| Novita language generation | HF Inference `google/gemma-4-31B-it:novita` | Groq fallback where configured |
+| Image analysis | Groq `qwen/qwen3.6-27b` | Filename-derived hints |
+| Gift-card art direction | Groq `qwen/qwen3.6-27b` | Backup `qwen/qwen3.8-27b` |
+| Voice transcription | Groq `whisper-large-v3-turbo` | Retry response |
+| Default showcase, details, delivery, checkout | Commerce MCP | Feature-specific error behavior |
+| Read aloud | Browser Speech Synthesis API | No server model |
 
-## Additional Project Files
+## Vercel hosting
 
-- [`usage.md`](D:/Projects/AI/MCP-AI-Shopping-Platform/usage.md): task-to-model usage notes
-- [`ai-usage-and-models.txt`](D:/Projects/AI/MCP-AI-Shopping-Platform/ai-usage-and-models.txt): current model defaults and routing notes
-- [`Doc/Overview.docx`](D:/Projects/AI/MCP-AI-Shopping-Platform/Doc/Overview.docx): source overview material
-- [`Doc/sample.html`](D:/Projects/AI/MCP-AI-Shopping-Platform/Doc/sample.html): reference styling and UI inspiration
+- Import this repository into Vercel.
+- Set the project root directory to `src`.
+- Keep the default Next.js build settings.
+- Add `GROQ_API_KEY`, `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, and `HF_TOKEN` in **Project Settings → Environment Variables**.
+- Configure the same variables for Preview and Production when both environments use recommendations.
+- Confirm Vercel functions can reach the Python service, Hugging Face Space, Groq/Novita, and commerce MCP endpoints.
+- Use a Vercel function duration compatible with hosted reranking startup.
+- Keep every token server-only; do not create `NEXT_PUBLIC_` versions.
 
 ## License
 
-No license file is currently included in this repository. Add one if you plan to distribute or open-source the project.
+- No license file is included yet.
+- Add a license before distributing the project publicly.
