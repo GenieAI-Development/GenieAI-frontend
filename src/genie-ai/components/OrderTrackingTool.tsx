@@ -118,7 +118,7 @@ export function OrderTrackingTool({
             <span className="grid h-10 w-10 place-items-center rounded-[12px] bg-[#0B2748] text-[#F5D477]"><V3Icon name="truck" className="h-5 w-5" /></span>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[1.1px] text-[#B3872F]">Smart delivery estimate</p>
-              <h1 className="mt-0.5 text-lg font-bold text-[#0A1F3A]">Order tracking</h1>
+              <h1 className="mt-0.5 text-lg font-bold text-[#0A1F3A]">Delivery Prediction</h1>
             </div>
           </div>
           <p className="mt-3 max-w-2xl text-xs leading-5 text-[#5B6B7A]">Estimate supplier lead time, warehouse preparation, and delivery travel using live weather and the delivery model.</p>

@@ -255,7 +255,7 @@ A task-based endpoint for the live GenieAI catalog.
 
 `task` defaults to `recommend`.
 
-Order tracking has been removed. Sending `"task": "track"` or any other unsupported task returns `400` with `{"error":"Unsupported commerce task."}`.
+Delivery prediction has been removed. Sending `"task": "track"` or any other unsupported task returns `400` with `{"error":"Unsupported commerce task."}`.
 
 ### Common request
 

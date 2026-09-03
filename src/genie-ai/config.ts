@@ -13,7 +13,7 @@ export const modes = [
   { name: "Gift Box Builder", icon: "gift" },
   { name: "Product Compare", icon: "search" },
   { name: "Gift Message", icon: "heart" },
-  { name: "Order Tracking", icon: "truck" },
+  { name: "Delivery Prediction", icon: "truck" },
 ] satisfies Array<{ icon: IconName; name: string }>;
 
 export const starterMessages: ChatMessage[] = [
@@ -74,7 +74,7 @@ export const modeIcons: Record<string, IconName> = {
   "Gift Message": "heart",
   "Product Compare": "search",
   "Smart Shopping": "cart",
-  "Order Tracking": "truck",
+  "Delivery Prediction": "truck",
 };
 
 export const budgetOptions = [

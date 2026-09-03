@@ -7,7 +7,7 @@ const modeIcons: Record<string, string> = {
   "Gift Box Builder": "box",
   "Product Compare": "compare",
   "Gift Message": "gift",
-  "Order Tracking": "truck",
+  "Delivery Prediction": "truck",
 };
 
 const shortLabels: Record<string, string> = {
@@ -16,7 +16,7 @@ const shortLabels: Record<string, string> = {
   "Gift Box Builder": "Gift Box",
   "Product Compare": "Compare",
   "Gift Message": "Message",
-  "Order Tracking": "Track",
+  "Delivery Prediction": "Delivery",
 };
 
 export function NavigationRail({ activeMode, modes, onModeChange }: { activeMode: string; modes: GenieMode[]; onModeChange: (mode: string) => void }) {

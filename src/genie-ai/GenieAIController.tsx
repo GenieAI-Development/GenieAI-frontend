@@ -9,7 +9,11 @@ import {
   useState,
 } from "react";
 import { stripModelThinking } from "@/lib/aiPayload";
-import { deliveryCities, locationTypes } from "@/lib/deliveryLocations";
+import {
+  deliveryCities,
+  locationTypes,
+  mainDeliveryCities,
+} from "@/lib/deliveryLocations";
 import {
   clearPendingEvents,
   getPendingEvents,
@@ -187,6 +191,8 @@ export function GenieAIController() {
   const [giftMessage, setGiftMessage] = useState(
     "Wishing you a wonderful day filled with love and appreciation.",
   );
+  const [isGiftMessageCheckoutNoticeVisible, setIsGiftMessageCheckoutNoticeVisible] =
+    useState(false);
   const [, setStatus] = useState(
     "Groq chat and media ready. Live commerce service ready.",
   );
@@ -225,6 +231,16 @@ export function GenieAIController() {
   const [giftMessageToolTab, setGiftMessageToolTab] = useState<
     "message" | "card"
   >("message");
+
+  useEffect(() => {
+    if (!isGiftMessageCheckoutNoticeVisible) return;
+
+    const timeoutId = window.setTimeout(
+      () => setIsGiftMessageCheckoutNoticeVisible(false),
+      5000,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [isGiftMessageCheckoutNoticeVisible]);
   const [giftCardPreferences, setGiftCardPreferences] =
     useState<GiftCardPreferences>({
       instructions: "",
@@ -305,8 +321,8 @@ export function GenieAIController() {
         : "Read latest message aloud";
   const isCompareMode = activeMode.includes("Compare");
   const isGiftMessageMode = activeMode.includes("Message");
-  const isOrderTrackingMode = activeMode === "Order Tracking";
-  const isFormToolMode = isCompareMode || isGiftMessageMode || isOrderTrackingMode;
+  const isDeliveryPredictionMode = activeMode === "Delivery Prediction";
+  const isFormToolMode = isCompareMode || isGiftMessageMode || isDeliveryPredictionMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
 
   useEffect(() => {
@@ -436,7 +452,7 @@ export function GenieAIController() {
     if (mode.includes("Event")) return localizedText.eventPrompt;
     if (mode.includes("Gift Box")) return localizedText.giftBoxPrompt;
     if (mode.includes("Compare")) return localizedText.comparePrompt;
-    if (mode === "Order Tracking") return "Enter a delivery location to predict preparation and travel time from Colombo.";
+    if (mode === "Delivery Prediction") return "Enter a delivery location to predict preparation and travel time from Colombo.";
     return starterMessagesByLanguage[selectedLanguage][0].content;
   }
 
@@ -944,9 +960,22 @@ export function GenieAIController() {
         if (storedState) {
           const storedMode = storedState.activeMode ?? "Smart Shopping";
           const restoredMode =
-            storedMode === "Gift Card" ? "Gift Message" : storedMode;
+            storedMode === "Gift Card"
+              ? "Gift Message"
+              : storedMode === "Order Tracking"
+                ? "Delivery Prediction"
+                : storedMode;
+          const storedModeSessions = { ...(storedState.modeSessions ?? {}) };
+          if (
+            storedModeSessions["Order Tracking"] &&
+            !storedModeSessions["Delivery Prediction"]
+          ) {
+            storedModeSessions["Delivery Prediction"] =
+              storedModeSessions["Order Tracking"];
+          }
+          delete storedModeSessions["Order Tracking"];
           const restoredSessions = normalizeModeSessions(
-            storedState.modeSessions ?? {},
+            storedModeSessions,
           );
           const restoredSession = restoredSessions[restoredMode] ?? {
             chips: storedState.chips,
@@ -2509,6 +2538,7 @@ export function GenieAIController() {
       }
 
       setGiftMessage(data.giftMessage);
+      setIsGiftMessageCheckoutNoticeVisible(true);
       setStatus("Gift message ready and saved for checkout.");
     } catch (error) {
       setStatus(getErrorMessage(error));
@@ -2565,7 +2595,10 @@ export function GenieAIController() {
       setGiftCardMessage(data.message ?? "");
       setGiftCardAnalysis(data.analysis ?? "");
       setGiftCardPalette(data.palette ?? []);
-      if (data.message?.trim()) setGiftMessage(data.message.trim());
+      if (data.message?.trim()) {
+        setGiftMessage(data.message.trim());
+        setIsGiftMessageCheckoutNoticeVisible(true);
+      }
       setStatus("Gift card generated. Its message is also saved for checkout.");
     } catch (error) {
       setStatus(getErrorMessage(error));
@@ -3166,6 +3199,7 @@ export function GenieAIController() {
       overlays={
         <>
           {processingOverlay}
+          {isGiftMessageCheckoutNoticeVisible ? <div role="status" aria-live="polite" className="fixed right-4 top-20 z-[130] flex max-w-sm items-start gap-3 rounded-xl border border-[#B7DEC3] bg-white px-4 py-3 shadow-[0_16px_36px_-18px_rgba(10,31,58,.45)]"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#E7F5EC] text-sm font-bold text-[#267044]">✓</span><p className="text-xs font-semibold leading-5 text-[#1F5C38]">Gift message saved. It will appear in the checkout form.</p><button type="button" onClick={() => setIsGiftMessageCheckoutNoticeVisible(false)} className="-mr-1 -mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-md text-[#5D8369] hover:bg-[#E7F5EC]" aria-label="Dismiss notification">×</button></div> : null}
           <WelcomePanel open={isIntroPanelVisible} onClose={closeIntroPanel} />
           <ProductDialog
             formatPrice={formatPrice}
@@ -3250,8 +3284,8 @@ export function GenieAIController() {
               <div className="mx-auto -mt-3 h-full w-full max-w-5xl sm:-mt-4">
                 {renderGiftMessageTool()}
               </div>
-            ) : isOrderTrackingMode ? (
-              <OrderTrackingTool cities={deliveryCities} products={buyBox} />
+            ) : isDeliveryPredictionMode ? (
+              <OrderTrackingTool cities={mainDeliveryCities} products={buyBox} />
             ) : undefined
           }
           contextPanel={renderContextPanel}
