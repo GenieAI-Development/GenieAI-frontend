@@ -57,7 +57,7 @@ import {
   type ExtendedPreferences,
   type GiftCardResponse,
   type GuidedPlanItem,
-  type ImageResponse,
+  type ImageSearchResponse,
   type Language,
   type ModeSession,
   type ShoppingProfile,
@@ -767,18 +767,6 @@ export function GenieAIController() {
     }
 
     return `Suggested item list:\n${itemList}\n\nI will start by showing options for ${nextItem}. Use Next item to move through the list.`;
-  }
-
-  function getImageSearchReply(data: ImageResponse) {
-    const imageSummary = data.summary?.trim();
-
-    if (data.fallback) {
-      return text.relatedGiftsReply;
-    }
-
-    return imageSummary
-      ? `${text.imageLooksLike} ${imageSummary}. ${text.relatedGiftsReply}`
-      : text.relatedGiftsReply;
   }
 
   function handleLanguageChange(nextLanguage: Language) {
@@ -2754,34 +2742,46 @@ export function GenieAIController() {
     }
 
     setIsComposerMenuOpen(false);
-    const formData = new FormData();
-    formData.append("image", file);
     setActivityMessage(text.uploadingImage);
     setIsImageProcessing(true);
-    setStatus("Groq vision is analyzing the image.");
+    setStatus("Searching for visually similar gifts.");
 
     try {
-      const response = await fetch("/api/ai/image-analysis", {
+      const searchFormData = new FormData();
+      searchFormData.append("image", file);
+      const searchResponse = await fetch("/api/ai/image-search", {
         method: "POST",
-        body: formData,
+        body: searchFormData,
       });
-      const data = (await response.json()) as ImageResponse;
+      const searchData = (await searchResponse.json()) as ImageSearchResponse;
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Groq image analysis failed.");
+      if (!searchResponse.ok) {
+        throw new Error(searchData.error ?? "Image vector search failed.");
       }
 
-      const query = data.searchQuery || data.productHints?.join(" ") || "gift";
-      addMessage({
-        role: "assistant",
-        content: getImageSearchReply(data),
-      });
-      await runCommerce(query, activeMode, profile, false);
-      setStatus(
-        data.fallback
-          ? "Image upload used a best-effort fallback search. GenieAI products updated."
-          : "Groq image analysis complete. GenieAI products updated.",
-      );
+      if (!searchData.lowConfidence && searchData.products.length > 0) {
+        setRecommendedProducts(
+          searchData.products.slice(0, MAX_RANKED_PRODUCTS),
+        );
+        setProductBatchIndex(0);
+        setFitReasons({});
+        addMessage({
+          role: "assistant",
+          content:
+            "I found these gifts by visual similarity to your image. Note: your selected preferences are not applied to visual search.",
+        });
+        setStatus("Visual product search complete. GenieAI products updated.");
+      } else {
+        setRecommendedProducts([]);
+        setProductBatchIndex(0);
+        setFitReasons({});
+        addMessage({
+          role: "assistant",
+          content:
+            "No matching products were found in our system. Try searching for cakes, flowers, chocolates, perfumes, or another gift category.",
+        });
+        setStatus("No matching products were found in our system.");
+      }
     } catch (error) {
       const message = getErrorMessage(error);
       addMessage({

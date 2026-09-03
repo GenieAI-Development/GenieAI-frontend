@@ -11,6 +11,7 @@ GenieAI is a multilingual gift-shopping assistant built with Next.js, React, and
 - [Features](#features)
 - [Architecture](#architecture)
 - [Recommendation flow](#recommendation-flow)
+- [Image search RAG](#image-search-rag)
 - [Mode flows](#mode-flows)
 - [Reranking and personalization](#reranking-and-personalization)
 - [Fine-tuned reranker model](#fine-tuned-reranker-model)
@@ -24,10 +25,10 @@ GenieAI is a multilingual gift-shopping assistant built with Next.js, React, and
 ## Features
 
 - Smart Shopping with preference collection and recent user-message context.
-- AI cart product analysis that scores each product pairing, identifies weak or duplicate combinations, and suggests a more balanced gift bundle.
+- AI cart product analysis that scores the complete bundle and gives up to two concise improvement suggestions.
 - Event Planner with LLM-generated item lists and per-item product requests.
 - Gift Box Builder with LLM-generated contents and total-budget allocation.
-- RAG ///////////////////
+- Image RAG with CLIP embeddings and Supabase pgvector retrieval.
 - Hugging Face CrossEncoder relevance ranking for all 12 returned candidates.
 - Rule-based session personalization using category, price, and recency signals.
 - Product comparison, delivery checks, cart state, and checkout preparation.
@@ -106,6 +107,17 @@ sequenceDiagram
 - Product requests continue through the search API, HF reranking, and personalization pipeline.
 - Greetings, identity or capability questions, general conversation, and delivery-only checks use a text-only Next.js reply.
 - Text-only replies skip Python and HF, return an empty product list, and hide existing product cards.
+
+## Image search RAG
+
+```mermaid
+flowchart LR
+  U[User-uploaded image] --> N[Image-search]
+  N --> C[Transformers.js CLIP\n512-dimension vector]
+  C --> S[Supabase pgvector RPC]
+  S --> P[Visually similar products]
+  P --> U
+```
 
 ## Mode flows
 
@@ -229,6 +241,7 @@ finalScore = 0.75 × relevance + 0.25 × preferenceScore
 | `/api/ai/context-analysis` | POST | Preference and language extraction |
 | `/api/ai/chatbot` | POST | Standalone multilingual chatbot |
 | `/api/ai/image-analysis` | POST | Image shopping hints |
+| `/api/ai/image-search` | POST | CLIP visual product retrieval from Supabase pgvector |
 | `/api/ai/gift-card` | POST | Safe SVG gift-card generation |
 | `/api/ai/voice-messages` | POST | English voice transcription |
 | `/api/delivery-prediction` | POST | Delivery prediction support |
@@ -258,6 +271,7 @@ GenieAI-frontend/
     │   ├── rerank/route.ts
     │   ├── context-analysis/route.ts
     │   ├── image-analysis/route.ts
+    │   ├── image-search/route.ts
     │   ├── gift-card/route.ts
     │   └── voice-messages/route.ts
     ├── genie-ai/GenieAIController.tsx
@@ -265,6 +279,8 @@ GenieAI-frontend/
     ├── lib/reranking/
     ├── lib/commerceMcp.ts
     ├── lib/groqHosted.ts
+    ├── lib/clipImageEmbedding.ts
+    ├── lib/supabaseImageSearch.ts
     ├── env.local.example
     └── package.json
 ```
@@ -302,11 +318,17 @@ npm run dev
 | `AI_SERVICE_URL` | Yes for recommendations | Python recommendation service URL |
 | `AI_SERVICE_TOKEN` | Yes for recommendations | Shared Python service bearer token |
 | `HF_TOKEN` | Recommended | Hosted HF reranker and HF Inference access; `HUGGINGFACE_TOKEN` also works |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes for image search | Supabase project URL |
+| `SUPABASE_SECRET_KEY` | Yes for image search | Server-only key used for the pgvector RPC |
+| `CLIP_IMAGE_MODEL` | No | Runtime ONNX model; defaults to `Xenova/clip-vit-base-patch32` |
+| `PRODUCT_IMAGE_EMBEDDING_MODEL` | No | Stored embedding-model label; defaults to `openai/clip-vit-base-patch32` |
+| `IMAGE_MATCH_THRESHOLD` | No | Minimum visual cosine similarity; defaults to `0.65` |
 | `QODER_PAT` | Yes for Qoder features | Server-side Qoder Cloud personal access token |
 | `QODER_ENV_ID` | Yes for Qoder features | Qoder Cloud environment ID |
 | `QODER_PRODUCT_MATCHING_AGENT_ID` | Yes for cart matching | ID of the `genie-product-matching` agent; falls back to `QODER_AGENT_ID` |
 
-- Keep every value server-only.
+- Keep every credential and secret server-only. `NEXT_PUBLIC_SUPABASE_URL` is
+  the intentionally public project URL, not a credential.
 - Never use the `NEXT_PUBLIC_` prefix for credentials or service tokens.
 - See [`src/env.local.example`](src/env.local.example) for the full optional configuration list.
 
@@ -322,6 +344,7 @@ npm run dev
 | Sinhala and Singlish responses | Groq `openai/gpt-oss-120b` | HF Novita can assist selected language flows |
 | Novita language generation | HF Inference `google/gemma-4-31B-it:novita` | Groq fallback where configured |
 | Image analysis | Groq `qwen/qwen3.6-27b` | Filename-derived hints |
+| Image search | Transformers.js CLIP + Supabase pgvector | Visual-only; max four products; no reranking or personalization |
 | Gift-card art direction | Groq `qwen/qwen3.6-27b` | Backup `qwen/qwen3.8-27b` |
 | Voice transcription | Groq `whisper-large-v3-turbo` | Retry response |
 | Default showcase, details, delivery, checkout | Commerce MCP | Feature-specific error behavior |

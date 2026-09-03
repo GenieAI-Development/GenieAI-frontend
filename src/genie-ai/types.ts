@@ -124,6 +124,15 @@ export type ImageResponse = {
   visibleText?: string[];
 };
 
+export type ImageSearchResponse = {
+  error?: string;
+  fallback?: boolean;
+  lowConfidence: boolean;
+  model?: string;
+  products: Product[];
+  topScore: number | null;
+};
+
 export type VoiceResponse = {
   error?: string;
   language?: "en";

@@ -67,29 +67,40 @@ export async function getGroqCommerce(
             },
             {
               role: "user",
-              content: JSON.stringify({
-                delivery,
-                recentConversation: conversationHistory,
-                exactCatalogMatchCount: products.length,
-                activePreferences: {
-                  budget: profile.budget,
-                  category: profile.category,
-                  occasion: profile.occasion,
-                  recipient: profile.recipient,
-                },
-                messageIntent: messageAnalysis.intent,
-                mode,
-                profile,
-                query: isPlanOnlyTask ? query : userMessage,
-                replyLanguage: language,
-                searchContext: {
-                  budgetResult: productSearch
-                    ? getBudgetSearchReply(productSearch, products.length)
-                    : null,
-                  catalogSearchQuery: searchQuery,
-                },
-                task,
-              }),
+              content: JSON.stringify(
+                isShoppingMode
+                  ? {
+                      activePreferences: {
+                        budget: profile.budget,
+                        category: profile.category,
+                        occasion: profile.occasion,
+                        recipient: profile.recipient,
+                      },
+                      productCatalogFromCommerceMcp: products,
+                      searchQuery,
+                    }
+                  : {
+                      exactCatalogMatchCount: products.length,
+                      activePreferences: {
+                        budget: profile.budget,
+                        category: profile.category,
+                        occasion: profile.occasion,
+                        recipient: profile.recipient,
+                      },
+                      messageIntent: messageAnalysis.intent,
+                      mode,
+                      profile,
+                      query: isPlanOnlyTask ? query : userMessage,
+                      replyLanguage: language,
+                      searchContext: {
+                        budgetResult: productSearch
+                          ? getBudgetSearchReply(productSearch, products.length)
+                          : null,
+                        catalogSearchQuery: searchQuery,
+                      },
+                      task,
+                    },
+              ),
             },
           ],
           temperature: 0.2,
@@ -111,43 +122,54 @@ export async function getGroqCommerce(
       },
       {
         role: "user",
-        content: JSON.stringify({
-          delivery,
-          recentConversation: conversationHistory,
-          expectedSchema: {
-            eventPlan: ["optional checklist line"],
-            giftMessage: "optional generated message",
-            mode: "active mode",
-            recommendations: [
-              {
-                fitScore: 0,
-                id: "one of the provided live product ids only",
-                reason: "why this product fits",
+        content: JSON.stringify(
+          isShoppingMode
+            ? {
+                activePreferences: {
+                  budget: profile.budget,
+                  category: profile.category,
+                  occasion: profile.occasion,
+                  recipient: profile.recipient,
+                },
+                productCatalogFromCommerceMcp: products,
+                searchQuery,
+              }
+            : {
+                expectedSchema: {
+                  eventPlan: ["optional checklist line"],
+                  giftMessage: "optional generated message",
+                  mode: "active mode",
+                  recommendations: [
+                    {
+                      fitScore: 0,
+                      id: "one of the provided live product ids only",
+                      reason: "why this product fits",
+                    },
+                  ],
+                  reply: "concise direct answer to this specific user message",
+                },
+                activePreferences: {
+                  budget: profile.budget,
+                  category: profile.category,
+                  occasion: profile.occasion,
+                  recipient: profile.recipient,
+                },
+                mode,
+                messageIntent: messageAnalysis.intent,
+                requestedGiftType: messageAnalysis.preferences.requestedGiftType,
+                productCatalogFromCommerceMcp: products,
+                profile,
+                query: isPlanOnlyTask ? query : userMessage,
+                replyLanguage: language,
+                searchContext: {
+                  budgetResult: productSearch
+                    ? getBudgetSearchReply(productSearch, products.length)
+                    : null,
+                  catalogSearchQuery: searchQuery,
+                },
+                task,
               },
-            ],
-            reply: "concise direct answer to this specific user message",
-          },
-          activePreferences: {
-            budget: profile.budget,
-            category: profile.category,
-            occasion: profile.occasion,
-            recipient: profile.recipient,
-          },
-          mode,
-          messageIntent: messageAnalysis.intent,
-          requestedGiftType: messageAnalysis.preferences.requestedGiftType,
-          productCatalogFromCommerceMcp: products,
-          profile,
-          query: isPlanOnlyTask ? query : userMessage,
-          replyLanguage: language,
-          searchContext: {
-            budgetResult: productSearch
-              ? getBudgetSearchReply(productSearch, products.length)
-              : null,
-            catalogSearchQuery: searchQuery,
-          },
-          task,
-        }),
+        ),
       },
     ],
     temperature: 0.2,
