@@ -35,7 +35,8 @@ const productSearchCache = new Map<string, CacheEntry<ProductSearchResult>>();
 
 export function normalizePythonProduct(value: unknown): Product | null {
   const record = asRecord(value);
-  const id = getString(record, "id")?.trim();
+  const id =
+    getString(record, "product_id")?.trim() || getString(record, "id")?.trim();
   const name =
     getString(record, "title")?.trim() || getString(record, "name")?.trim();
 
@@ -44,26 +45,38 @@ export function normalizePythonProduct(value: unknown): Product | null {
   }
 
   const priceRecord = asRecord(record?.price);
-  const directPrice = getNumber(record, "price");
+  const directPrice =
+    getNumber(record, "price_lkr") ?? getNumber(record, "price");
   const price = directPrice ?? getNumber(priceRecord, "amount") ?? 0;
   const categoryValue = record?.category;
   const category =
     (typeof categoryValue === "string" ? categoryValue.trim() : "") ||
     getString(asRecord(categoryValue), "name")?.trim() ||
+    getString(record, "vendor")?.trim() ||
     "General";
+  const hasStockSignal =
+    typeof record?.inStock === "boolean" ||
+    typeof record?.in_stock === "boolean" ||
+    typeof record?.stock === "number";
   const inStock =
+    !hasStockSignal ||
     record?.inStock === true ||
     record?.in_stock === true ||
     (typeof record?.stock === "number" && record.stock > 0);
+  const rawImageUrl =
+    getString(record, "image")?.trim() ||
+    getString(record, "imageUrl")?.trim() ||
+    getString(record, "image_url")?.trim() ||
+    "";
+  const markdownImageMatch = rawImageUrl.match(
+    /^\[[^\]]*\]\((https?:\/\/[^)]+)\)$/i,
+  );
 
   return {
     id,
     name,
     imageUrl:
-      getString(record, "image")?.trim() ||
-      getString(record, "imageUrl")?.trim() ||
-      getString(record, "image_url")?.trim() ||
-      "/product-images/gift-box.svg",
+      markdownImageMatch?.[1] || rawImageUrl || "/product-images/gift-box.svg",
     category,
     price,
     currency:
@@ -76,6 +89,7 @@ export function normalizePythonProduct(value: unknown): Product | null {
     description: cleanProductDescription(
       getString(record, "description")?.trim() ||
       getString(record, "summary")?.trim() ||
+      getString(record, "reason")?.trim() ||
       "Product matched by GenieAI.",
     ),
     url: getString(record, "url")?.trim() || "#",
@@ -83,47 +97,30 @@ export function normalizePythonProduct(value: unknown): Product | null {
 }
 
 export async function fetchPythonRankedProducts({
-  chatHistory,
-  profile,
-  query,
+  message,
   sessionId,
 }: {
-  chatHistory: string[] | null;
-  profile: ShoppingProfile;
-  query: string;
-  sessionId: string;
+  message: string;
+  sessionId: string | null;
 }) {
   const serviceUrl = process.env.AI_SERVICE_URL?.trim().replace(/\/+$/, "");
-  const serviceToken = process.env.AI_SERVICE_TOKEN?.trim();
 
-  if (!serviceUrl || !serviceToken) {
-    throw new Error(
-      "Python ranking is not configured. Set AI_SERVICE_URL and AI_SERVICE_TOKEN.",
-    );
+  if (!serviceUrl) {
+    throw new Error("Python ranking is not configured. Set AI_SERVICE_URL.");
   }
 
-  const budget = parseBudgetFilter(profile.budget);
-  const response = await fetch(`${serviceUrl}/v1/commerce/recommendations`, {
+  const response = await fetch(`${serviceUrl}/api/v1/recommendations`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${serviceToken}`,
       "Content-Type": "application/json",
-      "X-Genie-Session-Id": sessionId,
     },
     body: JSON.stringify({
-      chatHistory,
-      preferences: {
-        budgetMax: budget.max_price ?? null,
-        budgetMin: budget.min_price ?? null,
-        category: profile.category ?? null,
-        deliveryCity: profile.city ?? null,
-        occasion: profile.occasion ?? null,
-        recipient: profile.recipient ?? null,
-      },
-      query,
+      request_type: "product_recommendation",
+      session_id: sessionId,
+      message,
     }),
     cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (!response.ok) {
@@ -136,10 +133,29 @@ export async function fetchPythonRankedProducts({
     throw new Error("Python ranking returned an invalid products response.");
   }
 
-  return responseBody.products
+  const products = responseBody.products
     .map(normalizePythonProduct)
     .filter((product): product is Product => product !== null)
     .slice(0, MAX_RANKED_PRODUCTS);
+  const reasons = new Map<string, string>();
+
+  responseBody.products.forEach((value) => {
+    const record = asRecord(value);
+    const productId =
+      getString(record, "product_id")?.trim() ||
+      getString(record, "id")?.trim();
+    const reason = getString(record, "reason")?.trim();
+
+    if (productId && reason) {
+      reasons.set(productId, reason);
+    }
+  });
+
+  return {
+    products,
+    reasons,
+    sessionId: getString(responseBody, "session_id")?.trim() || sessionId,
+  };
 }
 
 export function getBudgetSearchReply(

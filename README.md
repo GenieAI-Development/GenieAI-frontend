@@ -1,10 +1,6 @@
 # GenieAI
 
-GenieAI is a multilingual gift-shopping assistant built with Next.js, React, and TypeScript.
-
-- Keeps provider credentials, the Python service token, and anonymous session IDs on the server.
-- Sends browser traffic only to local Next.js API routes.
-- Supports English, Sinhala, and Singlish.
+// add brief 2 paragraphs here, describing funtionalities and tech stack.
 
 ## Contents
 
@@ -25,16 +21,25 @@ GenieAI is a multilingual gift-shopping assistant built with Next.js, React, and
 ## Features
 
 - Smart Shopping with preference collection and recent user-message context.
-- AI cart product analysis that scores the complete bundle and gives up to two concise improvement suggestions.
-- Event Planner with LLM-generated item lists and per-item product requests.
 - Gift Box Builder with LLM-generated contents and total-budget allocation.
-- Image RAG with CLIP embeddings and Supabase pgvector retrieval.
-- Hugging Face CrossEncoder relevance ranking for all 12 returned candidates.
+- Event Planner with LLM-generated item lists and per-item product requests.
+- Image search with using RAG. //improve this
+- Hugging Face CrossEncoder relevance ranking for all returned candidates.
 - Rule-based session personalization using category, price, and recency signals.
-- Product comparison, delivery checks, cart state, and checkout preparation.
-- Image search and voice search.
-- Gift messages, product-aware downloadable SVG gift cards generation.
+- Product comparison, delivery pedictions, and checkout preparation.
+- AI cart product analysis that scores the complete bundle and gives improvement suggestions.
+- Voice search. //improve this
+- Gift messages and downloadable SVG gift cards generation.
 - Per-mode persisted chats, preferences, plans, products, and paging state.
+
+## Compoenents
+
+// add each parts there shortly (as points)
+1. next js backend (include all features, chat replys, context analysis, image search rag and eberything)
+2. python backend part (todo)
+3. hf cross encoder (with link to readme)
+4. personalization part (with link to readme)
+5. delivery prediction part (with link to readme)
 
 ## Architecture
 
@@ -74,9 +79,9 @@ flowchart LR
   Commerce -->|final products + reply| UI
 ```
 
-- Python retrieves and filters the candidate products.
-- Next.js owns the final product order.
-- Next.js applies the HF CrossEncoder, personalization rules, and reply generation after Python responds.
+- Python backend retrieves and filters the candidate products.
+- Next.js backend owns the final product order.
+- Next.js backend applies the HF CrossEncoder, personalization rules, and reply generation after Python responds.
 
 ## Recommendation flow
 
@@ -119,6 +124,7 @@ flowchart LR
   P --> U
 ```
 
+// create separate doc calls data flows and move this there and link it to readme.
 ## Mode flows
 
 ### Smart Shopping
@@ -135,8 +141,7 @@ flowchart LR
 flowchart TD
   A[User submits event preferences] --> B[LLM generates item list]
   B --> C[Choose current item]
-  C --> D[Divide selected budget by generated item count]
-  D --> E[Request Python products for current item]
+  C --> E[Request products for current item]
   E --> F[HF rerank]
   F --> G[Personalize]
   G --> H[Display final products]
@@ -161,15 +166,18 @@ flowchart TD
 
 ## Reranking and personalization
 
+// add python backend ranking - todo
+
+// combine Relevance ranking and finetuned reranker model
 ### Relevance ranking
 
 - Uses the fine-tuned CrossEncoder model `ramitha2002/genieai-product-reranker`.
-- Uses the HF Space `ramitha2002/product-reranker-model-api` and its `/rerank` API.
-- Sends every Python candidate with `top_n` equal to the candidate count.
+- Uses the HF Space `ramitha2002/product-reranker-model-api` API.
+- Sends every product candidate with `top_n` equal to the candidate count.
 - Uses product name/title, description, and category as model text inputs.
 - Treats `rerankerScore` as a raw score that is comparable only within one query.
 - Clamps raw scores to `[-20, 20]` before sigmoid normalization.
-- Keeps Python order as the relevance baseline when the HF request fails or times out.
+- Keeps initial product order as the relevance baseline when the HF request fails or times out.
 
 ### Hyper-personalization
 
@@ -247,19 +255,6 @@ finalScore = 0.75 × relevance + 0.25 × preferenceScore
 | `/api/delivery-prediction` | POST | Delivery prediction support |
 | `/api/personalization/session` | GET | HTTP-only anonymous session cookie |
 
-| Commerce task | Python | HF rerank | Purpose |
-|---|---:|---:|---|
-| `initial` | No | No | Default product showcase |
-| `recommend` | Yes | Yes | Final product recommendations |
-| `productPageReply` | No | No | Reply for local product paging |
-| `eventPlan` | No | No | Event item-list generation |
-| `giftBox` | No | No | Gift-box item-list generation |
-| `compare` | No | No | Two-product comparison |
-| `giftMessage` | No | No | Gift-message text |
-| `checkout` | No | No | Checkout preparation |
-
-
-
 ## Repository layout
 
 ```text
@@ -302,8 +297,8 @@ Run from the repository root:
 ```powershell
 Set-Location src
 npm install
-Copy-Item env.local.example .env.local
-npm run dev
+npm run build
+npm start
 ```
 
 - Open [http://localhost:3000](http://localhost:3000).
@@ -314,15 +309,10 @@ npm run dev
 | Variable | Required | Purpose |
 |---|---:|---|
 | `GROQ_API_KEY` | Yes | Groq credential; `GROQ_TOKEN` is also accepted |
-| `GROQ_PRODUCT_MATCHING_MODEL` | No | Groq model used when Qoder cart analysis fails; defaults to `openai/gpt-oss-120b` |
-| `AI_SERVICE_URL` | Yes for recommendations | Python recommendation service URL |
-| `AI_SERVICE_TOKEN` | Yes for recommendations | Shared Python service bearer token |
+| `AI_SERVICE_URL` | Yes for recommendations | Python recommendation service URL; requests use `/api/v1/recommendations` |
 | `HF_TOKEN` | Recommended | Hosted HF reranker and HF Inference access; `HUGGINGFACE_TOKEN` also works |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes for image search | Supabase project URL |
 | `SUPABASE_SECRET_KEY` | Yes for image search | Server-only key used for the pgvector RPC |
-| `CLIP_IMAGE_MODEL` | No | Runtime ONNX model; defaults to `Xenova/clip-vit-base-patch32` |
-| `PRODUCT_IMAGE_EMBEDDING_MODEL` | No | Stored embedding-model label; defaults to `openai/clip-vit-base-patch32` |
-| `IMAGE_MATCH_THRESHOLD` | No | Minimum visual cosine similarity; defaults to `0.65` |
 | `QODER_PAT` | Yes for Qoder features | Server-side Qoder Cloud personal access token |
 | `QODER_ENV_ID` | Yes for Qoder features | Qoder Cloud environment ID |
 | `QODER_PRODUCT_MATCHING_AGENT_ID` | Yes for cart matching | ID of the `genie-product-matching` agent; falls back to `QODER_AGENT_ID` |
@@ -336,7 +326,7 @@ npm run dev
 
 | Capability | Provider / model | Fallback or note |
 |---|---|---|
-| Candidate retrieval and hard filters | Python recommendation service | Returns 12 eligible products |
+| Candidate retrieval and hard filters | Python backend | Returns 12 eligible products |
 | Relevance reranking | Fine-tuned CrossEncoder `ramitha2002/genieai-product-reranker` via HF Space `ramitha2002/product-reranker-model-api` | Python order becomes relevance baseline |
 | Session personalization | Next.js rule engine | Cold sessions use relevance only |
 | Context, commerce replies, guided plans | Groq `openai/gpt-oss-120b` | Local/route fallback behavior |
@@ -350,16 +340,9 @@ npm run dev
 | Default showcase, details, delivery, checkout | Commerce MCP | Feature-specific error behavior |
 | Read aloud | Browser Speech Synthesis API | No server model |
 
-## Vercel hosting
+## Hosting
 
-- Import this repository into Vercel.
-- Set the project root directory to `src`.
-- Keep the default Next.js build settings.
-- Add `GROQ_API_KEY`, `AI_SERVICE_URL`, `AI_SERVICE_TOKEN`, and `HF_TOKEN` in **Project Settings → Environment Variables**.
-- Configure the same variables for Preview and Production when both environments use recommendations.
-- Confirm Vercel functions can reach the Python service, Hugging Face Space, Groq/Novita, and commerce MCP endpoints.
-- Use a Vercel function duration compatible with hosted reranking startup.
-- Keep every token server-only; do not create `NEXT_PUBLIC_` versions.
+// add small description where we host. not how to host
 
 ## License
 

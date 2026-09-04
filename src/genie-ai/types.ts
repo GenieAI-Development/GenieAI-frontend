@@ -54,6 +54,7 @@ export type CommerceResponse = {
     recipient: string;
   };
   productSearchPerformed?: boolean;
+  recommendationSessionId?: string | null;
   products?: Product[];
   recommendations?: Array<{
     id: string;
@@ -231,6 +232,7 @@ export type ModeSession = {
   profile: ShoppingProfile;
   productBatchIndex?: number;
   recommendedProducts?: Product[];
+  recommendationSessionId?: string | null;
 };
 
 export type GiftCardResponse = {

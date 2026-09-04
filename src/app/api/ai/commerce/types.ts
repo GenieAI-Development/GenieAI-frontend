@@ -33,11 +33,17 @@ export type ExtendedPreferenceUpdates = {
 
 export type MessageAnalysis = {
   detectedLanguage: DetectedLanguage;
+  englishQuery: string | null;
   extendedPreferences: ExtendedPreferenceUpdates;
   intent: MessageIntent;
   preferences: PreferenceSnapshot;
   requiresProductSearch: boolean;
   searchQuery: string | null;
+};
+
+export type QueryAnalysis = {
+  englishQuery: string | null;
+  requiresProductSearch: boolean;
 };
 
 export type ShoppingProfile = {
@@ -164,6 +170,7 @@ export type CommerceResponse = {
   giftMessage: string;
   giftUserPreference?: ExtendedPreferences;
   mode: string;
+  recommendationSessionId?: string | null;
   productSearchPerformed?: boolean;
   recommendations: CommerceRecommendation[];
   reply: string;
