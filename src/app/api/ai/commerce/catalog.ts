@@ -109,19 +109,32 @@ export async function fetchPythonRankedProducts({
     throw new Error("Python ranking is not configured. Set AI_SERVICE_URL.");
   }
 
-  const response = await fetch(`${serviceUrl}/api/v1/recommendations`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      request_type: "product_recommendation",
-      session_id: sessionId,
-      message,
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(60_000),
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${serviceUrl}/api/v1/recommendations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        request_type: "product_recommendation",
+        ...(sessionId ? { session_id: sessionId } : {}),
+        message,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    ) {
+      throw new Error("Python product search timed out after 20 seconds.");
+    }
+
+    throw new Error("Python product search could not be reached.");
+  }
 
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);

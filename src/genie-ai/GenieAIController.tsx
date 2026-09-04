@@ -291,6 +291,9 @@ export function GenieAIController() {
     const start = productBatchIndex * PRODUCT_BATCH_SIZE;
     return recommendedProducts.slice(start, start + PRODUCT_BATCH_SIZE);
   }, [productBatchIndex, recommendedProducts]);
+  const hasMoreRecommendedProducts =
+    (productBatchIndex + 1) * PRODUCT_BATCH_SIZE <
+    recommendedProducts.length;
   const latestUserQuery = useMemo(
     () =>
       [...messages].reverse().find((message) => message.role === "user")
@@ -306,9 +309,16 @@ export function GenieAIController() {
     isGuidedMode && isSending
       ? []
       : activeMode === "Smart Shopping" && hasUserMessages
-        ? chips.filter((chip) => chip === "Suggest more")
+        ? chips.filter(
+            (chip) =>
+              chip === "Suggest more" && hasMoreRecommendedProducts,
+          )
         : hasUserMessages
-          ? chips.filter((chip) => !isRemovedGenericReplyChip(chip))
+          ? chips.filter(
+              (chip) =>
+                !isRemovedGenericReplyChip(chip) &&
+                (chip !== "Suggest more" || hasMoreRecommendedProducts),
+            )
           : chips;
   const latestAssistantMessageIndex = messages.reduce(
     (latestIndex, message, index) =>
@@ -1530,7 +1540,7 @@ export function GenieAIController() {
         : (modeSessions[mode]?.recommendationSessionId ?? null);
     const pendingEvents = requestTask === "recommend" ? getPendingEvents() : [];
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 120000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 45000);
     const requestBody = JSON.stringify({
       cartIds: buyBox.map((product) => product.id),
       conversationHistory: messages
@@ -1553,72 +1563,64 @@ export function GenieAIController() {
     });
 
     try {
-      while (true) {
-        let response: Response;
+      let response: Response;
 
-        try {
-          response = await fetch("/api/ai/commerce", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: requestBody,
-            signal: controller.signal,
-          });
-        } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError") {
-            throw new Error("The request timed out. Please try again.");
-          }
-
-          throw error;
+      try {
+        response = await fetch("/api/ai/commerce", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: requestBody,
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw new Error("The request timed out. Please try again.");
         }
 
-        let data: (CommerceResponse & { error?: string }) | null = null;
-        try {
-          data = (await response.json()) as CommerceResponse & {
-            error?: string;
-          };
-        } catch {
-          // Retry empty HTTP bodies until a valid response arrives or the
-          // existing request deadline turns this into a visible timeout.
-        }
-
-        const errorMessage = data?.error ?? "";
-        const isEmptyResponse =
-          !data ||
-          Object.keys(data).length === 0 ||
-          /empty(?:\s+\w+)*\s+response/i.test(errorMessage);
-
-        if (isEmptyResponse) {
-          await new Promise((resolve) => window.setTimeout(resolve, 500));
-          continue;
-        }
-
-        if (!data) {
-          continue;
-        }
-
-        if (!response.ok) {
-          throw new Error(errorMessage || "Commerce request failed.");
-        }
-
-        if (
-          applyPreferenceUpdates &&
-          !stripModelThinking(data.reply ?? "").trim()
-        ) {
-          await new Promise((resolve) => window.setTimeout(resolve, 500));
-          continue;
-        }
-
-        applyCommerceResponse(data, applyPreferenceUpdates);
-        if (
-          requestTask === "recommend" &&
-          data.productSearchPerformed !== false
-        ) {
-          clearPendingEvents(pendingEvents);
-        }
-        return data;
+        throw error;
       }
+
+      let data: (CommerceResponse & { error?: string }) | null = null;
+      try {
+        data = (await response.json()) as CommerceResponse & {
+          error?: string;
+        };
+      } catch {
+        throw new Error("GenieAI returned an invalid response. Please try again.");
+      }
+
+      const errorMessage = data?.error ?? "";
+      const isEmptyResponse = !data || Object.keys(data).length === 0;
+
+      if (isEmptyResponse) {
+        throw new Error("GenieAI returned an empty response. Please try again.");
+      }
+
+      if (!data) {
+        throw new Error("GenieAI returned an invalid response. Please try again.");
+      }
+
+      if (!response.ok) {
+        throw new Error(errorMessage || "Commerce request failed.");
+      }
+
+      if (
+        applyPreferenceUpdates &&
+        !stripModelThinking(data.reply ?? "").trim()
+      ) {
+        throw new Error("GenieAI returned an empty reply. Please try again.");
+      }
+
+      applyCommerceResponse(data, applyPreferenceUpdates);
+      if (
+        requestTask === "recommend" &&
+        data.productSearchPerformed !== false
+      ) {
+        clearPendingEvents(pendingEvents);
+      }
+      return data;
     } finally {
       window.clearTimeout(timeoutId);
     }
@@ -2112,9 +2114,6 @@ export function GenieAIController() {
     }
   }
 
-  const allProductsShownReply =
-    "You've seen all the matched products. Update your preferences to find more.";
-
   function handleSuggestMoreGuidedItem() {
     if (isSending || guidedPlanItems.length === 0) {
       return;
@@ -2122,23 +2121,23 @@ export function GenieAIController() {
 
     const nextBatchIndex = productBatchIndex + 1;
     const nextBatchStart = nextBatchIndex * PRODUCT_BATCH_SIZE;
-    const exhausted = nextBatchStart >= recommendedProducts.length;
-    const shownFrom = exhausted ? 1 : nextBatchStart + 1;
-    const shownTo = exhausted
-      ? recommendedProducts.length
-      : Math.min(
-          nextBatchStart + PRODUCT_BATCH_SIZE,
-          recommendedProducts.length,
-        );
+    if (nextBatchStart >= recommendedProducts.length) {
+      setChips((current) => current.filter((chip) => chip !== "Suggest more"));
+      return;
+    }
+
+    const shownFrom = nextBatchStart + 1;
+    const shownTo = Math.min(
+      nextBatchStart + PRODUCT_BATCH_SIZE,
+      recommendedProducts.length,
+    );
+    const isFinalBatch = shownTo >= recommendedProducts.length;
     setProductBatchIndex(nextBatchIndex);
-    if (exhausted) {
+    if (isFinalBatch) {
       setChips((current) => current.filter((chip) => chip !== "Suggest more"));
     }
-    if (exhausted) {
-      addMessage({ role: "assistant", content: allProductsShownReply });
-    }
     setStatus(
-      exhausted
+      isFinalBatch
         ? "All matched products for this item have been shown."
         : `Showing ranked products ${shownFrom}-${shownTo}.`,
     );
@@ -2151,23 +2150,23 @@ export function GenieAIController() {
 
     const nextBatchIndex = productBatchIndex + 1;
     const nextBatchStart = nextBatchIndex * PRODUCT_BATCH_SIZE;
-    const exhausted = nextBatchStart >= recommendedProducts.length;
-    const shownFrom = exhausted ? 1 : nextBatchStart + 1;
-    const shownTo = exhausted
-      ? recommendedProducts.length
-      : Math.min(
-          nextBatchStart + PRODUCT_BATCH_SIZE,
-          recommendedProducts.length,
-        );
+    if (nextBatchStart >= recommendedProducts.length) {
+      setChips((current) => current.filter((chip) => chip !== "Suggest more"));
+      return;
+    }
+
+    const shownFrom = nextBatchStart + 1;
+    const shownTo = Math.min(
+      nextBatchStart + PRODUCT_BATCH_SIZE,
+      recommendedProducts.length,
+    );
+    const isFinalBatch = shownTo >= recommendedProducts.length;
     setProductBatchIndex(nextBatchIndex);
-    if (exhausted) {
+    if (isFinalBatch) {
       setChips((current) => current.filter((chip) => chip !== "Suggest more"));
     }
-    if (exhausted) {
-      addMessage({ role: "assistant", content: allProductsShownReply });
-    }
     setStatus(
-      exhausted
+      isFinalBatch
         ? "All matched products have been shown."
         : `Showing ranked products ${shownFrom}-${shownTo}.`,
     );
