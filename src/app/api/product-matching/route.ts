@@ -17,6 +17,8 @@ export const maxDuration = 120;
 
 const MAX_ITEMS = 10;
 const MAX_TEXT_LENGTH = 500;
+const MAX_SUMMARY_LENGTH = 280;
+const MAX_RECOMMENDATION_LENGTH = 140;
 const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 
 type CartProduct = {
@@ -60,70 +62,17 @@ function clampScore(value: unknown) {
   return Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 0;
 }
 
-function normalizeProductName(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\b(kapruka|gift|set|pack|bundle)\b/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function areDuplicateProducts(first: CartProduct, second: CartProduct) {
-  const firstName = normalizeProductName(first.name);
-  const secondName = normalizeProductName(second.name);
-  return (
-    (firstName.length > 0 && firstName === secondName) ||
-    (first.category.trim().toLowerCase() === second.category.trim().toLowerCase() &&
-      firstName.length > 0 &&
-      (firstName.includes(secondName) || secondName.includes(firstName)))
-  );
-}
-
-function validateMatchResult(parsed: AgentResponse, products: CartProduct[]) {
-  const productsById = new Map(products.map((product) => [product.id, product]));
-  const ids = new Set(productsById.keys());
-  const seen = new Set<string>();
-  const pairs = (Array.isArray(parsed.pairs) ? parsed.pairs : []).flatMap((pair) => {
-    const productAId = cleanText(pair.productAId);
-    const productBId = cleanText(pair.productBId);
-    if (!ids.has(productAId) || !ids.has(productBId) || productAId === productBId) return [];
-    const key = [productAId, productBId].sort().join("::");
-    if (seen.has(key)) return [];
-    seen.add(key);
-    const duplicate = areDuplicateProducts(
-      productsById.get(productAId)!,
-      productsById.get(productBId)!,
-    );
-    const score = duplicate ? Math.min(40, clampScore(pair.score)) : clampScore(pair.score);
-    return [{
-      productAId,
-      productBId,
-      score,
-      matches: !duplicate && score >= 60,
-      insight: duplicate
-        ? "These are duplicate or very similar items, so choosing one and adding a complementary product would create a more balanced bundle."
-        : cleanAnalysisText(pair.insight, "Compatibility insight unavailable."),
-    }];
-  });
-
-  const expectedPairCount = (products.length * (products.length - 1)) / 2;
-  if (pairs.length !== expectedPairCount) {
-    throw new Error(
-      `The provider returned ${pairs.length} of ${expectedPairCount} required product comparisons.`,
-    );
-  }
-
+function validateMatchResult(parsed: AgentResponse) {
   return {
     overallScore: clampScore(parsed.overallScore),
     overallSummary: cleanAnalysisText(
       parsed.overallSummary,
       "Your cart matching analysis is ready.",
-    ),
-    pairs,
+    ).slice(0, MAX_SUMMARY_LENGTH),
     recommendations: (Array.isArray(parsed.recommendations) ? parsed.recommendations : [])
-      .map((item) => cleanAnalysisText(item))
+      .map((item) => cleanAnalysisText(item).slice(0, MAX_RECOMMENDATION_LENGTH))
       .filter(Boolean)
-      .slice(0, 4),
+      .slice(0, 2),
   };
 }
 
@@ -151,7 +100,7 @@ async function analyzeWithGroq(apiKey: string, prompt: string) {
       { role: "user", content: prompt },
     ],
     temperature: 0.2,
-    max_completion_tokens: 1200,
+    max_completion_tokens: 500,
     reasoning_effort: "medium",
     response_format: { type: "json_object" },
   });
@@ -182,15 +131,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const prompt = `You are a gift-bundle compatibility expert. Analyze how well every unique pair of the supplied cart products belongs together as one thoughtful gift or occasion bundle. Consider occasion fit, recipient expectations, theme, practicality, and whether the products complement or clash.
+  const prompt = `You are a gift-bundle compatibility expert. Analyze the supplied cart as one complete gift bundle. Consider its overall theme, occasion fit, recipient expectations, practicality, balance, and redundancy. Do not analyze products as pairs.
 
 Products:
 ${JSON.stringify(products)}
 
 Return ONLY valid JSON with this exact shape:
-{"overallScore":0,"overallSummary":"1-2 concise sentences","pairs":[{"productAId":"exact supplied id","productBId":"exact supplied id","score":0,"matches":true,"insight":"one concise, specific reason"}],"recommendations":["short actionable suggestion"]}
+{"overallScore":0,"overallSummary":"one or two short sentences","recommendations":["short actionable suggestion"]}
 
-Use scores from 0 to 100. Include every unique product pair exactly once. Set matches to true for scores 60 or higher. Duplicate or near-identical products must score below 60 and have matches set to false: they are redundant, not a good pairing. Do not mention Kapruka, sellers, prices, stock, ordering, or delivery. Never invent product IDs.`;
+Use scores from 0 to 100. Include no pairwise analysis. Return at most two recommendations, each under 20 words. Do not mention Kapruka, sellers, prices, stock, ordering, or delivery.`;
 
   let qoderError = "Qoder is not configured.";
   if (pat && agentId && envId) {
@@ -206,7 +155,7 @@ Use scores from 0 to 100. Include every unique product pair exactly once. Set ma
       const raw = (await readAssistantText(pat, sessionId)).trim();
       if (!raw) throw new Error("Qoder returned an empty response.");
       return NextResponse.json({
-        ...validateMatchResult(parseAgentJson(raw), products),
+        ...validateMatchResult(parseAgentJson(raw)),
         provider: "qoder",
       });
     } catch (error) {
@@ -219,7 +168,7 @@ Use scores from 0 to 100. Include every unique product pair exactly once. Set ma
     try {
       const groq = await analyzeWithGroq(groqApiKey, prompt);
       return NextResponse.json({
-        ...validateMatchResult(groq.parsed, products),
+        ...validateMatchResult(groq.parsed),
         provider: "groq",
         model: groq.model,
         fallback: true,

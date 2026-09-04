@@ -525,8 +525,7 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 |---|---|
 | `GROQ_API_KEY` | Groq chat, vision, and transcription access. `GROQ_TOKEN` is also accepted. |
 | `HF_TOKEN` | Optional non-English generation through Hugging Face. `HUGGINGFACE_TOKEN` is also accepted. |
-| `AI_SERVICE_URL` | Base URL of the Python ranking backend, for example `http://localhost:8000`. Recommendation requests are sent to `/v1/commerce/recommendations`. |
-| `AI_SERVICE_TOKEN` | Server-only bearer token shared with the Python ranking backend. Never prefix it with `NEXT_PUBLIC_`. |
+| `AI_SERVICE_URL` | Base URL of the Python ranking backend, for example `http://localhost:8000`. Recommendation requests are sent to `/api/v1/recommendations`. |
 | `COMMERCE_MCP_URL` | Optional commerce MCP endpoint override. |
 | `COMMERCE_SEARCH_PRODUCTS_TOOL` | Commerce MCP product-search tool name. |
 | `COMMERCE_GET_PRODUCT_TOOL` | Commerce MCP product-detail tool name. |

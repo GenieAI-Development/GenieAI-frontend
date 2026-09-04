@@ -15,7 +15,7 @@ import { type Product, toProduct } from "@/lib/productCatalog";
 import { getRandomInitialProducts } from "@/lib/initialProductCatalog";
 import { rerankProducts } from "@/lib/reranking/service";
 import {
-  getGroqMessageAnalysis,
+  getGroqQueryAnalysis,
   shouldSearchProductsLocally,
 } from "./analysis";
 import {
@@ -52,17 +52,11 @@ import {
   formatBudgetFilter,
   getClientPreferences,
   getExtendedSearchProfile,
-  getFreshProfile,
   getReplyPreferenceProfile,
   getSearchQuery,
   hasBudgetFilter,
-  inferBudgetPreference,
   inferMessageIntent,
-  inferOccasionPreference,
-  inferRecipientPreference,
   isProductInsideBudget,
-  mergeExtendedPreferences,
-  normalizeAnalyzedSearchQuery,
   normalizeDetectedLanguage,
   parseBudgetFilter,
   parseExtendedPreferences,
@@ -84,7 +78,6 @@ import {
   parseProfile,
   parseRankingEvents,
   parseStringArray,
-  parseUserChatHistory,
 } from "./request";
 import type { MessageAnalysis } from "./types";
 
@@ -109,7 +102,8 @@ export async function POST(request: Request) {
   );
   const query = getString(bodyRecord, "query") ?? "";
   const userMessage = getString(bodyRecord, "userMessage") ?? query;
-  const preserveProfile = bodyRecord?.preserveProfile === true;
+  const recommendationSessionId =
+    getString(bodyRecord, "recommendationSessionId")?.trim() || null;
   const forceProductSearch = bodyRecord?.forceProductSearch === true;
   const cartIds = parseStringArray(bodyRecord?.cartIds, 30);
   const requestedProductIds = parseStringArray(bodyRecord?.productIds, 3);
@@ -120,10 +114,6 @@ export async function POST(request: Request) {
   const conversationHistory = parseConversationHistory(
     bodyRecord?.conversationHistory,
   );
-  const chatHistory =
-    mode.includes("Event") || mode.includes("Gift Box")
-      ? null
-      : parseUserChatHistory(bodyRecord?.chatHistory);
   const profile = parseProfile(bodyRecord?.profile);
   const submittedExtendedPreferences = parseExtendedPreferences(
     getSubmittedPreferenceRecord(bodyRecord, mode),
@@ -266,69 +256,45 @@ export async function POST(request: Request) {
 
     const productIdsForCompare = task === "compare" ? requestedProductIds : [];
     const apiKey = getGroqApiKey();
-    const messageAnalysisPromise =
+    const queryAnalysisPromise =
       apiKey && task !== "initial" && productIdsForCompare.length < 2
         ? withTimeout(
-            getGroqMessageAnalysis(
+            getGroqQueryAnalysis(
               apiKey,
               language,
-              mode,
-              query,
               userMessage,
-              conversationHistory,
             ),
             4000,
           ).catch(() => null)
         : Promise.resolve(null);
-    const messageAnalysis = await messageAnalysisPromise;
-    const locallyDetectedBudget = inferBudgetPreference(userMessage);
-    const locallyDetectedOccasion = inferOccasionPreference(userMessage);
-    const locallyDetectedRecipient = inferRecipientPreference(userMessage);
-    const resolvedMessageAnalysis: MessageAnalysis = messageAnalysis
-      ? {
-          ...messageAnalysis,
-          detectedLanguage: language,
-          preferences: {
-            ...messageAnalysis.preferences,
-            budget: locallyDetectedBudget ?? messageAnalysis.preferences.budget,
-            occasion:
-              locallyDetectedOccasion ?? messageAnalysis.preferences.occasion,
-            recipient:
-              locallyDetectedRecipient ?? messageAnalysis.preferences.recipient,
-          },
-        }
-      : {
-          detectedLanguage: language,
-          extendedPreferences: {
-            budget: null,
-            giftType: null,
-            occasion: null,
-            recipient: null,
-          },
-          intent: inferMessageIntent(query),
-          preferences: {
-            budget: locallyDetectedBudget,
-            category: null,
-            occasion: locallyDetectedOccasion,
-            recipient: locallyDetectedRecipient,
-            requestedGiftType: null,
-          },
-          requiresProductSearch: shouldSearchProductsLocally(userMessage),
-          searchQuery: null,
-        };
-    const effectiveProfile = preserveProfile
-      ? profile
-      : getFreshProfile(profile, resolvedMessageAnalysis.preferences);
+    const queryAnalysis = await queryAnalysisPromise;
+    const resolvedMessageAnalysis: MessageAnalysis = {
+      detectedLanguage: language,
+      englishQuery: queryAnalysis?.englishQuery ?? null,
+      extendedPreferences: {
+        budget: null,
+        giftType: null,
+        occasion: null,
+        recipient: null,
+      },
+      intent: inferMessageIntent(query),
+      preferences: {
+        budget: null,
+        category: null,
+        occasion: null,
+        recipient: null,
+        requestedGiftType: null,
+      },
+      requiresProductSearch:
+        queryAnalysis?.requiresProductSearch ??
+        shouldSearchProductsLocally(userMessage),
+      searchQuery: null,
+    };
+    const effectiveProfile = profile;
     const isGuidedRecommendation =
       task === "recommend" &&
       (mode.includes("Event") || mode.includes("Gift Box"));
-    const effectiveExtendedPreferences = isGuidedRecommendation
-      ? submittedExtendedPreferences
-      : mergeExtendedPreferences(
-          submittedExtendedPreferences,
-          resolvedMessageAnalysis.extendedPreferences,
-          resolvedMessageAnalysis.preferences,
-        );
+    const effectiveExtendedPreferences = submittedExtendedPreferences;
     const searchProfile = getExtendedSearchProfile(
       effectiveProfile,
       effectiveExtendedPreferences,
@@ -347,13 +313,7 @@ export async function POST(request: Request) {
         : isGuidedRecommendation
           ? query
           : effectiveExtendedPreferences.giftType ||
-            (messageAnalysis
-              ? normalizeAnalyzedSearchQuery(
-                  resolvedMessageAnalysis.searchQuery ||
-                    resolvedMessageAnalysis.preferences.requestedGiftType,
-                  searchProfile,
-                )
-              : getSearchQuery(query, searchProfile, mode));
+            getSearchQuery(query, searchProfile, mode);
 
     if (
       task === "recommend" &&
@@ -478,18 +438,66 @@ export async function POST(request: Request) {
     }
 
     if (task === "recommend") {
-      const sessionId = await getOrCreatePersonalizationSessionId();
-      const candidates = await fetchPythonRankedProducts({
-        chatHistory,
-        profile: searchProfile,
-        query,
-        sessionId,
+      const personalizationSessionId =
+        await getOrCreatePersonalizationSessionId();
+      const analyzedPreferences = {
+        budget:
+          effectiveExtendedPreferences.budget || searchProfile.budget || null,
+        giftType:
+          effectiveExtendedPreferences.giftType ||
+          searchProfile.category ||
+          null,
+        occasion:
+          effectiveExtendedPreferences.occasion ||
+          searchProfile.occasion ||
+          null,
+        recipient:
+          effectiveExtendedPreferences.recipient ||
+          searchProfile.recipient ||
+          null,
+      };
+      const shouldTranslatePythonQuery =
+        language !== "English" || /[\u0D80-\u0DFF]/u.test(query);
+      const pythonQuery = shouldTranslatePythonQuery
+        ? (resolvedMessageAnalysis.englishQuery ??
+          resolvedMessageAnalysis.searchQuery ??
+          query)
+        : query;
+      const pythonBudget =
+        activeBudgetFilter.min_price !== undefined &&
+        activeBudgetFilter.max_price !== undefined
+          ? `between ${activeBudgetFilter.min_price} and ${activeBudgetFilter.max_price} LKR`
+          : activeBudgetFilter.max_price !== undefined
+            ? `under ${activeBudgetFilter.max_price} LKR`
+            : activeBudgetFilter.min_price !== undefined
+              ? `above ${activeBudgetFilter.min_price} LKR`
+              : analyzedPreferences.budget?.toLowerCase() === "other"
+                ? ""
+                : (analyzedPreferences.budget ?? "");
+      const pythonMessage = [
+        pythonQuery.trim() || userMessage.trim(),
+        pythonBudget,
+        analyzedPreferences.giftType
+          ? `for ${analyzedPreferences.giftType}`
+          : "",
+        analyzedPreferences.occasion
+          ? `for ${analyzedPreferences.occasion}`
+          : "",
+        analyzedPreferences.recipient
+          ? `for ${analyzedPreferences.recipient}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const pythonResponse = await fetchPythonRankedProducts({
+        message: pythonMessage,
+        sessionId: recommendationSessionId,
       });
       const ranking = await rerankProducts({
         events: rankingEvents,
-        products: candidates,
+        products: pythonResponse.products,
         query,
-        sessionId,
+        sessionId: personalizationSessionId,
       });
       const products = ranking.products;
 
@@ -520,10 +528,32 @@ export async function POST(request: Request) {
         return commerce;
       }
 
-      const recommendations =
+      const generatedRecommendations =
         commerce.recommendations.length > 0
           ? commerce.recommendations
           : fallbackRecommendations(products);
+      const generatedRecommendationsById = new Map(
+        generatedRecommendations.map((recommendation) => [
+          recommendation.id,
+          recommendation,
+        ]),
+      );
+      const recommendations = products.map((product) => {
+        const generatedRecommendation = generatedRecommendationsById.get(
+          product.id,
+        );
+
+        return {
+          fitScore:
+            generatedRecommendation?.fitScore ??
+            Math.round(product.finalScore * 100),
+          id: product.id,
+          reason:
+            pythonResponse.reasons.get(product.id) ||
+            generatedRecommendation?.reason ||
+            "Matched by the recommendation service.",
+        };
+      });
 
       return NextResponse.json({
         ...commerce,
@@ -543,6 +573,7 @@ export async function POST(request: Request) {
         mode,
         productSearchPerformed: true,
         products,
+        recommendationSessionId: pythonResponse.sessionId,
         ranking: {
           fallback: ranking.fallback,
           source: ranking.source,

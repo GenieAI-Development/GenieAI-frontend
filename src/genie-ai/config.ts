@@ -382,7 +382,7 @@ export const copy: Record<
     clearHistory: "Clear history",
     comparePrompt:
       "Enter 2 or 3 product IDs and I will compare them in a table.",
-    continueWithoutContext: "Continue Without Context",
+    continueWithoutContext: "Skip",
     contextIntro:
       "I detected details from your message and only need anything missing before answering it.",
     contextTitle: "Set shopping preferences",
@@ -433,7 +433,7 @@ export const copy: Record<
     buyBox: "Cart",
     checkout: "Delivery address",
     city: "නගරය",
-    continueWithoutContext: "Preferences නැතුව ඉදිරියට",
+    continueWithoutContext: "මඟ හරින්න",
     contextIntro:
       "ඔබගේ message එකෙන් හමු වූ details පාවිච්චි කරලා, අඩු දේවල් විතරක් අහනවා.",
     contextTitle: "Shopping preferences තෝරන්න",
@@ -472,7 +472,7 @@ export const copy: Record<
     clearHistory: "History clear karanna",
     comparePrompt:
       "Product IDs 2k hari 3k hari denna. Mama table ekakin compare karannam.",
-    continueWithoutContext: "Preferences nathuwa idiriyata",
+    continueWithoutContext: "Skip",
     contextIntro: "Oyage message eken details detect kala.",
     contextTitle: "Shopping preferences set karanna",
     createOrderLink: "Create Order Link",

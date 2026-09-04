@@ -57,7 +57,7 @@ import {
   type ExtendedPreferences,
   type GiftCardResponse,
   type GuidedPlanItem,
-  type ImageResponse,
+  type ImageSearchResponse,
   type Language,
   type ModeSession,
   type ShoppingProfile,
@@ -212,6 +212,9 @@ export function GenieAIController() {
   const [modeSessions, setModeSessions] = useState<Record<string, ModeSession>>(
     {},
   );
+  const [recommendationSessionId, setRecommendationSessionId] = useState<
+    string | null
+  >(null);
   const [compareSelectionIds, setCompareSelectionIds] = useState<string[]>([]);
   const [compareRows, setCompareRows] = useState<CompareRow[]>([]);
   const [compareSuggestion, setCompareSuggestion] = useState("");
@@ -474,6 +477,7 @@ export function GenieAIController() {
         profile: normalizeShoppingProfile(initialShoppingProfile),
         productBatchIndex: 0,
         recommendedProducts: [],
+        recommendationSessionId: null,
       };
     }
 
@@ -503,6 +507,7 @@ export function GenieAIController() {
       profile: normalizeShoppingProfile(profile),
       productBatchIndex: 0,
       recommendedProducts: [],
+      recommendationSessionId: null,
     };
   }
 
@@ -521,6 +526,7 @@ export function GenieAIController() {
       profile: normalizeShoppingProfile(profile),
       productBatchIndex,
       recommendedProducts,
+      recommendationSessionId,
     };
   }
 
@@ -544,6 +550,9 @@ export function GenieAIController() {
     setPendingUserRequest(normalizedSession.pendingUserRequest);
     setProfile(normalizedSession.profile);
     setProductBatchIndex(normalizedSession.productBatchIndex ?? 0);
+    setRecommendationSessionId(
+      normalizedSession.recommendationSessionId ?? null,
+    );
     syncSidebarBudgetDraft(normalizedSession.profile.budget);
     setRecommendedProducts(
       (normalizedSession.recommendedProducts ?? []).slice(
@@ -769,18 +778,6 @@ export function GenieAIController() {
     return `Suggested item list:\n${itemList}\n\nI will start by showing options for ${nextItem}. Use Next item to move through the list.`;
   }
 
-  function getImageSearchReply(data: ImageResponse) {
-    const imageSummary = data.summary?.trim();
-
-    if (data.fallback) {
-      return text.relatedGiftsReply;
-    }
-
-    return imageSummary
-      ? `${text.imageLooksLike} ${imageSummary}. ${text.relatedGiftsReply}`
-      : text.relatedGiftsReply;
-  }
-
   function handleLanguageChange(nextLanguage: Language) {
     setLanguage(nextLanguage);
     setGiftMessagePreferences((current) => ({
@@ -994,6 +991,7 @@ export function GenieAIController() {
             profile: normalizeShoppingProfile(storedState.profile),
             productBatchIndex: storedState.productBatchIndex ?? 0,
             recommendedProducts: storedState.recommendedProducts ?? [],
+            recommendationSessionId: null,
           };
           const shouldUseFreshStarterChips =
             restoredSession.conversationStage === "first-message" &&
@@ -1108,6 +1106,7 @@ export function GenieAIController() {
           profile,
           productBatchIndex,
           recommendedProducts,
+          recommendationSessionId,
         },
       },
       pendingUserRequest,
@@ -1137,6 +1136,7 @@ export function GenieAIController() {
     profile,
     productBatchIndex,
     recommendedProducts,
+    recommendationSessionId,
   ]);
 
   useEffect(() => {
@@ -1430,6 +1430,9 @@ export function GenieAIController() {
     applyPreferenceUpdates = false,
   ) {
     const responsePreferences = getResponsePreferenceForMode(activeMode, data);
+    if (data.recommendationSessionId !== undefined) {
+      setRecommendationSessionId(data.recommendationSessionId);
+    }
     if (data.products) {
       setRecommendedProducts(data.products.slice(0, MAX_RANKED_PRODUCTS));
       setProductBatchIndex(0);
@@ -1521,18 +1524,15 @@ export function GenieAIController() {
   ) {
     const requestProfile = normalizeShoppingProfile(profileOverride);
     const requestTask = taskOverride ?? getTaskForMode(mode);
+    const requestRecommendationSessionId =
+      mode === activeMode
+        ? recommendationSessionId
+        : (modeSessions[mode]?.recommendationSessionId ?? null);
     const pendingEvents = requestTask === "recommend" ? getPendingEvents() : [];
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 120000);
     const requestBody = JSON.stringify({
       cartIds: buyBox.map((product) => product.id),
-      chatHistory:
-        mode.includes("Event") || mode.includes("Gift Box")
-          ? null
-          : messages
-              .filter((message) => message.role === "user")
-              .slice(-3)
-              .map(({ content }) => content),
       conversationHistory: messages
         .filter(
           (message) => message.role === "user" || message.role === "assistant",
@@ -1546,6 +1546,7 @@ export function GenieAIController() {
       profile: requestProfile,
       preserveProfile,
       query,
+      recommendationSessionId: requestRecommendationSessionId,
       task: requestTask,
       userMessage,
       ...getPreferencePayloadForMode(mode, extendedPreferencesOverride),
@@ -1717,16 +1718,6 @@ export function GenieAIController() {
     return selectedContext.length > 0
       ? `Context selected: ${selectedContext.join(", ")}`
       : "Continue without context";
-  }
-
-  function getPreferenceDraftFromProfile(
-    nextProfile: ShoppingProfile,
-  ): ContextDraft {
-    return getContextDraftFromProfile(nextProfile);
-  }
-
-  function buildPreferenceMessage(nextProfile: ShoppingProfile) {
-    return buildContextSummary(getPreferenceDraftFromProfile(nextProfile));
   }
 
   async function analyzeFirstMessage(content: string) {
@@ -2007,7 +1998,7 @@ export function GenieAIController() {
     setStatus("Groq chat complete. GenieAI commerce panels updated.");
   }
 
-  async function handleSidebarPreferenceSubmit() {
+  function handleSidebarPreferenceSubmit() {
     if (isSending) {
       return;
     }
@@ -2027,58 +2018,10 @@ export function GenieAIController() {
       extendedPreferences,
       nextProfile,
     );
-    const preferenceMessage = buildPreferenceMessage(nextProfile);
-    if (preferenceMessage === "Continue without context") {
-      setStatus("Choose at least one preference before sending.");
-      return;
-    }
-
-    const shoppingMode = "Smart Shopping";
-    const shoppingSession =
-      activeMode === shoppingMode
-        ? null
-        : (modeSessions[shoppingMode] ?? getDefaultModeSession(shoppingMode));
-    const nextMessages: ChatMessage[] = [
-      ...(shoppingSession?.messages ?? messages),
-      { role: "user", content: preferenceMessage },
-    ];
-
-    if (shoppingSession) {
-      const currentMode = activeMode;
-      const currentSession = getCurrentModeSession();
-      setModeSessions((current) => ({
-        ...current,
-        [currentMode]: currentSession,
-      }));
-      setActiveMode(shoppingMode);
-      setCompareSelectionIds([]);
-      applyModeSession(shoppingSession);
-    }
-
-    setMessages(nextMessages);
-    playChatSound("send");
-    setPendingUserRequest(preferenceMessage);
     setProfile(nextProfile);
     setExtendedPreferences(nextExtendedPreferences);
-    setIsSending(true);
-    setActivityMessage(text.processing);
-
-    try {
-      await handleReadyMessage(
-        preferenceMessage,
-        nextProfile,
-        nextExtendedPreferences,
-        true,
-        shoppingMode,
-      );
-    } catch (error) {
-      if (!addRetryFailure(error, preferenceMessage)) {
-        setStatus(getErrorMessage(error));
-      }
-    } finally {
-      setActivityMessage("");
-      setIsSending(false);
-    }
+    setPendingUserRequest("");
+    setStatus("Preferences updated. They will be used for your next query.");
   }
 
   async function handleGuidedCustomMessage(content: string) {
@@ -2754,34 +2697,46 @@ export function GenieAIController() {
     }
 
     setIsComposerMenuOpen(false);
-    const formData = new FormData();
-    formData.append("image", file);
     setActivityMessage(text.uploadingImage);
     setIsImageProcessing(true);
-    setStatus("Groq vision is analyzing the image.");
+    setStatus("Searching for visually similar gifts.");
 
     try {
-      const response = await fetch("/api/ai/image-analysis", {
+      const searchFormData = new FormData();
+      searchFormData.append("image", file);
+      const searchResponse = await fetch("/api/ai/image-search", {
         method: "POST",
-        body: formData,
+        body: searchFormData,
       });
-      const data = (await response.json()) as ImageResponse;
+      const searchData = (await searchResponse.json()) as ImageSearchResponse;
 
-      if (!response.ok) {
-        throw new Error(data.error ?? "Groq image analysis failed.");
+      if (!searchResponse.ok) {
+        throw new Error(searchData.error ?? "Image vector search failed.");
       }
 
-      const query = data.searchQuery || data.productHints?.join(" ") || "gift";
-      addMessage({
-        role: "assistant",
-        content: getImageSearchReply(data),
-      });
-      await runCommerce(query, activeMode, profile, false);
-      setStatus(
-        data.fallback
-          ? "Image upload used a best-effort fallback search. GenieAI products updated."
-          : "Groq image analysis complete. GenieAI products updated.",
-      );
+      if (!searchData.lowConfidence && searchData.products.length > 0) {
+        setRecommendedProducts(
+          searchData.products.slice(0, MAX_RANKED_PRODUCTS),
+        );
+        setProductBatchIndex(0);
+        setFitReasons({});
+        addMessage({
+          role: "assistant",
+          content:
+            "I found these gifts by visual similarity to your image. Note: your selected preferences are not applied to visual search.",
+        });
+        setStatus("Visual product search complete. GenieAI products updated.");
+      } else {
+        setRecommendedProducts([]);
+        setProductBatchIndex(0);
+        setFitReasons({});
+        addMessage({
+          role: "assistant",
+          content:
+            "No matching products were found in our system. Try searching for cakes, flowers, chocolates, perfumes, or another gift category.",
+        });
+        setStatus("No matching products were found in our system.");
+      }
     } catch (error) {
       const message = getErrorMessage(error);
       addMessage({
