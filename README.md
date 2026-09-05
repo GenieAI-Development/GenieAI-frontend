@@ -2,13 +2,9 @@
 
 GenieAI is a multilingual AI shopping assistant for product discovery, gift planning, comparison, checkout preparation, image search, and voice search. Shoppers can refine a request conversationally, save products for later, and keep track of completed orders in a browser-local profile.
 
-Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq reasoning, Hugging Face CrossEncoder reranking, session personalization, and CLIP/pgvector visual search. Live recommendations come from catalog services, while chats, Favorites, Wishlist, and order history are stored locally in the user's browser.
+Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq reasoning, Hugging Face CrossEncoder reranking, session personalization, and CLIP/pgvector visual search. Its companion Python service uses FastAPI, OpenAI query planning and embeddings, Qdrant, BM25, reciprocal-rank fusion (RRF), Supabase, and canonical catalogue JSON to index and retrieve eligible products. Live recommendations come from those catalog services, while chats, Favorites, Wishlist, and order history are stored locally in the user's browser.
 
-// add python service tech stacks to above paragraph
-
-// connect backend repo and ml repo
-https://github.com/GenieAI-Development/GenieAI-backend
-https://github.com/GenieAI-Development/GenieAI-ML
+Related repositories: [GenieAI backend](https://github.com/GenieAI-Development/GenieAI-backend) and [GenieAI ML](https://github.com/GenieAI-Development/GenieAI-ML).
 
 ## Contents
 
@@ -17,10 +13,10 @@ https://github.com/GenieAI-Development/GenieAI-ML
 - [Technology flow](#technology-flow)
 - [Full application architecture](#full-application-architecture)
 - [Recommendation flow](#recommendation-flow)
+- [Python recommendation backend](#python-recommendation-backend)
 - [Search modes](#search-modes)
 - [Image search RAG](#image-search-rag)
 - [Shopping and Gift Box flows](#shopping-and-gift-box-flows)
-- [Python recommendation backend](#python-recommendation-backend)
 - [Reranking and personalization](#reranking-and-personalization)
 - [Fine-tuned reranker model](#fine-tuned-reranker-model)
 - [API routes](#api-routes)
@@ -41,6 +37,7 @@ https://github.com/GenieAI-Development/GenieAI-ML
 - The preference setter is intentional and chip-driven: custom typed, voice, and image requests go straight to search without an automatic follow-up form.
 - Gift Box Builder with LLM-generated contents and total-budget allocation.
 - CLIP visual RAG that finds catalog products visually similar to an uploaded image.
+- Qoder-assisted catalogue enrichment stores product data and Qwen 3.8 Flash-generated image intents for retrieval and image-search preparation.
 - Parallel Groq Vision analysis that describes uploaded images alongside visual-search results.
 - Optional Hugging Face CrossEncoder relevance ranking for Thinking searches.
 - Product results are revealed in four-product batches through the Suggest more control.
@@ -49,6 +46,7 @@ https://github.com/GenieAI-Development/GenieAI-ML
 - Product comparison with price-derived Value, description-derived Quality, and contextual AI fit insights.
 - Delivery prediction and checkout preparation.
 - AI cart product analysis that scores the complete bundle and gives improvement suggestions.
+- A Qoder Cloud product-matching agent evaluates cart bundles; its agent configuration is kept in [`qoder-agents/`](qoder-agents/).
 - English voice search with Groq transcription.
 - Gift messages and downloadable SVG gift cards generation, including one automatic retry for transient first-generation failures.
 - Per-mode persisted chats, preferences, plans, products, and paging state.
@@ -66,6 +64,8 @@ https://github.com/GenieAI-Development/GenieAI-ML
 | Query embeddings | OpenAI `text-embedding-3-small` | Converts the full search message into the vector used by Qdrant dense retrieval. |
 | Candidate retrieval | Qdrant, BM25, reciprocal-rank fusion | Combines dense and lexical product retrieval before filtering. |
 | Catalog cache and filtering | Supabase, canonical catalog JSON | Applies stock, price, and image filters and supplies product-card data. |
+| Catalogue enrichment and indexing | Qoder automations, Qwen 3.8 Flash, Qdrant, BM25 | Stores validated product data and generated image intents, then prepares dense and lexical RAG indexes. |
+| Cart bundle analysis | Qoder Cloud Agent | Scores product-pair compatibility and suggests up to four bundle improvements; configuration lives in [`qoder-agents/`](qoder-agents/). |
 | Relevance ranking | Hugging Face CrossEncoder | Scores candidate products against the user's query in the Next.js layer. |
 | Visual search | Transformers.js CLIP, Supabase pgvector | Embeds uploaded images and retrieves visually similar catalog products. |
 | Commerce operations | Commerce MCP | Supports showcase, product details, delivery, comparison, and checkout operations. |
@@ -90,7 +90,7 @@ flowchart LR
 ## Components
 
 - **Next.js + React application:** the TypeScript UI, Tailwind styling, Profile tab, API routes, commerce orchestration, chat replies, context analysis, visual RAG, Groq vision analysis, voice processing, and browser-state persistence.
-- **Python recommendation service:** FastAPI, Qdrant, BM25, reciprocal-rank fusion, and Supabase filtering retrieve eligible catalog candidates before Next.js applies final ranking. See [Python backend details](docs/PYTHON_BACKEND.md).
+- **Python recommendation service:** FastAPI indexes enriched catalogue records for dense Qdrant and lexical BM25 retrieval, fuses them with RRF, and applies Supabase filters before Next.js performs final ranking. The stored product data and Qwen 3.8 Flash-generated image intents were prepared with Qoder assistance. See [Python backend details](docs/PYTHON_BACKEND.md).
 - **Hugging Face CrossEncoder:** reranks catalog candidates by query relevance. See [HF reranker details](docs/HF_RERANKER.md).
 - **Personalization engine:** combines browser-queued interaction events with a Next.js session profile to adjust recommendation order. See [personalization details](docs/PERSONALIZATION.md).
 - **Visual-search pipeline:** Transformers.js CLIP produces the image embedding, Supabase pgvector retrieves matches, and Groq Vision supplies the companion description.
@@ -171,6 +171,20 @@ sequenceDiagram
 - Greetings, identity or capability questions, general conversation, and delivery-only checks use a text-only Next.js reply.
 - Text-only replies skip Python and HF, return an empty product list, and hide existing product cards.
 
+## Python recommendation backend
+
+The Python FastAPI recommendation service is GenieAI's text-retrieval and RAG layer. It turns enriched catalogue records into two complementary indexes: Qdrant holds dense embeddings for semantic retrieval, while category-specific BM25 indexes support exact keyword matching. Qoder-assisted catalogue preparation stores validated product data together with Qwen 3.8 Flash-generated image intents, so the retrieval data includes product descriptions, availability, price, images, and useful visual-product cues.
+
+At runtime, the service combines Qdrant dense retrieval with BM25 using reciprocal-rank fusion (RRF), then filters cached Supabase product records by stock, price, and usable-image requirements. It returns up to 12 eligible, deterministic product cards to Next.js, which can then apply personalization and optional Thinking-mode CrossEncoder reranking.
+
+- **Indexing and enrichment:** canonical catalogue JSON and Supabase cache records supply stable product metadata. Qoder-assisted Qwen 3.8 Flash enrichment generates image intents alongside the stored product data before dense and lexical indexes are prepared.
+- **Query understanding:** the OpenAI-powered planner identifies product intent, category, price limits, stock requirements, and the most suitable category/index search plan.
+- **RAG retrieval:** OpenAI `text-embedding-3-small` embeds the full request for Qdrant. The original request is also searched against BM25; each source returns candidates and RRF merges their rankings.
+- **Candidate controls:** retrieval widens once to 60 candidates. Supabase cache records enforce availability, price, and usable-image requirements; missing records are skipped.
+- **Response boundary:** the backend orders eligible products by RRF score and returns the first 12 product cards. It does not generate the shopper-facing reply or run the CrossEncoder during normal retrieval.
+
+See [Python Recommendation Backend](docs/PYTHON_BACKEND.md) for the runtime flow, API contract, local setup, configuration, and cache-sync process.
+
 ## Search modes
 
 Users can choose a search mode from the compact selector beside the chat **Send** button or from **Preferences**. The selection is saved with chat state and applies to both Smart Shopping and Gift Box item searches.
@@ -219,18 +233,6 @@ On application load, GenieAI makes a best-effort background request to warm the 
 - Divides the total budget range by the generated-item count.
 - Sends `chatHistory: null`.
 - Shows all returned products in a horizontally scrollable row.
-
-## Python recommendation backend
-
-The Python FastAPI recommendation service performs first-stage catalog retrieval and filtering. It combines Qdrant dense retrieval with BM25 through reciprocal-rank fusion, filters cached Supabase product data by stock, price, and image availability, and returns up to 12 eligible product cards for the Next.js layer to rerank and personalize.
-
-- **Request handling:** FastAPI validates `product_recommendation` requests and creates or reuses a recommendation session.
-- **Query understanding:** the OpenAI-powered planner identifies the product intent, category, and retrieval strategy.
-- **Retrieval:** Qdrant dense search and category-specific BM25 search retrieve 60 candidates and combine them with reciprocal-rank fusion.
-- **Filtering:** Supabase cache records and canonical catalog metadata enforce availability, price, and usable-image requirements.
-- **Response:** the backend returns deterministic product cards; Next.js subsequently adds CrossEncoder relevance ranking, personalization, and conversational replies.
-
-See [Python Recommendation Backend](docs/PYTHON_BACKEND.md) for the runtime flow, API contract, local setup, configuration, and cache-sync process.
 
 ## Reranking and personalization
 
