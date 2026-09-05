@@ -712,7 +712,12 @@ export function GenieAIController() {
 
   function getGiftBoxItemCount(draft: ContextDraft) {
     const match = (draft.itemCount || "").match(/\d+/);
-    return match ? Number(match[0]) : 3;
+    return match ? Math.min(4, Number(match[0])) : 3;
+  }
+
+  function getEventItemCount(draft: ContextDraft) {
+    const match = (draft.itemCount || "").match(/\d+/);
+    return match ? Number(match[0]) : 4;
   }
 
   function getPlanSearchTerm(item: GuidedPlanItem | string) {
@@ -749,15 +754,18 @@ export function GenieAIController() {
       return [
         {
           label: "chocolates",
-          quantity: `${itemCount} items`,
+          quantity: "1 box",
           searchTerm: "chocolate",
         },
         { label: "flowers", quantity: "1 bouquet", searchTerm: "flowers" },
         { label: "cake", quantity: "1kg", searchTerm: "cake" },
-      ];
+        { label: "perfume", quantity: "1 gift set", searchTerm: "perfume" },
+        { label: "fashion accessory", quantity: "1 item", searchTerm: "fashion" },
+      ].slice(0, itemCount);
     }
 
     const participants = getParticipantCount(draft);
+    const itemCount = getEventItemCount(draft);
     const cakeKg = Math.max(1, Math.ceil(participants / 12));
 
     return [
@@ -773,7 +781,8 @@ export function GenieAIController() {
         quantity: `${participants} servings`,
         searchTerm: "snacks",
       },
-    ];
+      { label: "perfume", quantity: "1 gift set", searchTerm: "perfume" },
+    ].slice(0, itemCount);
   }
 
   function normalizeGuidedPlanItems(
@@ -785,10 +794,10 @@ export function GenieAIController() {
     const maxItems = mode.includes("Gift Box")
       ? getGiftBoxItemCount(draft)
       : mode.includes("Event")
-        ? 4
+        ? getEventItemCount(draft)
         : 8;
 
-    return items.length > 0
+    const normalizedItems = items.length > 0
       ? items.slice(0, maxItems).map((item, index) => {
           const cleanedItem = item.replace(/^[-*\d.)\s]+/, "").trim();
           const [rawLabel, ...quantityParts] = cleanedItem.split(/\s+-\s+/);
@@ -803,6 +812,20 @@ export function GenieAIController() {
           };
         })
       : fallback;
+
+    const requiresExactItemCount =
+      mode.includes("Event") || mode.includes("Gift Box");
+    if (!requiresExactItemCount || normalizedItems.length >= maxItems) {
+      return normalizedItems;
+    }
+
+    const existingLabels = new Set(
+      normalizedItems.map((item) => item.label.toLowerCase()),
+    );
+    return [
+      ...normalizedItems,
+      ...fallback.filter((item) => !existingLabels.has(item.label.toLowerCase())),
+    ].slice(0, maxItems);
   }
 
   function getGuidedPlanReply(
@@ -812,7 +835,11 @@ export function GenieAIController() {
   ) {
     const nextItem = items[index]?.label ?? items[0]?.label ?? "gift";
     const itemList = items
-      .map((item) => `- ${formatGuidedPlanItem(item)}`)
+      .map((item) =>
+        activeMode.includes("Gift Box")
+          ? `- ${item.label}`
+          : `- ${formatGuidedPlanItem(item)}`,
+      )
       .join("\n");
 
     if (replyLanguage === "Sinhala") {
@@ -1923,8 +1950,15 @@ export function GenieAIController() {
       /\b(find|show|recommend|suggest|buy|order|looking for|need|want)\b/.test(
         normalized,
       );
+    const hasGiftLanguage =
+      /\b(gift|gifts|present|presents|surprise|hamper)\b/.test(normalized) ||
+      /(?:තෑග්ග|තෑගි|ත්‍යාග|thagga|thegga|thagi)/iu.test(normalized);
+    const hasGiftContext =
+      /\b(girlfriend|boyfriend|wife|husband|mother|mom|mum|father|dad|sister|brother|friend|child|kid|baby|couple|birthday|anniversary|wedding|graduation)\b/.test(
+        normalized,
+      );
 
-    return hasGiftCategory && hasSearchIntent;
+    return hasGiftLanguage || (hasSearchIntent && (hasGiftCategory || hasGiftContext));
   }
 
   async function answerWithCollectedContext(
@@ -1980,12 +2014,16 @@ export function GenieAIController() {
   async function handleFirstMessage(content: string) {
     setStatus("Groq is analyzing budget, recipient, and occasion.");
     let nextProfile: ShoppingProfile = profile;
-    let isGiftRequest = false;
-    let missingGiftPreferences: RequiredField[] = [];
+    const hasExplicitGiftProductSearch = isExplicitGiftProductSearch(content);
+    let isGiftRequest = hasExplicitGiftProductSearch;
+    let missingGiftPreferences: RequiredField[] = hasExplicitGiftProductSearch
+      ? (["budget", "recipient", "occasion"] as RequiredField[]).filter(
+          (field) => !profile[field],
+        )
+      : [];
 
     try {
       const analysis = await analyzeFirstMessage(content);
-      const hasExplicitGiftProductSearch = isExplicitGiftProductSearch(content);
       isGiftRequest =
         analysis.isGiftRequest === true || hasExplicitGiftProductSearch;
       missingGiftPreferences =
@@ -2462,6 +2500,9 @@ export function GenieAIController() {
 
     if (isSmartShoppingInitialView) {
       setIsComposerSettling(true);
+    }
+    if (activeMode === "Smart Shopping") {
+      setProductBatchIndex(0);
     }
     setMessages(nextMessages);
     playChatSound("send");
@@ -3630,6 +3671,7 @@ export function GenieAIController() {
           onStopSpeaking={stopSpeaking}
           readAloudTitle={readAloudTitle}
           renderMessage={renderChatMessage}
+          showReadAloud={!activeMode.includes("Gift")}
           switchEnglishLabel={getSwitchToEnglishLabel()}
           tryAgainLabel={getTryAgainLabel()}
         />
