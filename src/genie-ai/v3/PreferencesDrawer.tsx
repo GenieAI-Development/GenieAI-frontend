@@ -13,6 +13,7 @@ type Props = {
   isSending: boolean;
   occasions: readonly string[];
   onApply: () => void;
+  onBudgetPreset: (value: string) => void;
   onBudgetMax: (value: string) => void;
   onBudgetMin: (value: string) => void;
   onClose: () => void;
@@ -30,7 +31,7 @@ export function PreferencesDrawer(props: Props) {
   const update = (key: keyof GenieProfile, value: string) => props.setProfile((current) => ({ ...current, [key]: value }));
   return <Drawer open={props.open} onClose={props.onClose} icon="settings" title="Preferences"><div className="space-y-4">
     <label className="block text-xs font-semibold text-[#5B6B7A]">Budget (Rs.)<div className="mt-1.5 grid grid-cols-2 gap-2"><input type="number" min="0" value={props.budgetMin} onChange={(event) => props.onBudgetMin(event.target.value)} placeholder="Min" className={inputClass}/><input type="number" min="0" value={props.budgetMax} onChange={(event) => props.onBudgetMax(event.target.value)} placeholder="Max" className={inputClass}/></div>{props.budgetError ? <span className="mt-1 block text-[11px] text-[#B25A2E]">{props.budgetError}</span> : null}</label>
-    <SelectField label="Preset budget" value={props.profile.budget} options={props.budgetOptions} onChange={(value) => update("budget", value)} />
+    <SelectField label="Preset budget" value={props.profile.budget} options={props.budgetOptions} onChange={(value) => { update("budget", value); props.onBudgetPreset(value); }} />
     <SelectField label="Recipient" value={props.profile.recipient} options={props.recipients} onChange={(value) => update("recipient", value)} />
     <SelectField label="Occasion" value={props.profile.occasion} options={props.occasions} onChange={(value) => update("occasion", value)} />
     <SelectField label="Gift type" value={props.profile.category} options={props.giftTypes} onChange={(value) => update("category", value)} />

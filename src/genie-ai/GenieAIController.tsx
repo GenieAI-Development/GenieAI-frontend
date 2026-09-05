@@ -52,7 +52,6 @@ import {
   type ChatMessage,
   type CommerceResponse,
   type CompareRow,
-  type ContextAnalysisResponse,
   type ContextDraft,
   type ContextField,
   type ExtendedPreferences,
@@ -63,7 +62,6 @@ import {
   type Language,
   type ModeSession,
   type PreviousOrder,
-  type RequiredField,
   type SearchMode,
   type ShoppingProfile,
   type SuggestedPrompt,
@@ -106,7 +104,6 @@ import {
   getResponsePreferenceForMode,
   getTaskForMode,
   getValidatedPhoneNumber,
-  hasSkippedPreferenceSetter,
   initialShoppingProfile,
   mergeExtendedPreferencesWithProfile,
   normalizeExtendedPreferences,
@@ -1022,6 +1019,18 @@ export function GenieAIController() {
   ]);
 
   useEffect(() => {
+    // Prepare CLIP after the UI is interactive. This is deliberately best
+    // effort: a later upload still works if the host discards the warm instance.
+    const timeoutId = window.setTimeout(() => {
+      void fetch("/api/ai/image-search", { cache: "no-store" }).catch(() => {
+        // Image search will report its own error when a user uploads a photo.
+      });
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
     const today = getLocalDateString();
 
     try {
@@ -1843,72 +1852,6 @@ export function GenieAIController() {
       : "Continue without context";
   }
 
-  async function analyzeFirstMessage(content: string) {
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 28000);
-    const requestBody = JSON.stringify({
-      context: {
-        budget: profile.budget || null,
-        category: profile.category || null,
-        occasion: profile.occasion || null,
-        recipient: profile.recipient || null,
-      },
-      message: content,
-      selectedLanguage: language,
-    });
-
-    try {
-      while (true) {
-        let response: Response;
-        try {
-          response = await fetch("/api/ai/context-analysis", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: requestBody,
-            signal: controller.signal,
-          });
-        } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError") {
-            throw new Error("The request timed out. Please try again.");
-          }
-
-          throw error;
-        }
-
-        let data: ContextAnalysisResponse | null = null;
-        try {
-          data = (await response.json()) as ContextAnalysisResponse;
-        } catch {
-          // Retry an empty body within the same overall request deadline.
-        }
-
-        const errorMessage = data?.error ?? "";
-        if (
-          !data ||
-          Object.keys(data).length === 0 ||
-          /empty(?:\s+\w+)*\s+(?:analysis|response)/i.test(errorMessage)
-        ) {
-          await new Promise((resolve) => window.setTimeout(resolve, 500));
-          continue;
-        }
-
-        if (!data) {
-          continue;
-        }
-
-        if (!response.ok) {
-          throw new Error(errorMessage || "Groq context analysis failed.");
-        }
-
-        return data;
-      }
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
-  }
-
   function showContextPanel(
     nextProfile: ShoppingProfile,
     detectedLanguage = language,
@@ -1938,27 +1881,6 @@ export function GenieAIController() {
 
     setIsComposerSettling(true);
     setConversationStage("ready");
-  }
-
-  function isExplicitGiftProductSearch(message: string) {
-    const normalized = message.toLowerCase();
-    const hasGiftCategory =
-      /\b(cake|cakes|flower|flowers|bouquet|bouquets|rose|roses|chocolate|chocolates|perfume|perfumes|fragrance|fragrances|watch|watches|handbag|handbags)\b/.test(
-        normalized,
-      );
-    const hasSearchIntent =
-      /\b(find|show|recommend|suggest|buy|order|looking for|need|want)\b/.test(
-        normalized,
-      );
-    const hasGiftLanguage =
-      /\b(gift|gifts|present|presents|surprise|hamper)\b/.test(normalized) ||
-      /(?:තෑග්ග|තෑගි|ත්‍යාග|thagga|thegga|thagi)/iu.test(normalized);
-    const hasGiftContext =
-      /\b(girlfriend|boyfriend|wife|husband|mother|mom|mum|father|dad|sister|brother|friend|child|kid|baby|couple|birthday|anniversary|wedding|graduation)\b/.test(
-        normalized,
-      );
-
-    return hasGiftLanguage || (hasSearchIntent && (hasGiftCategory || hasGiftContext));
   }
 
   async function answerWithCollectedContext(
@@ -2012,106 +1934,11 @@ export function GenieAIController() {
   }
 
   async function handleFirstMessage(content: string) {
-    setStatus("Groq is analyzing budget, recipient, and occasion.");
-    let nextProfile: ShoppingProfile = profile;
-    const hasExplicitGiftProductSearch = isExplicitGiftProductSearch(content);
-    let isGiftRequest = hasExplicitGiftProductSearch;
-    let missingGiftPreferences: RequiredField[] = hasExplicitGiftProductSearch
-      ? (["budget", "recipient", "occasion"] as RequiredField[]).filter(
-          (field) => !profile[field],
-        )
-      : [];
-
-    try {
-      const analysis = await analyzeFirstMessage(content);
-      isGiftRequest =
-        analysis.isGiftRequest === true || hasExplicitGiftProductSearch;
-      missingGiftPreferences =
-        analysis.missingFields ??
-        (["budget", "recipient", "occasion"] as RequiredField[]).filter(
-          (field) => !analysis[field],
-        );
-      nextProfile = {
-        ...profile,
-        budget: analysis.budget ?? profile.budget,
-        category: analysis.category ?? profile.category,
-        occasion: analysis.occasion ?? profile.occasion,
-        recipient: analysis.recipient ?? profile.recipient,
-      };
-      if (hasExplicitGiftProductSearch && analysis.isGiftRequest !== true) {
-        missingGiftPreferences = (
-          ["budget", "recipient", "occasion"] as RequiredField[]
-        ).filter((field) => !nextProfile[field]);
-      }
-    } catch (error) {
-      if (getRetryableFailureType(error)) {
-        throw error;
-      }
-
-      setStatus(`${getErrorMessage(error)} Choose context manually.`);
-    }
-
-    setPendingUserRequest(content);
-    if (activeMode.includes("Event") || activeMode.includes("Gift Box")) {
-      const nextDraft = getContextDraftFromProfile(nextProfile);
-      setProfile(nextProfile);
-      setExtendedPreferences((current) =>
-        syncExtendedPreferencesWithProfile(current, nextProfile),
-      );
-      setContextDraft(nextDraft);
-      await answerWithCollectedContext(
-        content,
-        nextProfile,
-        nextDraft,
-        syncExtendedPreferencesWithProfile(extendedPreferences, nextProfile),
-      );
-      return;
-    }
-
-    const nextExtendedPreferences = syncExtendedPreferencesWithProfile(
-      extendedPreferences,
-      nextProfile,
-    );
-    setProfile(nextProfile);
-    setExtendedPreferences(nextExtendedPreferences);
-
-    if (!isGiftRequest) {
-      setConversationStage("ready");
-      await handleReadyMessage(
-        content,
-        nextProfile,
-        nextExtendedPreferences,
-        false,
-      );
-      return;
-    }
-
-    const hasAllRequiredGiftPreferences =
-      missingGiftPreferences.length === 0;
-
-    if (hasAllRequiredGiftPreferences) {
-      setConversationStage("ready");
-      await handleReadyMessage(
-        content,
-        nextProfile,
-        nextExtendedPreferences,
-        true,
-      );
-      return;
-    }
-
-    if (hasSkippedPreferenceSetter(messages)) {
-      setConversationStage("ready");
-      await handleReadyMessage(
-        content,
-        nextProfile,
-        nextExtendedPreferences,
-        true,
-      );
-      return;
-    }
-
-    showContextPanel(nextProfile, language);
+    // Typed requests go straight to search/chat. The preference setter is an
+    // intentional, chip-driven entry flow rather than an automatic follow-up.
+    setConversationStage("ready");
+    setPendingUserRequest("");
+    await handleReadyMessage(content, profile, extendedPreferences);
   }
 
   function selectContextOption(field: ContextField, value: string) {
@@ -2219,6 +2046,24 @@ export function GenieAIController() {
     );
     setProfile(nextProfile);
     setExtendedPreferences(nextExtendedPreferences);
+    // Sidebar preferences are global. Keep every saved mode session in sync so
+    // moving between modes or restoring the chat cannot revive an older profile.
+    setModeSessions((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([mode, session]) => [
+          mode,
+          {
+            ...session,
+            extendedPreferences: syncExtendedPreferencesWithProfile(
+              session.extendedPreferences ??
+                getExtendedPreferencesFromProfile(session.profile),
+              nextProfile,
+            ),
+            profile: nextProfile,
+          },
+        ]),
+      ),
+    );
     setPendingUserRequest("");
     setStatus("Preferences updated. They will be used for your next query.");
   }
@@ -2521,36 +2366,13 @@ export function GenieAIController() {
         setProfile(nextProfile);
         setExtendedPreferences(nextExtendedPreferences);
         setPendingUserRequest(content);
-
-        const hasAllRequiredGiftPreferences = Boolean(
-          nextProfile.budget && nextProfile.occasion && nextProfile.recipient,
-        );
-        if (
-          hasAllRequiredGiftPreferences ||
-          hasSkippedPreferenceSetter(messages)
-        ) {
-          setConversationStage("ready");
-          await handleReadyMessage(
-            content,
-            nextProfile,
-            nextExtendedPreferences,
-          );
-        } else {
-          showContextPanel(nextProfile, language);
-        }
-      } else if (
-        activeMode === "Smart Shopping" ||
-        conversationStage === "first-message" ||
-        conversationStage === "collecting-context"
-      ) {
-        await handleFirstMessage(content);
-      } else if (
-        activeMode.includes("Event") ||
-        activeMode.includes("Gift Box")
-      ) {
+        // Only a starter chip opens the preference setter. It is shown before
+        // search so the shopper can confirm or change its prefilled values.
+        showContextPanel(nextProfile, language);
+      } else if (activeMode.includes("Event") || activeMode.includes("Gift Box")) {
         await handleGuidedCustomMessage(content);
       } else {
-        await handleReadyMessage(content);
+        await handleFirstMessage(content);
       }
     } catch (error) {
       if (!addRetryFailure(error, content)) {
@@ -3538,6 +3360,7 @@ export function GenieAIController() {
               setSidebarBudgetMin(value);
               setSidebarBudgetError("");
             }}
+            onBudgetPreset={syncSidebarBudgetDraft}
             onClose={() => setIsLeftPanelOpen(false)}
             open={isLeftPanelOpen}
             profile={profile}

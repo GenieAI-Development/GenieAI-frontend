@@ -25,7 +25,6 @@ export const starterMessages: ChatMessage[] = [
 ];
 
 export const starterChips = [
-  "Find a gift",
   "Find a cake",
   "Find flowers",
   "Find chocolates",
