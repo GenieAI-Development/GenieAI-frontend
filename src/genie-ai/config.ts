@@ -28,7 +28,6 @@ export const starterChips = [
   "Find a cake",
   "Find flowers",
   "Find chocolates",
-  "Find perfume",
 ];
 
 export const PRODUCT_BATCH_SIZE = 4;
@@ -38,7 +37,6 @@ export const starterChipGiftTypes: Record<string, string> = {
   "Find a cake": "Cakes",
   "Find chocolates": "Chocolate",
   "Find flowers": "Flowers",
-  "Find perfume": "Perfumes",
 };
 
 export const languageOptions: Language[] = ["English", "Sinhala", "Singlish"];
@@ -105,8 +103,6 @@ export const giftTypeOptions = [
   "Flowers",
   "Cakes",
   "Chocolate",
-  "Perfumes",
-  "Fashion",
   "Other",
 ];
 
@@ -620,14 +616,12 @@ export const starterChipOverrides: Record<Language, Record<string, string>> = {
     "Find a cake": "කේක් එකක් හොයන්න",
     "Find chocolates": "චොකලට් හොයන්න",
     "Find flowers": "මල් හොයන්න",
-    "Find perfume": "සුවඳ විලවුන් හොයන්න",
     "Same-day delivery": "අදම බෙදාහැරීම",
   },
   Singlish: {
     "Find a cake": "Cake ekak hoyanna",
     "Find chocolates": "Chocolate hoyanna",
     "Find flowers": "Flowers hoyanna",
-    "Find perfume": "Perfume hoyanna",
     "Same-day delivery": "Ada delivery",
   },
 };

@@ -3291,6 +3291,10 @@ export function GenieAIController() {
   const initialAssistantMessage = messages.find(
     (message) => message.role === "assistant",
   );
+  const [initialGreeting, ...initialMessageLines] = (
+    initialAssistantMessage?.content ?? ""
+  ).split("\n");
+  const initialMessageRemainder = initialMessageLines.join("\n");
 
   return (
     <GenieShell
@@ -3420,7 +3424,14 @@ export function GenieAIController() {
                     {initialAssistantMessage ? (
                       <div className="mb-5 text-center">
                         <div className="mx-auto max-w-2xl text-base leading-7 text-[#3E4A56] sm:text-lg">
-                          {renderChatMessage(initialAssistantMessage.content)}
+                          <p className="whitespace-nowrap text-[11px] tracking-[-.025em] sm:text-lg sm:tracking-normal">
+                            {initialGreeting}
+                          </p>
+                          {initialMessageRemainder ? (
+                            <div className="mt-2">
+                              {renderChatMessage(initialMessageRemainder)}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}

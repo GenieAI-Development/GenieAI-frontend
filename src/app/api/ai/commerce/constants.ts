@@ -14,7 +14,6 @@ export const INITIAL_REPLY_CHIPS = [
   "Find a cake",
   "Find flowers",
   "Find chocolates",
-  "Find perfume",
 ];
 
 export const COMMON_GIFT_SEARCH_TERMS = ["chocolate", "cake", "flowers"];
@@ -23,8 +22,6 @@ export const PREFERENCE_GIFT_TYPES = [
   "Flowers",
   "Cakes",
   "Chocolate",
-  "Perfumes",
-  "Fashion",
   "Other",
 ] as const;
 export const PREFERENCE_BUDGETS = [
