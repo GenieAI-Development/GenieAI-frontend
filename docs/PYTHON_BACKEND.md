@@ -28,6 +28,14 @@ For a product recommendation, the response is built deterministically. It does n
 
 The cache table defaults to `kapruka_gift_products`. For each candidate the backend reads `product_id`, `price_amount`, `in_stock`, `image_url`, and `images`.
 
+### Backend model usage
+
+| Model | Purpose |
+| --- | --- |
+| `gpt-4.1-mini` | Primary structured LLM. Identifies category, price limits, stock requirements, and search constraints, then selects the category/index search plan. |
+| `gpt-5-mini` | Fallback when the primary model fails validation or API execution after retries. |
+| `text-embedding-3-small` | Embeds the user's complete search message for Qdrant dense retrieval. |
+
 ## Features intentionally not in the product-recommendation runtime
 
 - Live Kapruka MCP product verification.

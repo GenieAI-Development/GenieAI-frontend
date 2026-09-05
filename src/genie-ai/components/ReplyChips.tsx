@@ -1,14 +1,15 @@
 type Props = {
   chips: string[];
+  centered?: boolean;
   getLabel: (chip: string) => string;
   onSelect: (chip: string) => void;
   underMessage?: boolean;
 };
 
-export function ReplyChips({ chips, getLabel, onSelect, underMessage = false }: Props) {
+export function ReplyChips({ chips, centered = false, getLabel, onSelect, underMessage = false }: Props) {
   if (chips.length === 0) return null;
   return (
-    <div className={underMessage ? "mt-2 flex w-full flex-wrap gap-x-2 gap-y-1.5 md:gap-2" : "mt-2 flex flex-wrap gap-x-2 gap-y-1.5 md:ml-[54px] md:mt-4 md:gap-2"}>
+    <div className={underMessage ? `mt-2 flex w-full flex-wrap gap-x-2 gap-y-1.5 md:gap-2 ${centered ? "justify-center" : ""}` : "mt-2 flex flex-wrap gap-x-2 gap-y-1.5 md:ml-[54px] md:mt-4 md:gap-2"}>
       {chips.map((chip) => (
         <button
           key={chip}

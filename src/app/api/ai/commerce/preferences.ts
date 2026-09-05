@@ -450,23 +450,19 @@ export function inferBudgetPreference(message: string) {
     return null;
   }
 
-  if (filter.max_price === 2500 && filter.min_price === undefined) {
+  if (filter.max_price === 5000 && filter.min_price === undefined) {
     return PREFERENCE_BUDGETS[0];
   }
 
-  if (filter.min_price === 2500 && filter.max_price === 5000) {
+  if (filter.min_price === 5000 && filter.max_price === 10000) {
     return PREFERENCE_BUDGETS[1];
   }
 
-  if (filter.min_price === 5000 && filter.max_price === 10000) {
+  if (filter.min_price === 10000 && filter.max_price === undefined) {
     return PREFERENCE_BUDGETS[2];
   }
 
-  if (filter.min_price === 10000 && filter.max_price === undefined) {
-    return PREFERENCE_BUDGETS[3];
-  }
-
-  return PREFERENCE_BUDGETS[4];
+  return PREFERENCE_BUDGETS[3];
 }
 
 export function normalizeAnalyzedSearchQuery(

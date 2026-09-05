@@ -63,6 +63,7 @@ import {
   type Language,
   type ModeSession,
   type PreviousOrder,
+  type RequiredField,
   type SearchMode,
   type ShoppingProfile,
   type SuggestedPrompt,
@@ -105,6 +106,7 @@ import {
   getResponsePreferenceForMode,
   getTaskForMode,
   getValidatedPhoneNumber,
+  hasSkippedPreferenceSetter,
   initialShoppingProfile,
   mergeExtendedPreferencesWithProfile,
   normalizeExtendedPreferences,
@@ -153,7 +155,7 @@ export function GenieAIController() {
   const lastPersonalizationImpressionKeyRef = useRef("");
 
   const [activeMode, setActiveMode] = useState("Smart Shopping");
-  const [searchMode, setSearchMode] = useState<SearchMode>("standard");
+  const [searchMode, setSearchMode] = useState<SearchMode>("instant");
   const [language, setLanguage] = useState<Language>("English");
   const [messages, setMessages] = useState<ChatMessage[]>(starterMessages);
   const [input, setInput] = useState("");
@@ -205,6 +207,7 @@ export function GenieAIController() {
   );
   const [activityMessage, setActivityMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isComposerSettling, setIsComposerSettling] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
@@ -299,8 +302,8 @@ export function GenieAIController() {
   const visibleProducts = useMemo(() => {
     if (isGuidedMode) return recommendedProducts;
 
-    const start = productBatchIndex * PRODUCT_BATCH_SIZE;
-    return recommendedProducts.slice(start, start + PRODUCT_BATCH_SIZE);
+    const visibleProductCount = (productBatchIndex + 1) * PRODUCT_BATCH_SIZE;
+    return recommendedProducts.slice(0, visibleProductCount);
   }, [isGuidedMode, productBatchIndex, recommendedProducts]);
   const hasMoreRecommendedProducts =
     (productBatchIndex + 1) * PRODUCT_BATCH_SIZE <
@@ -314,21 +317,22 @@ export function GenieAIController() {
   const shouldShowProductSuggestions =
     conversationStage !== "collecting-context";
   const hasUserMessages = messages.some((message) => message.role === "user");
+  const isSmartShoppingInitialView =
+    activeMode === "Smart Shopping" &&
+    !hasUserMessages &&
+    conversationStage === "first-message";
   const visibleReplyChips =
     isGuidedMode && isSending
       ? []
       : isGuidedMode
         ? chips.filter((chip) => chip !== "Suggest more")
       : activeMode === "Smart Shopping" && hasUserMessages
-        ? chips.filter(
-            (chip) =>
-              chip === "Suggest more" && hasMoreRecommendedProducts,
-          )
+        ? chips.filter((chip) => chip !== "Suggest more")
         : hasUserMessages
           ? chips.filter(
               (chip) =>
                 !isRemovedGenericReplyChip(chip) &&
-                (chip !== "Suggest more" || hasMoreRecommendedProducts),
+                chip !== "Suggest more",
             )
           : chips;
   const latestAssistantMessageIndex = messages.reduce(
@@ -349,6 +353,10 @@ export function GenieAIController() {
   const isProfileMode = activeMode === "Profile";
   const isFormToolMode = isCompareMode || isGiftMessageMode || isDeliveryPredictionMode || isProfileMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
+  const suggestedPromptTexts = useMemo(
+    () => suggestedPrompts.map((prompt) => prompt.text),
+    [suggestedPrompts],
+  );
 
   useEffect(() => {
     void initializePersonalizationSession();
@@ -374,7 +382,7 @@ export function GenieAIController() {
       void trackPersonalizationEvent({
         category: product.category,
         event: "impression",
-        position: productBatchIndex * PRODUCT_BATCH_SIZE + index + 1,
+        position: index + 1,
         price: product.price,
         productId: product.id,
         query: latestUserQuery,
@@ -413,6 +421,18 @@ export function GenieAIController() {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isPromptPopupOpen]);
+
+  useEffect(() => {
+    if (!isComposerSettling) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(
+      () => setIsComposerSettling(false),
+      620,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [isComposerSettling]);
 
   function closeIntroPanel() {
     setIsIntroPanelVisible(false);
@@ -946,6 +966,35 @@ export function GenieAIController() {
   }, [messages]);
 
   useEffect(() => {
+    const latestMessage = messages.at(-1);
+    const canFocusComposer =
+      latestMessage?.role === "assistant" &&
+      (conversationStage === "ready" || isSmartShoppingInitialView) &&
+      !isSending &&
+      !isImageProcessing &&
+      !isVoiceProcessing &&
+      !isRecording;
+
+    if (!canFocusComposer) {
+      return;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      composerInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [
+    conversationStage,
+    isImageProcessing,
+    isRecording,
+    isSending,
+    isVoiceProcessing,
+    isSmartShoppingInitialView,
+    messages,
+  ]);
+
+  useEffect(() => {
     const today = getLocalDateString();
 
     try {
@@ -1054,7 +1103,12 @@ export function GenieAIController() {
             : restoredSessions;
 
           setActiveMode(restoredMode);
-          setSearchMode(storedState.searchMode === "extended" ? "extended" : "standard");
+          const storedSearchMode = storedState.searchMode as string | undefined;
+          setSearchMode(
+            storedSearchMode === "thinking" || storedSearchMode === "extended"
+              ? "thinking"
+              : "instant",
+          );
           if (storedMode === "Gift Card") setGiftMessageToolTab("card");
           setLanguage(storedState.language);
           setModeSessions(nextRestoredSessions);
@@ -1453,10 +1507,7 @@ export function GenieAIController() {
     void trackPersonalizationEvent({
       category: product.category,
       event,
-      position:
-        position >= 0
-          ? productBatchIndex * PRODUCT_BATCH_SIZE + position + 1
-          : undefined,
+      position: position >= 0 ? position + 1 : undefined,
       price: product.price,
       productId: product.id,
       query: latestUserQuery,
@@ -1498,7 +1549,12 @@ export function GenieAIController() {
       );
     }
 
-    if (data.chips) {
+    if (activeMode === "Smart Shopping") {
+      const hasMoreProducts =
+        (data.products?.length ?? recommendedProducts.length) >
+        PRODUCT_BATCH_SIZE;
+      setChips(hasMoreProducts ? ["Suggest more"] : []);
+    } else if (data.chips) {
       setChips(data.chips);
     }
 
@@ -1835,10 +1891,40 @@ export function GenieAIController() {
     setChips([]);
     addMessage({
       role: "assistant",
-      content: getModeIntroMessage(activeMode, detectedLanguage),
+      content: {
+        English:
+          "I still need a few gift preferences. Could you choose the missing details below?",
+        Sinhala:
+          "Gift එක හොඳින් තෝරන්න තවත් preferences කිහිපයක් අවශ්‍යයි. පහළින් අඩු details තෝරන්න පුළුවන්ද?",
+        Singlish:
+          "Gift eka hondin thoranna thawa preferences tikak ona. Pahalin missing details thoranna puluwanda?",
+      }[detectedLanguage],
       variant: "context-panel",
     });
     setStatus("Choose context chips or continue without context.");
+  }
+
+  function leaveInitialSmartShoppingView() {
+    if (!isSmartShoppingInitialView) {
+      return;
+    }
+
+    setIsComposerSettling(true);
+    setConversationStage("ready");
+  }
+
+  function isExplicitGiftProductSearch(message: string) {
+    const normalized = message.toLowerCase();
+    const hasGiftCategory =
+      /\b(cake|cakes|flower|flowers|bouquet|bouquets|rose|roses|chocolate|chocolates|perfume|perfumes|fragrance|fragrances|watch|watches|handbag|handbags)\b/.test(
+        normalized,
+      );
+    const hasSearchIntent =
+      /\b(find|show|recommend|suggest|buy|order|looking for|need|want)\b/.test(
+        normalized,
+      );
+
+    return hasGiftCategory && hasSearchIntent;
   }
 
   async function answerWithCollectedContext(
@@ -1848,7 +1934,7 @@ export function GenieAIController() {
     requestExtendedPreferences = extendedPreferences,
   ) {
     setConversationStage("ready");
-    setChips(starterChips);
+    setChips(activeMode === "Smart Shopping" ? [] : starterChips);
     setStatus(
       "Groq is answering with the collected context. The live catalog is searching products.",
     );
@@ -1894,9 +1980,19 @@ export function GenieAIController() {
   async function handleFirstMessage(content: string) {
     setStatus("Groq is analyzing budget, recipient, and occasion.");
     let nextProfile: ShoppingProfile = profile;
+    let isGiftRequest = false;
+    let missingGiftPreferences: RequiredField[] = [];
 
     try {
       const analysis = await analyzeFirstMessage(content);
+      const hasExplicitGiftProductSearch = isExplicitGiftProductSearch(content);
+      isGiftRequest =
+        analysis.isGiftRequest === true || hasExplicitGiftProductSearch;
+      missingGiftPreferences =
+        analysis.missingFields ??
+        (["budget", "recipient", "occasion"] as RequiredField[]).filter(
+          (field) => !analysis[field],
+        );
       nextProfile = {
         ...profile,
         budget: analysis.budget ?? profile.budget,
@@ -1904,6 +2000,11 @@ export function GenieAIController() {
         occasion: analysis.occasion ?? profile.occasion,
         recipient: analysis.recipient ?? profile.recipient,
       };
+      if (hasExplicitGiftProductSearch && analysis.isGiftRequest !== true) {
+        missingGiftPreferences = (
+          ["budget", "recipient", "occasion"] as RequiredField[]
+        ).filter((field) => !nextProfile[field]);
+      }
     } catch (error) {
       if (getRetryableFailureType(error)) {
         throw error;
@@ -1929,20 +2030,40 @@ export function GenieAIController() {
       return;
     }
 
-    const hasDetectedShoppingPreferences = Boolean(
-      nextProfile.budget ||
-      nextProfile.category ||
-      nextProfile.occasion ||
-      nextProfile.recipient,
+    const nextExtendedPreferences = syncExtendedPreferencesWithProfile(
+      extendedPreferences,
+      nextProfile,
     );
+    setProfile(nextProfile);
+    setExtendedPreferences(nextExtendedPreferences);
 
-    if (hasDetectedShoppingPreferences) {
-      setProfile(nextProfile);
-      const nextExtendedPreferences = syncExtendedPreferencesWithProfile(
-        extendedPreferences,
+    if (!isGiftRequest) {
+      setConversationStage("ready");
+      await handleReadyMessage(
+        content,
         nextProfile,
+        nextExtendedPreferences,
+        false,
       );
-      setExtendedPreferences(nextExtendedPreferences);
+      return;
+    }
+
+    const hasAllRequiredGiftPreferences =
+      missingGiftPreferences.length === 0;
+
+    if (hasAllRequiredGiftPreferences) {
+      setConversationStage("ready");
+      await handleReadyMessage(
+        content,
+        nextProfile,
+        nextExtendedPreferences,
+        true,
+      );
+      return;
+    }
+
+    if (hasSkippedPreferenceSetter(messages)) {
+      setConversationStage("ready");
       await handleReadyMessage(
         content,
         nextProfile,
@@ -2241,7 +2362,6 @@ export function GenieAIController() {
       return;
     }
 
-    const shownFrom = nextBatchStart + 1;
     const shownTo = Math.min(
       nextBatchStart + PRODUCT_BATCH_SIZE,
       recommendedProducts.length,
@@ -2254,7 +2374,7 @@ export function GenieAIController() {
     setStatus(
       isFinalBatch
         ? "All matched products have been shown."
-        : `Showing ranked products ${shownFrom}-${shownTo}.`,
+        : `Showing ranked products 1-${shownTo}.`,
     );
   }
 
@@ -2340,6 +2460,9 @@ export function GenieAIController() {
       { role: "user", content },
     ];
 
+    if (isSmartShoppingInitialView) {
+      setIsComposerSettling(true);
+    }
     setMessages(nextMessages);
     playChatSound("send");
     setInput("");
@@ -2358,27 +2481,27 @@ export function GenieAIController() {
         setExtendedPreferences(nextExtendedPreferences);
         setPendingUserRequest(content);
 
-        if (conversationStage === "first-message") {
-          showContextPanel(nextProfile, language);
-        } else {
-          const commerceData = await runCommerce(
+        const hasAllRequiredGiftPreferences = Boolean(
+          nextProfile.budget && nextProfile.occasion && nextProfile.recipient,
+        );
+        if (
+          hasAllRequiredGiftPreferences ||
+          hasSkippedPreferenceSetter(messages)
+        ) {
+          setConversationStage("ready");
+          await handleReadyMessage(
             content,
-            activeMode,
             nextProfile,
-            false,
-            content,
-            true,
             nextExtendedPreferences,
           );
-          appendAssistantMessage(getCommerceReply(commerceData));
+        } else {
+          showContextPanel(nextProfile, language);
         }
-      } else if (conversationStage === "collecting-context") {
-        setConversationStage("ready");
-        await answerWithCollectedContext(
-          pendingUserRequest || content,
-          profile,
-        );
-      } else if (conversationStage === "first-message") {
+      } else if (
+        activeMode === "Smart Shopping" ||
+        conversationStage === "first-message" ||
+        conversationStage === "collecting-context"
+      ) {
         await handleFirstMessage(content);
       } else if (
         activeMode.includes("Event") ||
@@ -2794,6 +2917,7 @@ export function GenieAIController() {
       return;
     }
 
+    leaveInitialSmartShoppingView();
     setIsComposerMenuOpen(false);
     setActivityMessage(text.uploadingImage);
     setIsImageProcessing(true);
@@ -2897,6 +3021,7 @@ export function GenieAIController() {
     }
 
     try {
+      leaveInitialSmartShoppingView();
       setIsComposerMenuOpen(false);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -3158,6 +3283,7 @@ export function GenieAIController() {
   function renderContextPanel(isActive: boolean) {
     return (
       <ContextPanel
+        allowSkip={!activeMode.includes("Gift Box")}
         contextDraft={contextDraft}
         contextFields={getContextFieldsForMode(activeMode)}
         disabled={isSending}
@@ -3179,7 +3305,10 @@ export function GenieAIController() {
     );
   }
 
-  const productSection = shouldShowProductSuggestions && !isFormToolMode ? (
+  const productSection =
+    shouldShowProductSuggestions &&
+    !isFormToolMode &&
+    (isLoadingInitialProducts || visibleProducts.length > 0) ? (
     <div className="mt-2 md:ml-[54px] md:mt-5">
       <ProductGrid
         addLabel={text.addToBuyBox}
@@ -3199,6 +3328,16 @@ export function GenieAIController() {
         viewLabel={text.productView}
         wishlistIds={new Set(wishlistProducts.map((product) => product.id))}
       />
+      {activeMode === "Smart Shopping" && hasMoreRecommendedProducts ? (
+        <button
+          type="button"
+          onClick={handleSuggestMoreShopping}
+          disabled={isSending}
+          className="mt-4 rounded-full border border-[#3D74B8] bg-white px-4 py-2 text-xs font-semibold text-[#1E4D8C] transition hover:bg-[#E7EEF7] disabled:cursor-not-allowed disabled:opacity-55"
+        >
+          {getChipLabel("Suggest more")}
+        </button>
+      ) : null}
     </div>
   ) : null;
 
@@ -3232,6 +3371,50 @@ export function GenieAIController() {
     />
   );
 
+  const composerSection = !isFormToolMode && !isGuidedMode ? (
+    <Composer
+      animatedPlaceholders={suggestedPromptTexts}
+      animatePlaceholder={isSmartShoppingInitialView}
+      disabled={isSending || isVoiceProcessing || isImageProcessing}
+      formRef={composerRef}
+      imageInputRef={imageInputRef}
+      inputRef={composerInputRef}
+      isRecording={isRecording}
+      onDismissSuggestedPrompts={() => setIsPromptPopupOpen(false)}
+      onFocus={() => {
+        setIsPromptPopupOpen(false);
+      }}
+      onImage={(event) => void handleImageChange(event)}
+      onInput={(value) => {
+        setInput(value);
+        setIsPromptPopupOpen(false);
+      }}
+      onSuggestedPrompts={() => setIsPromptPopupOpen((current) => !current)}
+      onSubmit={(event) => void handleSubmit(event)}
+      onVoice={() => {
+        if (!isRecording) void startRecording();
+      }}
+      placeholder={text.askPlaceholder}
+      searchMode={searchMode}
+      sendLabel={isSending ? text.sending : text.send}
+      setSearchMode={setSearchMode}
+      value={input}
+    >
+      {isPromptPopupOpen ? (
+        <SuggestedPromptsPopover
+          onSelect={handleSuggestedPromptClick}
+          prompts={suggestedPrompts}
+        />
+      ) : null}
+    </Composer>
+  ) : (
+    <div />
+  );
+
+  const initialAssistantMessage = messages.find(
+    (message) => message.role === "assistant",
+  );
+
   return (
     <GenieShell
       header={
@@ -3258,42 +3441,16 @@ export function GenieAIController() {
         />
       }
       composer={
-        !isFormToolMode && !isGuidedMode ? (
-          <Composer
-            disabled={isSending || isVoiceProcessing || isImageProcessing}
-            formRef={composerRef}
-            imageInputRef={imageInputRef}
-            inputRef={composerInputRef}
-            isRecording={isRecording}
-            onDismissSuggestedPrompts={() => setIsPromptPopupOpen(false)}
-            onFocus={() => {
-              setIsPromptPopupOpen(false);
-            }}
-            onImage={(event) => void handleImageChange(event)}
-            onInput={(value) => {
-              setInput(value);
-              setIsPromptPopupOpen(false);
-            }}
-            onSuggestedPrompts={() => setIsPromptPopupOpen((current) => !current)}
-            onSubmit={(event) => void handleSubmit(event)}
-            onVoice={() => {
-              if (!isRecording) void startRecording();
-            }}
-            placeholder={text.askPlaceholder}
-            searchMode={searchMode}
-            sendLabel={isSending ? text.sending : text.send}
-            setSearchMode={setSearchMode}
-            value={input}
-          >
-            {isPromptPopupOpen ? (
-              <SuggestedPromptsPopover
-                onSelect={handleSuggestedPromptClick}
-                prompts={suggestedPrompts}
-              />
-            ) : null}
-          </Composer>
-        ) : (
+        isSmartShoppingInitialView ? (
           <div />
+        ) : (
+          <div
+            className={
+              isComposerSettling ? "genie-composer-settle" : undefined
+            }
+          >
+            {composerSection}
+          </div>
         )
       }
       overlays={
@@ -3378,7 +3535,52 @@ export function GenieAIController() {
           activityMessage={activityMessage}
           chatRef={chatScrollContainerRef}
           contentOverride={
-            isCompareMode ? (
+            isSmartShoppingInitialView ? (
+              <div className="flex min-h-[calc(100dvh-128px)] items-center justify-center px-4 py-10 sm:px-8">
+                <div className="w-full max-w-6xl -translate-y-[4vh]">
+                  <div className="mx-auto max-w-3xl">
+                    {initialAssistantMessage ? (
+                      <div className="mb-5 text-center">
+                        <div className="mx-auto max-w-2xl text-base leading-7 text-[#3E4A56] sm:text-lg">
+                          {renderChatMessage(initialAssistantMessage.content)}
+                        </div>
+                      </div>
+                    ) : null}
+                    {composerSection}
+                    <div className="px-4 sm:px-7">
+                      <ReplyChips
+                        chips={chips}
+                        centered
+                        getLabel={getChipLabel}
+                        onSelect={handleChipClick}
+                        underMessage
+                      />
+                    </div>
+                  </div>
+                  {recommendedProducts.length > 0 ? (
+                    <div className="mt-7">
+                      <ProductGrid
+                        addLabel={text.addToBuyBox}
+                        cartIds={new Set(buyBox.map((product) => product.id))}
+                        compareIds={compareSelectionIds}
+                        emptyLabel={text.initialEmpty}
+                        favoriteIds={new Set(favoriteProducts.map((product) => product.id))}
+                        formatPrice={formatPrice}
+                        isLoading={false}
+                        onAdd={addToBuyBox}
+                        onCompare={toggleCompareSelection}
+                        onFavorite={toggleFavorite}
+                        onView={viewProduct}
+                        onWishlist={toggleWishlist}
+                        products={recommendedProducts.slice(0, PRODUCT_BATCH_SIZE)}
+                        viewLabel={text.productView}
+                        wishlistIds={new Set(wishlistProducts.map((product) => product.id))}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : isCompareMode ? (
               <div className="mx-auto w-full max-w-6xl">
                 {renderCompareTool()}
               </div>

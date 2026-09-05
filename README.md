@@ -25,6 +25,8 @@ Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq r
 - [Alibaba Qoder credits](docs/QODER_CREDITS_USAGE.md)
 - [API documentation](docs/API_DOCUMENTATION.md)
 - [AI models and fallbacks](docs/AI_USAGE_AND_MODELS.md)
+- [Project brief](docs/PROJECT_BRIEF.md)
+- [3-minute demo video script](docs/DEMO_VIDEO_SCRIPT.md)
 - [Vercel hosting](#vercel-hosting)
 
 ## Features
@@ -51,7 +53,8 @@ Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq r
 | Browser persistence | IndexedDB, `localStorage`, `sessionStorage` | Persists chat state, Favorites, Wishlist, previous orders, and queued personalization events. |
 | AI reasoning | Groq, Qwen 3.6/3.8, GPT-OSS | Produces commerce replies, extracts context, analyzes images, transcribes voice, and creates gift-card content. |
 | Python API | FastAPI, Uvicorn, Pydantic | Serves the recommendation endpoint, validates requests, and returns product cards. |
-| Query understanding | OpenAI API | Interprets recommendation requests and produces query plans and embeddings for the Python service. |
+| Python query planning | OpenAI `gpt-4.1-mini` with `gpt-5-mini` fallback | Interprets recommendation requests, identifies category/price/stock constraints, and selects the category/index search plan. |
+| Python query embeddings | OpenAI `text-embedding-3-small` | Converts the full search message into the vector used by Qdrant dense retrieval. |
 | Candidate retrieval | Qdrant, BM25, reciprocal-rank fusion | Combines dense and lexical product retrieval before filtering. |
 | Catalog cache and filtering | Supabase, canonical catalog JSON | Applies stock, price, and image filters and supplies product-card data. |
 | Relevance ranking | Hugging Face CrossEncoder | Scores candidate products against the user's query in the Next.js layer. |

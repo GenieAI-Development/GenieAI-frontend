@@ -29,8 +29,7 @@ export const PREFERENCE_GIFT_TYPES = [
   "Other",
 ] as const;
 export const PREFERENCE_BUDGETS = [
-  "Under Rs. 2,500",
-  "Rs. 2,500 - 5,000",
+  "Below Rs. 5,000",
   "Rs. 5,000 - 10,000",
   "Above Rs. 10,000",
   "Other",

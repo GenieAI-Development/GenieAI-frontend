@@ -3,6 +3,7 @@ type Props<Field extends string> = {
   contextFields: Field[];
   disabled: boolean;
   isActive: boolean;
+  allowSkip?: boolean;
   labels: {
     continueWithoutContext: string;
     contextTitle: string;
@@ -19,6 +20,7 @@ type Props<Field extends string> = {
 };
 
 export function ContextPanel<Field extends string>(props: Props<Field>) {
+  const allowSkip = props.allowSkip ?? true;
   const selectedFields = props.contextFields.filter((field) =>
     props.contextDraft[field].trim(),
   );
@@ -85,7 +87,7 @@ export function ContextPanel<Field extends string>(props: Props<Field>) {
       ) : (
         <div />
       )}
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid gap-2 ${allowSkip ? "grid-cols-2" : "grid-cols-1"}`}>
         <button
           type="button"
           disabled={
@@ -98,14 +100,16 @@ export function ContextPanel<Field extends string>(props: Props<Field>) {
             ? props.labels.sendingContext
             : props.labels.sendContext}
         </button>
-        <button
-          type="button"
-          disabled={!props.isActive || props.disabled}
-          onClick={() => props.onSubmit(false)}
-          className="h-9 rounded-[10px] border border-[#D7E2EF] bg-white px-3 text-xs font-semibold text-[#31577F] transition hover:border-[#1E4D8C] hover:bg-[#F5F8FC] disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {props.labels.continueWithoutContext}
-        </button>
+        {allowSkip ? (
+          <button
+            type="button"
+            disabled={!props.isActive || props.disabled}
+            onClick={() => props.onSubmit(false)}
+            className="h-9 rounded-[10px] border border-[#D7E2EF] bg-white px-3 text-xs font-semibold text-[#31577F] transition hover:border-[#1E4D8C] hover:bg-[#F5F8FC] disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {props.labels.continueWithoutContext}
+          </button>
+        ) : null}
       </div>
     </div>
   );
