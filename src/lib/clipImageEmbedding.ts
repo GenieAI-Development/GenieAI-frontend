@@ -38,6 +38,11 @@ function getExtractor() {
   return extractorPromise;
 }
 
+export async function warmClipImageModel() {
+  await getExtractor();
+  return getClipImageModel();
+}
+
 function normalize(values: number[]) {
   const magnitude = Math.sqrt(
     values.reduce((total, value) => total + value * value, 0),

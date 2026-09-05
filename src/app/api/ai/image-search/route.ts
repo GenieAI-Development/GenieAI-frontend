@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   embedImageWithClip,
   getClipImageModel,
+  warmClipImageModel,
 } from "@/lib/clipImageEmbedding";
 import { matchKaprukaProductImages } from "@/lib/supabaseImageSearch";
 
@@ -16,6 +17,20 @@ function getMatchThreshold() {
   return Number.isFinite(configured) && configured >= -1 && configured <= 1
     ? configured
     : DEFAULT_MATCH_THRESHOLD;
+}
+
+// This stays in the image-search route so a warm instance can reuse the same
+// in-memory CLIP extractor for the user's later upload.
+export async function GET() {
+  const model = getClipImageModel();
+
+  try {
+    await warmClipImageModel();
+    return NextResponse.json({ model, ready: true });
+  } catch (error) {
+    console.error("CLIP image-search warm-up failed.", error);
+    return NextResponse.json({ model, ready: false }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {

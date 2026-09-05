@@ -1019,6 +1019,18 @@ export function GenieAIController() {
   ]);
 
   useEffect(() => {
+    // Prepare CLIP after the UI is interactive. This is deliberately best
+    // effort: a later upload still works if the host discards the warm instance.
+    const timeoutId = window.setTimeout(() => {
+      void fetch("/api/ai/image-search", { cache: "no-store" }).catch(() => {
+        // Image search will report its own error when a user uploads a photo.
+      });
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
     const today = getLocalDateString();
 
     try {
