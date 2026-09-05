@@ -1904,6 +1904,15 @@ export function GenieAIController() {
     setStatus("Choose context chips or continue without context.");
   }
 
+  function leaveInitialSmartShoppingView() {
+    if (!isSmartShoppingInitialView) {
+      return;
+    }
+
+    setIsComposerSettling(true);
+    setConversationStage("ready");
+  }
+
   function isExplicitGiftProductSearch(message: string) {
     const normalized = message.toLowerCase();
     const hasGiftCategory =
@@ -2908,6 +2917,7 @@ export function GenieAIController() {
       return;
     }
 
+    leaveInitialSmartShoppingView();
     setIsComposerMenuOpen(false);
     setActivityMessage(text.uploadingImage);
     setIsImageProcessing(true);
@@ -3011,6 +3021,7 @@ export function GenieAIController() {
     }
 
     try {
+      leaveInitialSmartShoppingView();
       setIsComposerMenuOpen(false);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -3272,6 +3283,7 @@ export function GenieAIController() {
   function renderContextPanel(isActive: boolean) {
     return (
       <ContextPanel
+        allowSkip={!activeMode.includes("Gift Box")}
         contextDraft={contextDraft}
         contextFields={getContextFieldsForMode(activeMode)}
         disabled={isSending}
