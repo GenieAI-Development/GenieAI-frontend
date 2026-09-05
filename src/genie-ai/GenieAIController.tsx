@@ -33,6 +33,7 @@ import { NavigationRail } from "./v3/NavigationRail";
 import { PreferencesDrawer } from "./v3/PreferencesDrawer";
 import { ProductDialog } from "./v3/ProductDialog";
 import { ProductGrid } from "./v3/ProductGrid";
+import { ProfilePanel } from "./v3/ProfilePanel";
 import { OrderCompletedDialog } from "./v3/OrderCompletedDialog";
 import { WelcomePanel } from "./v3/WelcomePanel";
 import { ChatMessageContent } from "./components/ChatMessageContent";
@@ -61,6 +62,7 @@ import {
   type ImageSearchResponse,
   type Language,
   type ModeSession,
+  type PreviousOrder,
   type ShoppingProfile,
   type SuggestedPrompt,
   type VoiceResponse,
@@ -129,7 +131,6 @@ import {
 import {
   INITIAL_CATALOG_VERSION,
   INTRO_PANEL_STORAGE_KEY,
-  clearStoredChatState,
   readStoredChatState,
   writeStoredChatState,
 } from "./storage";
@@ -161,6 +162,9 @@ export function GenieAIController() {
     useState(true);
   const [fitReasons, setFitReasons] = useState<Record<string, string>>({});
   const [buyBox, setBuyBox] = useState<Product[]>([]);
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+  const [wishlistProducts, setWishlistProducts] = useState<Product[]>([]);
+  const [previousOrders, setPreviousOrders] = useState<PreviousOrder[]>([]);
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [checkoutDetails, setCheckoutDetails] = useState({
@@ -340,7 +344,8 @@ export function GenieAIController() {
   const isCompareMode = activeMode.includes("Compare");
   const isGiftMessageMode = activeMode.includes("Message");
   const isDeliveryPredictionMode = activeMode === "Delivery Prediction";
-  const isFormToolMode = isCompareMode || isGiftMessageMode || isDeliveryPredictionMode;
+  const isProfileMode = activeMode === "Profile";
+  const isFormToolMode = isCompareMode || isGiftMessageMode || isDeliveryPredictionMode || isProfileMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
 
   useEffect(() => {
@@ -982,6 +987,8 @@ export function GenieAIController() {
               ? "Gift Message"
               : storedMode === "Order Tracking"
                 ? "Delivery Prediction"
+                : storedMode === "Event Planner"
+                  ? "Smart Shopping"
                 : storedMode;
           const storedModeSessions = { ...(storedState.modeSessions ?? {}) };
           if (
@@ -992,6 +999,7 @@ export function GenieAIController() {
               storedModeSessions["Order Tracking"];
           }
           delete storedModeSessions["Order Tracking"];
+          delete storedModeSessions["Event Planner"];
           const restoredSessions = normalizeModeSessions(
             storedModeSessions,
           );
@@ -1048,6 +1056,9 @@ export function GenieAIController() {
           setLanguage(storedState.language);
           setModeSessions(nextRestoredSessions);
           setBuyBox(storedState.buyBox ?? []);
+          setFavoriteProducts(storedState.favoriteProducts ?? []);
+          setWishlistProducts(storedState.wishlistProducts ?? []);
+          setPreviousOrders(storedState.previousOrders ?? []);
           if (storedState.giftCardPreferences) {
             setGiftCardPreferences((current) => ({
               ...current,
@@ -1103,11 +1114,14 @@ export function GenieAIController() {
       giftCardPalette,
       giftCardPreferences,
       giftCardProductId,
+      favoriteProducts,
+      previousOrders,
       input,
       initialCatalogVersion: INITIAL_CATALOG_VERSION,
       language,
       messages,
       buyBox,
+      wishlistProducts,
       profile,
       productBatchIndex,
       recommendedProducts,
@@ -1147,11 +1161,14 @@ export function GenieAIController() {
     giftCardPalette,
     giftCardPreferences,
     giftCardProductId,
+    favoriteProducts,
+    previousOrders,
     input,
     isChatStateLoaded,
     language,
     messages,
     buyBox,
+    wishlistProducts,
     modeSessions,
     pendingUserRequest,
     profile,
@@ -2041,6 +2058,29 @@ export function GenieAIController() {
     setStatus("Preferences updated. They will be used for your next query.");
   }
 
+  function toggleFavorite(product: Product) {
+    const isFavorite = favoriteProducts.some((item) => item.id === product.id);
+    trackProductInteraction(isFavorite ? "unfavorite" : "favorite", product);
+    setFavoriteProducts((current) =>
+      isFavorite
+        ? current.filter((item) => item.id !== product.id)
+        : [product, ...current.filter((item) => item.id !== product.id)],
+    );
+  }
+
+  function toggleWishlist(product: Product) {
+    const isWishlisted = wishlistProducts.some((item) => item.id === product.id);
+    trackProductInteraction(
+      isWishlisted ? "remove_from_wishlist" : "wishlist",
+      product,
+    );
+    setWishlistProducts((current) =>
+      isWishlisted
+        ? current.filter((item) => item.id !== product.id)
+        : [product, ...current.filter((item) => item.id !== product.id)],
+    );
+  }
+
   async function handleGuidedCustomMessage(content: string) {
     setStatus("Groq is analyzing your message.");
     const commerceData = await runCommerce(
@@ -2620,7 +2660,7 @@ export function GenieAIController() {
     setStatus(`${mode} ready.`);
   }
 
-  async function handleClearHistory() {
+  function handleClearHistory() {
     const nextSession = getDefaultModeSession(activeMode);
     const preservedProducts = recommendedProducts;
 
@@ -2633,12 +2673,6 @@ export function GenieAIController() {
     syncSidebarBudgetDraft("");
     resetToolPanels();
     setStatus("Chat history cleared.");
-
-    try {
-      await clearStoredChatState();
-    } catch (error) {
-      setStatus(getErrorMessage(error));
-    }
   }
 
   function openCheckoutModal() {
@@ -2728,6 +2762,15 @@ export function GenieAIController() {
     }
     */
 
+    const completedOrder: PreviousOrder = {
+      createdAt: new Date().toISOString(),
+      delivery: totals.delivery,
+      id: crypto.randomUUID(),
+      items: [...buyBox],
+      subtotal: totals.subtotal,
+      total: totals.total,
+    };
+    setPreviousOrders((current) => [completedOrder, ...current].slice(0, 25));
     buyBox.forEach((product) => trackProductInteraction("purchase", product));
     setBuyBox([]);
     setGiftCardProductId("");
@@ -3137,14 +3180,18 @@ export function GenieAIController() {
         cartIds={new Set(buyBox.map((product) => product.id))}
         compareIds={compareSelectionIds}
         emptyLabel={text.initialEmpty}
+        favoriteIds={new Set(favoriteProducts.map((product) => product.id))}
         formatPrice={formatPrice}
         isLoading={isLoadingInitialProducts}
         onAdd={addToBuyBox}
         onCompare={toggleCompareSelection}
+        onFavorite={toggleFavorite}
         onView={viewProduct}
+        onWishlist={toggleWishlist}
         horizontal={isGuidedMode}
         products={visibleProducts}
         viewLabel={text.productView}
+        wishlistIds={new Set(wishlistProducts.map((product) => product.id))}
       />
     </div>
   ) : null;
@@ -3329,6 +3376,24 @@ export function GenieAIController() {
               </div>
             ) : isDeliveryPredictionMode ? (
               <OrderTrackingTool cities={mainDeliveryCities} products={buyBox} />
+            ) : isProfileMode ? (
+              <ProfilePanel
+                addLabel={text.addToBuyBox}
+                cartIds={new Set(buyBox.map((product) => product.id))}
+                compareIds={compareSelectionIds}
+                favoriteIds={new Set(favoriteProducts.map((product) => product.id))}
+                favorites={favoriteProducts}
+                formatPrice={formatPrice}
+                onAdd={addToBuyBox}
+                onCompare={toggleCompareSelection}
+                onFavorite={toggleFavorite}
+                onView={viewProduct}
+                onWishlist={toggleWishlist}
+                previousOrders={previousOrders}
+                viewLabel={text.productView}
+                wishlist={wishlistProducts}
+                wishlistIds={new Set(wishlistProducts.map((product) => product.id))}
+              />
             ) : undefined
           }
           contextPanel={renderContextPanel}

@@ -24,6 +24,10 @@ Each event can contain the product ID, category, price, result position, active 
 | Impression | 0.1 | Yes, when a result is shown |
 | View | 1 | Yes |
 | Compare | 1.5 | Yes |
+| Add to favorites | 4 | Yes, from any product card |
+| Remove from favorites | -2 | Yes, from any product card or the Profile tab |
+| Add to wishlist | 2.5 | Yes, from any product card |
+| Remove from wishlist | -1 | Yes, from any product card or the Profile tab |
 | Add to cart | 3 | Yes |
 | Remove from cart | -1 | Yes |
 | Purchase | 5 | Yes, at checkout |
@@ -37,6 +41,13 @@ Duplicate event IDs are ignored. If an ID is unavailable, a timestamp/event/prod
 - **Price preference:** strong positive product interactions (weight `>= 1`) update a weighted average price. The preferred range is 75%–125% of that average.
 - **Recent interactions:** strong positive product interactions retain the latest 20 product IDs to reduce repeated recommendations.
 - **Recent queries:** retains the latest 10 queries.
+- **Saved-product intent:** favorites and wishlist additions contribute strong category and price signals. Removing a saved product contributes a negative category signal.
+
+## Favorites and wishlist
+
+Every product card includes a heart action for Favorites and a bookmark action for the Wishlist. Both collections are stored with the rest of the browser's GenieAI state and appear in the Profile tab. Completed orders are also recorded there with their products, timestamp, and totals; up to 25 recent orders are retained.
+
+Saving or removing a product queues a personalization event. As with the other behavior signals, these events are sent on the next successful recommendation search rather than making a separate network request for every click.
 
 Profile limits: 500 remembered event IDs, 10,000 profiles per server instance, and a 24-hour profile lifetime. Each accepted event refreshes the 24-hour expiry.
 

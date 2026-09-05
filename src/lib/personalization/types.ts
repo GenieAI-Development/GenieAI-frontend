@@ -3,6 +3,10 @@ export type PersonalizationEventType =
   | "impression"
   | "view"
   | "compare"
+  | "favorite"
+  | "unfavorite"
+  | "wishlist"
+  | "remove_from_wishlist"
   | "add_to_cart"
   | "remove_from_cart"
   | "purchase";

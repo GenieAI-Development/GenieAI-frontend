@@ -19,6 +19,7 @@ export type IconName =
   | "heart"
   | "menu"
   | "mic"
+  | "person"
   | "plus"
   | "search"
   | "send"
@@ -206,6 +207,9 @@ export type StoredChatState = {
   profile: ShoppingProfile;
   productBatchIndex?: number;
   buyBox?: Product[];
+  favoriteProducts?: Product[];
+  wishlistProducts?: Product[];
+  previousOrders?: PreviousOrder[];
   recommendedProducts?: Product[];
   initialCatalogVersion?: string;
   activeMode?: string;
@@ -233,6 +237,15 @@ export type ModeSession = {
   productBatchIndex?: number;
   recommendedProducts?: Product[];
   recommendationSessionId?: string | null;
+};
+
+export type PreviousOrder = {
+  createdAt: string;
+  delivery: number;
+  id: string;
+  items: Product[];
+  subtotal: number;
+  total: number;
 };
 
 export type GiftCardResponse = {
