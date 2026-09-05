@@ -1,8 +1,12 @@
 import { asRecord, getString } from "@/lib/aiPayload";
-import { fetchGroqChatWithFallback } from "@/lib/groqHosted";
+import {
+  fetchGroqChatWithFallback,
+  readGroqError,
+} from "@/lib/groqHosted";
 import { extractJsonObject, getAssistantContent } from "./ai";
-import { DEFAULT_MODEL } from "./constants";
 import type { QueryAnalysis } from "./types";
+
+const DEFAULT_QUERY_ANALYSIS_MODEL = "openai/gpt-oss-20b";
 
 export function parseQueryAnalysis(text: string): QueryAnalysis | null {
   const jsonText = extractJsonObject(text);
@@ -27,47 +31,6 @@ export function parseQueryAnalysis(text: string): QueryAnalysis | null {
   }
 }
 
-export function shouldSearchProductsLocally(message: string) {
-  const normalized = message.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  if (
-    /^(hi|hello|hey|good\s+(morning|afternoon|evening)|thanks?|thank\s+you|bye|goodbye)[!.?\s]*$/iu.test(
-      normalized,
-    ) ||
-    /\b(who are you|what are you|what can you do|how are you|help me use|your name)\b/iu.test(
-      normalized,
-    )
-  ) {
-    return false;
-  }
-
-  const productRequest =
-    /\b(find|show|search|recommend|suggest|buy|shop|looking for|need|want)\b[\s\S]*\b(product|gift|flower|rose|cake|chocolate|perfume|fashion|watch|hamper|basket|card|decor|snack|sweet|jewelry|skincare)\b/iu.test(
-      normalized,
-    ) ||
-    /\b(product|gift|flower|rose|cake|chocolate|perfume|fashion|watch|hamper|basket|decor|snack|sweet|jewelry|skincare)\b/iu.test(
-      normalized,
-    );
-  const deliveryOnly =
-    /\b(delivery|deliver|shipping|ship|arrive|arrival|same[-\s]?day|delivery fee)\b|බෙදාහැර|ඩිලිවරි/iu.test(
-      normalized,
-    ) && !productRequest;
-
-  if (deliveryOnly) {
-    return false;
-  }
-
-  return (
-    productRequest ||
-    /\b(budget|under|below|above|over|between|recipient|birthday|anniversary|wedding|graduation)\b/iu.test(
-      normalized,
-    )
-  );
-}
-
 export async function getGroqQueryAnalysis(
   apiKey: string,
   language: string,
@@ -75,9 +38,7 @@ export async function getGroqQueryAnalysis(
 ) {
   const { response } = await fetchGroqChatWithFallback(apiKey, {
     model:
-      process.env.GROQ_PROCESSING_MODEL ??
-      process.env.GROQ_COMMERCE_MODEL ??
-      DEFAULT_MODEL,
+      process.env.GROQ_QUERY_ANALYSIS_MODEL ?? DEFAULT_QUERY_ANALYSIS_MODEL,
     messages: [
       {
         role: "system",
@@ -96,16 +57,23 @@ export async function getGroqQueryAnalysis(
           selectedLanguage: language,
         }),
       },
-    ],
-    temperature: 0,
-    max_completion_tokens: 180,
-    response_format: { type: "json_object" },
-  });
+      ],
+      temperature: 0,
+      max_completion_tokens: 180,
+      reasoning_effort: "low",
+      response_format: { type: "json_object" },
+  }, []);
 
   if (!response.ok) {
-    return null;
+    throw new Error(await readGroqError(response));
   }
 
   const content = getAssistantContent((await response.json()) as unknown);
-  return content ? parseQueryAnalysis(content) : null;
+  const analysis = content ? parseQueryAnalysis(content) : null;
+
+  if (!analysis?.englishQuery) {
+    throw new Error("Query analysis returned an invalid response.");
+  }
+
+  return analysis;
 }

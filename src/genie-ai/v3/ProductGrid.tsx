@@ -1,19 +1,26 @@
 import Image from "next/image";
 import { cleanProductDescription } from "@/lib/productDescription";
 import type { GenieProduct } from "./types";
+import { V3Icon } from "./Icon";
 
 type Props = {
   addLabel: string;
   cartIds: Set<string>;
+  compact?: boolean;
   compareIds: string[];
   emptyLabel: string;
   formatPrice: (price: number, currency: string) => string;
+  horizontal?: boolean;
+  favoriteIds: Set<string>;
   isLoading: boolean;
   onAdd: (product: GenieProduct) => void;
   onCompare: (id: string) => void;
+  onFavorite: (product: GenieProduct) => void;
   onView: (product: GenieProduct) => void;
+  onWishlist: (product: GenieProduct) => void;
   products: GenieProduct[];
   viewLabel: string;
+  wishlistIds: Set<string>;
 };
 
 export function ProductGrid(props: Props) {
@@ -22,21 +29,26 @@ export function ProductGrid(props: Props) {
   );
 
   if (props.isLoading && props.products.length === 0) {
-    return <div className="grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 md:grid-flow-row md:grid-cols-4">{[0,1,2,3].map((item) => <div key={item} className="h-[250px] animate-pulse rounded-[14px] border border-[#E4E1D8] bg-white"><div className="h-28 bg-[#E7EEF7] sm:h-32" /><div className="space-y-2 p-3"><div className="h-3.5 w-3/4 rounded bg-[#E4E1D8]"/><div className="h-3 rounded bg-[#F6ECD3]"/><div className="h-8 rounded bg-[#E4E1D8]"/></div></div>)}</div>;
+    return <div className={`grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 ${props.horizontal ? "md:auto-cols-[calc((100%-1.875rem)/4)]" : props.compact ? "md:grid-flow-row md:grid-cols-2" : "md:grid-flow-row md:grid-cols-4"}`}>{[0,1,2,3].map((item) => <div key={item} className="h-[250px] animate-pulse rounded-[14px] border border-[#E4E1D8] bg-white"><div className="h-28 bg-[#E7EEF7] sm:h-32" /><div className="space-y-2 p-3"><div className="h-3.5 w-3/4 rounded bg-[#E4E1D8]"/><div className="h-3 rounded bg-[#F6ECD3]"/><div className="h-8 rounded bg-[#E4E1D8]"/></div></div>)}</div>;
   }
   if (uniqueProducts.length === 0) return <div className="rounded-[18px] border border-dashed border-[#E4E1D8] bg-white p-5 text-sm leading-6 text-[#5B6B7A]">{props.emptyLabel}</div>;
   return (
     <section aria-label="Recommended products">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-[1.1px] text-[#B3872F]">Recommended products</p>
-      <div className="grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 snap-x snap-mandatory md:grid-flow-row md:auto-cols-auto md:grid-cols-4 md:overflow-visible">
+      <div className={`grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 snap-x snap-mandatory ${props.horizontal ? "md:auto-cols-[calc((100%-1.875rem)/4)]" : props.compact ? "md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible" : "md:grid-flow-row md:auto-cols-auto md:grid-cols-4 md:overflow-visible"}`}>
         {uniqueProducts.map((product) => {
           const selected = props.compareIds.includes(product.id);
           const full = props.compareIds.length >= 2 && !selected;
           const inCart = props.cartIds.has(product.id);
+          const isFavorite = props.favoriteIds.has(product.id);
+          const isWishlisted = props.wishlistIds.has(product.id);
           return <article key={product.id} className="flex snap-start flex-col overflow-hidden rounded-[14px] border border-[#E4E1D8] bg-white shadow-[0_6px_18px_-12px_rgba(10,31,58,.18)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-16px_rgba(10,31,58,.25)]">
             <div className="relative h-28 shrink-0 overflow-hidden bg-[linear-gradient(155deg,#E7EEF7,#F1E9D6)] sm:h-32">
               <Image src={product.imageUrl} alt={product.name} fill unoptimized sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 72vw" className="object-cover" />
-              <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${product.stockLabel.toLowerCase().includes("low") ? "bg-[#F7E9DF] text-[#B25A2E]" : "bg-[#E4F3EA] text-[#2F8F5B]"}`}>{product.stockLabel}</span>
+              <div className="absolute left-2 top-2 flex gap-1.5">
+                <button type="button" aria-label={isFavorite ? `Remove ${product.name} from favorites` : `Add ${product.name} to favorites`} aria-pressed={isFavorite} onClick={() => props.onFavorite(product)} className={`grid h-7 w-7 place-items-center rounded-full border shadow-sm backdrop-blur ${isFavorite ? "border-[#B25A2E] bg-[#B25A2E] text-white" : "border-white/80 bg-white/90 text-[#B25A2E]"}`}><V3Icon name="heart" className="h-3.5 w-3.5" /></button>
+                <button type="button" aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`} aria-pressed={isWishlisted} onClick={() => props.onWishlist(product)} className={`grid h-7 w-7 place-items-center rounded-full border shadow-sm backdrop-blur ${isWishlisted ? "border-[#1E4D8C] bg-[#1E4D8C] text-white" : "border-white/80 bg-white/90 text-[#1E4D8C]"}`}><V3Icon name="bookmark" className="h-3.5 w-3.5" /></button>
+              </div>
               <button type="button" aria-pressed={selected} disabled={full} onClick={() => props.onCompare(product.id)} className={`absolute right-2 top-2 rounded-md border px-2 py-1 text-[10px] font-bold shadow-sm backdrop-blur disabled:opacity-50 ${selected ? "border-[#C89B3C] bg-[#C89B3C] text-[#0A1F3A]" : "border-white/80 bg-white/90 text-[#1E4D8C]"}`}>{selected ? "Selected" : props.compareIds.length ? "Select" : "Compare"}</button>
             </div>
             <div className="flex flex-1 flex-col gap-1.5 p-2.5">

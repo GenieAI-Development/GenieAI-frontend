@@ -10,13 +10,12 @@ import {
   createCommerceMcpClient,
   getCommerceMcpUrl,
 } from "@/lib/commerceMcp";
-import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
 import { type Product, toProduct } from "@/lib/productCatalog";
 import { getRandomInitialProducts } from "@/lib/initialProductCatalog";
+import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
 import { rerankProducts } from "@/lib/reranking/service";
 import {
   getGroqQueryAnalysis,
-  shouldSearchProductsLocally,
 } from "./analysis";
 import {
   fetchPythonRankedProducts,
@@ -68,7 +67,6 @@ import {
 } from "./recommendations";
 import {
   getLocalAnalytics,
-  getLocalDeliveryRuleReply,
   getPreferenceResponseForMode,
   getRandomInitialChips,
   getShoppingReplyChips,
@@ -82,12 +80,15 @@ import {
 import type { MessageAnalysis } from "./types";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as unknown;
   const bodyRecord = asRecord(body);
   const task = getString(bodyRecord, "task") ?? "recommend";
   const mode = getString(bodyRecord, "mode") ?? "Smart Shopping";
+  const useHuggingFaceReranking =
+    getString(bodyRecord, "searchMode") === "extended";
 
   if (!SUPPORTED_TASKS.has(task)) {
     return NextResponse.json(
@@ -107,10 +108,6 @@ export async function POST(request: Request) {
   const forceProductSearch = bodyRecord?.forceProductSearch === true;
   const cartIds = parseStringArray(bodyRecord?.cartIds, 30);
   const requestedProductIds = parseStringArray(bodyRecord?.productIds, 3);
-  const rankingEvents = parseRankingEvents(bodyRecord?.events).map((event) => ({
-    ...event,
-    timestamp: event.timestamp ?? new Date().toISOString(),
-  }));
   const conversationHistory = parseConversationHistory(
     bodyRecord?.conversationHistory,
   );
@@ -256,8 +253,18 @@ export async function POST(request: Request) {
 
     const productIdsForCompare = task === "compare" ? requestedProductIds : [];
     const apiKey = getGroqApiKey();
+
+    if (task === "recommend" && !apiKey) {
+      return NextResponse.json(
+        { error: getMissingGroqKeyMessage() },
+        { status: 500 },
+      );
+    }
+
     const queryAnalysisPromise =
-      apiKey && task !== "initial" && productIdsForCompare.length < 2
+      apiKey &&
+      task === "recommend" &&
+      productIdsForCompare.length < 2
         ? withTimeout(
             getGroqQueryAnalysis(
               apiKey,
@@ -265,9 +272,13 @@ export async function POST(request: Request) {
               userMessage,
             ),
             4000,
-          ).catch(() => null)
+          )
         : Promise.resolve(null);
-    const queryAnalysis = await queryAnalysisPromise;
+    const queryAnalysis = await queryAnalysisPromise.catch((error) => {
+      const message =
+        error instanceof Error ? error.message : "Unknown analysis error.";
+      throw new Error(`Query analysis failed: ${message}`);
+    });
     const resolvedMessageAnalysis: MessageAnalysis = {
       detectedLanguage: language,
       englishQuery: queryAnalysis?.englishQuery ?? null,
@@ -286,8 +297,7 @@ export async function POST(request: Request) {
         requestedGiftType: null,
       },
       requiresProductSearch:
-        queryAnalysis?.requiresProductSearch ??
-        shouldSearchProductsLocally(userMessage),
+        forceProductSearch || queryAnalysis?.requiresProductSearch === true,
       searchQuery: null,
     };
     const effectiveProfile = profile;
@@ -314,31 +324,6 @@ export async function POST(request: Request) {
           ? query
           : effectiveExtendedPreferences.giftType ||
             getSearchQuery(query, searchProfile, mode);
-
-    if (
-      task === "recommend" &&
-      !forceProductSearch &&
-      isDeliveryRequested(userMessage)
-    ) {
-      return NextResponse.json({
-        ...fallbackResponse,
-        analytics: {
-          buyBoxHealth: "Delivery policy provided",
-          conversionSignal: "Delivery information request",
-          nextBestAction: "Order at least one day before delivery",
-          risk: "Orders placed less than one day ahead cannot be delivered on time",
-        },
-        chips: [],
-        delivery: null,
-        mode,
-        productSearchPerformed: false,
-        products: [],
-        recommendations: [],
-        reply: getLocalDeliveryRuleReply(
-          resolvedMessageAnalysis.detectedLanguage,
-        ),
-      });
-    }
 
     if (task === "eventPlan" || task === "giftBox") {
       if (!apiKey) {
@@ -438,8 +423,6 @@ export async function POST(request: Request) {
     }
 
     if (task === "recommend") {
-      const personalizationSessionId =
-        await getOrCreatePersonalizationSessionId();
       const analyzedPreferences = {
         budget:
           effectiveExtendedPreferences.budget || searchProfile.budget || null,
@@ -493,13 +476,17 @@ export async function POST(request: Request) {
         message: pythonMessage,
         sessionId: recommendationSessionId,
       });
-      const ranking = await rerankProducts({
-        events: rankingEvents,
+      const rerankResult = await rerankProducts({
+        events: parseRankingEvents(bodyRecord?.events).map((event) => ({
+          ...event,
+          timestamp: event.timestamp ?? new Date().toISOString(),
+        })),
         products: pythonResponse.products,
-        query,
-        sessionId: personalizationSessionId,
+        query: pythonQuery,
+        sessionId: await getOrCreatePersonalizationSessionId(),
+        useHuggingFace: useHuggingFaceReranking,
       });
-      const products = ranking.products;
+      const products = rerankResult.products;
 
       if (!apiKey) {
         return NextResponse.json(
@@ -512,7 +499,7 @@ export async function POST(request: Request) {
         apiKey,
         resolvedMessageAnalysis.detectedLanguage,
         mode,
-        task,
+        "productReply",
         query,
         userMessage,
         products,
@@ -538,7 +525,7 @@ export async function POST(request: Request) {
           recommendation,
         ]),
       );
-      const recommendations = products.map((product) => {
+      const recommendations = products.map((product, index) => {
         const generatedRecommendation = generatedRecommendationsById.get(
           product.id,
         );
@@ -546,7 +533,7 @@ export async function POST(request: Request) {
         return {
           fitScore:
             generatedRecommendation?.fitScore ??
-            Math.round(product.finalScore * 100),
+            Math.max(50, 100 - index * 5),
           id: product.id,
           reason:
             pythonResponse.reasons.get(product.id) ||
@@ -574,10 +561,6 @@ export async function POST(request: Request) {
         productSearchPerformed: true,
         products,
         recommendationSessionId: pythonResponse.sessionId,
-        ranking: {
-          fallback: ranking.fallback,
-          source: ranking.source,
-        },
         recommendations,
       });
     }

@@ -3,7 +3,7 @@ import type { GenieMode } from "./types";
 
 const modeIcons: Record<string, string> = {
   "Smart Shopping": "shopping",
-  "Event Planner": "calendar",
+  Profile: "person",
   "Gift Box Builder": "box",
   "Product Compare": "compare",
   "Gift Message": "gift",
@@ -12,7 +12,7 @@ const modeIcons: Record<string, string> = {
 
 const shortLabels: Record<string, string> = {
   "Smart Shopping": "Shopping",
-  "Event Planner": "Events",
+  Profile: "Profile",
   "Gift Box Builder": "Gift Box",
   "Product Compare": "Compare",
   "Gift Message": "Message",

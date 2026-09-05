@@ -78,11 +78,13 @@ export async function rerankProducts({
   products,
   query,
   sessionId,
+  useHuggingFace = true,
 }: {
   events: PersonalizationEvent[];
   products: Product[];
   query: string;
   sessionId: string;
+  useHuggingFace?: boolean;
 }): Promise<RerankPipelineResult> {
   if (events.length > 0) {
     recordPersonalizationEvents(sessionId, events);
@@ -92,14 +94,18 @@ export async function rerankProducts({
   let fallback = false;
   let rawScores = new Map<string, number>();
 
-  try {
-    const results = await rerankWithHuggingFace(query, products);
-    rawScores = new Map(results.map((result) => [result.id, result.rerankerScore]));
+  if (useHuggingFace) {
+    try {
+      const results = await rerankWithHuggingFace(query, products);
+      rawScores = new Map(results.map((result) => [result.id, result.rerankerScore]));
 
-    if (rawScores.size !== products.length) {
-      throw new Error("Hugging Face reranker omitted one or more products.");
+      if (rawScores.size !== products.length) {
+        throw new Error("Hugging Face reranker omitted one or more products.");
+      }
+    } catch {
+      fallback = true;
     }
-  } catch {
+  } else {
     fallback = true;
   }
 

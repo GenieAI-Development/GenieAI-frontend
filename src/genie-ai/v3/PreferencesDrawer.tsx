@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Drawer } from "./Drawer";
 import type { GenieProfile } from "./types";
+import type { SearchMode } from "../types";
 
 type Props = {
   budgetError: string;
@@ -18,6 +19,8 @@ type Props = {
   open: boolean;
   profile: GenieProfile;
   recipients: readonly string[];
+  searchMode: SearchMode;
+  setSearchMode: (mode: SearchMode) => void;
   setProfile: Dispatch<SetStateAction<GenieProfile>>;
 };
 
@@ -32,6 +35,7 @@ export function PreferencesDrawer(props: Props) {
     <SelectField label="Occasion" value={props.profile.occasion} options={props.occasions} onChange={(value) => update("occasion", value)} />
     <SelectField label="Gift type" value={props.profile.category} options={props.giftTypes} onChange={(value) => update("category", value)} />
     <SelectField label="Delivery city" value={props.profile.city} options={props.cities} onChange={(value) => update("city", value)} />
+    <label className="block text-xs font-semibold text-[#5B6B7A]">Search mode<select value={props.searchMode} onChange={(event) => props.setSearchMode(event.target.value as SearchMode)} className={`${inputClass} mt-1.5`}><option value="standard">Standard — faster results</option><option value="extended">Extended — deeper relevance match</option></select><span className="mt-1 block text-[11px] font-normal leading-4 text-[#6B7785]">{props.searchMode === "extended" ? "Uses Relevance ranking; usually adds 2–3 seconds." : "Uses catalog ranking only for the fastest results."}</span></label>
     <button type="button" disabled={props.isSending} onClick={props.onApply} className="w-full rounded-[11px] bg-[linear-gradient(#C89B3C,#B3872F)] px-4 py-3 text-sm font-bold text-[#0A1F3A] disabled:opacity-50">{props.isSending ? "Applying…" : "Apply preferences"}</button>
   </div></Drawer>;
 }

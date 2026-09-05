@@ -1,4 +1,4 @@
-import { MAX_RANKED_PRODUCTS } from "./config";
+import { MAX_RANKED_PRODUCTS, PRODUCT_BATCH_SIZE } from "./config";
 import type {
   CommerceResponse,
   ExtendedPreferences,
@@ -266,6 +266,14 @@ export function normalizeShoppingProfile(
 export function normalizeModeSession(session: ModeSession): ModeSession {
   const normalizedProfile = normalizeShoppingProfile(session.profile);
   const guidedPlanItems = (session.guidedPlanItems ?? []).slice(0, 12);
+  const recommendedProducts = (session.recommendedProducts ?? []).slice(
+    0,
+    MAX_RANKED_PRODUCTS,
+  );
+  const maxProductBatchIndex = Math.max(
+    0,
+    Math.ceil(recommendedProducts.length / PRODUCT_BATCH_SIZE) - 1,
+  );
   return {
     ...session,
     extendedPreferences: normalizeExtendedPreferences(
@@ -282,11 +290,11 @@ export function normalizeModeSession(session: ModeSession): ModeSession {
     ),
     guidedPlanItems,
     profile: normalizedProfile,
-    productBatchIndex: Math.max(0, Math.min(3, session.productBatchIndex ?? 0)),
-    recommendedProducts: (session.recommendedProducts ?? []).slice(
+    productBatchIndex: Math.max(
       0,
-      MAX_RANKED_PRODUCTS,
+      Math.min(maxProductBatchIndex, session.productBatchIndex ?? 0),
     ),
+    recommendedProducts,
   };
 }
 

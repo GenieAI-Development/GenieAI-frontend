@@ -9,11 +9,11 @@ import type {
 
 export const modes = [
   { name: "Smart Shopping", icon: "cart" },
-  { name: "Event Planner", icon: "sparkles" },
   { name: "Gift Box Builder", icon: "gift" },
   { name: "Product Compare", icon: "search" },
   { name: "Gift Message", icon: "heart" },
   { name: "Delivery Prediction", icon: "truck" },
+  { name: "Profile", icon: "person" },
 ] satisfies Array<{ icon: IconName; name: string }>;
 
 export const starterMessages: ChatMessage[] = [
@@ -69,11 +69,11 @@ export const starterMessagesByLanguage: Record<Language, ChatMessage[]> = {
 };
 
 export const modeIcons: Record<string, IconName> = {
-  "Event Planner": "sparkles",
   "Gift Box Builder": "gift",
   "Gift Message": "heart",
   "Product Compare": "search",
   "Smart Shopping": "cart",
+  Profile: "person",
   "Delivery Prediction": "truck",
 };
 
@@ -558,15 +558,11 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
   English: [
     {
       action: "fill",
-      text: "Show me red roses between Rs. 2500 - 5000 for my girlfriend's birthday.",
+      text: "Show me chocolate cakes between Rs. 2500 - 5000 for my girlfriend's birthday.",
     },
     {
       action: "fill",
       text: "Can you deliver to Colombo tomorrow?",
-    },
-    {
-      action: "custom",
-      text: "Or enter your custom message.",
     },
   ],
   Sinhala: [
@@ -578,10 +574,6 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
       action: "fill",
       text: "හෙට Colombo වලට delivery කරන්න පුළුවන්ද?",
     },
-    {
-      action: "custom",
-      text: "නැත්නම් ඔබගේ custom message එක type කරන්න.",
-    },
   ],
   Singlish: [
     {
@@ -591,10 +583,6 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
     {
       action: "fill",
       text: "Heta Colombo walata delivery karanna puluwanda?",
-    },
-    {
-      action: "custom",
-      text: "Nathnam oyage custom message eka type karanna.",
     },
   ],
 };
@@ -796,6 +784,7 @@ export const commonChipLabels: Record<Language, Record<string, string>> = {
 };
 
 export const iconPaths: Record<IconName, string> = {
+  ai: "M5 5h14v10H9l-4 4V5Zm7-1 .9 2.6 2.6.9-2.6.9L12 11l-.9-2.6-2.6-.9 2.6-.9L12 4Z",
   box: "M4 7l8-4 8 4-8 4-8-4Zm0 0v10l8 4m0-10v10m8-14v10l-8 4",
   camera: "M4 7h3l1.5-2h7L17 7h3v12H4V7Zm8 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
   cart: "M3 4h2l2 11h10l2-7H6m2 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",
@@ -805,6 +794,7 @@ export const iconPaths: Record<IconName, string> = {
     "M12 20s-7-4.4-9-9c-1.2-2.8.8-5.8 3.8-5.8 1.8 0 3.1 1 4.2 2.4 1.1-1.4 2.4-2.4 4.2-2.4 3 0 5 3 3.8 5.8-2 4.6-9 9-9 9Z",
   menu: "M4 6h16M4 12h16M4 18h16",
   mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0m-7 7v3m-4 0h8",
+  person: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9c.8-4.2 3.5-6.5 7-6.5s6.2 2.3 7 6.5",
   plus: "M12 5v14M5 12h14",
   search: "M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm5.5-2 5 5",
   send: "M12 5v14m0-14-5 5m5-5 5 5",
