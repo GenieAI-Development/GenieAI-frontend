@@ -662,12 +662,46 @@ export async function POST(request: Request) {
             6000,
           ).catch(() => [])
         : [];
-      const comparisonInsights =
-        aiInsights.length === products.slice(0, 2).length
-          ? aiInsights
-          : getDeterministicComparisonInsights(products, profile);
+      const comparisonProducts = products.slice(0, 2);
+      const deterministicInsights = getDeterministicComparisonInsights(
+        comparisonProducts,
+        profile,
+      );
+      const deterministicInsightsByProductId = new Map(
+        deterministicInsights.map((insight) => [insight.id, insight]),
+      );
+      const aiInsightsByProductId = new Map(
+        aiInsights.map((insight) => [insight.id, insight]),
+      );
+      // A model response can contain duplicate or incomplete product rows. Only
+      // use it when every displayed product has a non-empty insight set, so the
+      // comparison UI never loses one side of the analysis.
+      const comparisonInsights = comparisonProducts.every(
+        (product) =>
+          (aiInsightsByProductId.get(product.id)?.insights.length ?? 0) > 0,
+      )
+        ? comparisonProducts.map(
+            (product) => ({
+              id: product.id,
+              // Value and Quality always come from the live product facts:
+              // price and description. The model contributes contextual fit.
+              insights: [
+                ...(deterministicInsightsByProductId.get(product.id)?.insights
+                  .filter(
+                    (insight) =>
+                      insight.label === "Value" || insight.label === "Quality",
+                  ) ?? []),
+                ...aiInsightsByProductId
+                  .get(product.id)!
+                  .insights.filter(
+                    (insight) => !/^(value|quality)$/i.test(insight.label),
+                  ),
+              ].slice(0, 4),
+            }),
+          )
+        : deterministicInsights;
       const finalComparison = getDeterministicCompareSummary(
-        products.slice(0, 2),
+        comparisonProducts,
       );
 
       return NextResponse.json({

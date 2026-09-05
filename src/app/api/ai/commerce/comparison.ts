@@ -10,6 +10,22 @@ import type {
   ShoppingProfile,
 } from "./types";
 
+function getInsightPercentage(record: Record<string, unknown> | null) {
+  const numericValue = getNumber(record, "percentage");
+
+  if (numericValue !== null) {
+    return numericValue;
+  }
+
+  const value = record?.percentage;
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value.trim().replace(/%$/, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function getGroqComparisonInsights(
   apiKey: string,
   language: string,
@@ -24,7 +40,7 @@ export async function getGroqComparisonInsights(
         {
           role: "system",
           content:
-            "Score each supplied product using only the supplied facts and shopping context. Return no more than four short insight dimensions per product. Prefer Value, Quality, Occasion Match, and Recipient Match. A missing preference cannot be scored: when occasion is empty, Occasion Match percentage must be null; when recipient is empty, Recipient Match percentage must be null. Never guess a missing preference. Other percentages must be integers from 0 to 100 and should meaningfully distinguish the products. Do not invent materials, durability, reviews, or other facts absent from the descriptions. Keep insight labels in the requested language. Return JSON only.",
+            "Score each supplied product using only the supplied facts and shopping context. Return no more than two short insight dimensions per product: Occasion Match and Recipient Match. Do not return Value or Quality: those scores are calculated by the service from live price and description data. A missing preference cannot be scored: when occasion is empty, Occasion Match percentage must be null; when recipient is empty, Recipient Match percentage must be null. Never guess a missing preference. Other percentages must be integers from 0 to 100 and should meaningfully distinguish the products. Do not invent materials, durability, reviews, or other facts absent from the descriptions. Keep insight labels in the requested language. Return JSON only.",
         },
         {
           role: "user",
@@ -80,7 +96,9 @@ export async function getGroqComparisonInsights(
   try {
     const parsed = asRecord(JSON.parse(jsonText) as unknown);
     const rawProductInsights = parsed?.productInsights;
-    const productIds = new Set(products.map((product) => product.id));
+    const productIdsByNormalizedId = new Map(
+      products.map((product) => [product.id.trim().toLowerCase(), product.id]),
+    );
 
     if (!Array.isArray(rawProductInsights)) {
       return [];
@@ -89,10 +107,13 @@ export async function getGroqComparisonInsights(
     return rawProductInsights
       .map((item): ProductComparisonInsights | null => {
         const record = asRecord(item);
-        const id = getString(record, "id")?.trim();
+        const requestedId = getString(record, "id")?.trim();
+        const id = requestedId
+          ? productIdsByNormalizedId.get(requestedId.toLowerCase())
+          : undefined;
         const rawInsights = record?.insights;
 
-        if (!id || !productIds.has(id) || !Array.isArray(rawInsights)) {
+        if (!id || !Array.isArray(rawInsights)) {
           return null;
         }
 
@@ -101,7 +122,7 @@ export async function getGroqComparisonInsights(
           .map((insight): ComparisonInsight | null => {
             const insightRecord = asRecord(insight);
             const label = getString(insightRecord, "label")?.trim();
-            const percentage = getNumber(insightRecord, "percentage");
+            const percentage = getInsightPercentage(insightRecord);
             const percentageIsBlank = insightRecord?.percentage === null;
             const normalizedLabel = label?.toLowerCase();
 

@@ -11,7 +11,6 @@ export const DEFAULT_SINGLISH_CHAT_MODEL = "openai/gpt-oss-20b";
 export const DEFAULT_SINGLISH_GIFT_MESSAGE_MODEL = "openai/gpt-oss-120b";
 export const DEFAULT_ENGLISH_CHAT_MODEL = "openai/gpt-oss-20b";
 export const INITIAL_REPLY_CHIPS = [
-  "Find a gift",
   "Find a cake",
   "Find flowers",
   "Find chocolates",
