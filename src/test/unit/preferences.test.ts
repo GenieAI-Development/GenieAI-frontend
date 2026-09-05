@@ -47,7 +47,9 @@ describe("commerce preferences", () => {
     expect(inferMessageIntent("Can you help?")).toBe("question");
     expect(inferMessageIntent("show roses")).toBe("command");
     expect(inferMessageIntent(" ")).toBe("conversation");
-    expect(inferBudgetPreference("between 2500 and 5000")).toBeTruthy();
+    expect(inferBudgetPreference("below 5000")).toBe("Below Rs. 5,000");
+    expect(inferBudgetPreference("between 5000 and 10000")).toBe("Rs. 5,000 - 10,000");
+    expect(inferBudgetPreference("above 10000")).toBe("Above Rs. 10,000");
     expect(inferOccasionPreference("graduation present")).toBe("Graduation");
     expect(inferRecipientPreference("for my mum")).toBe("Female");
     expect(inferPresetCategoryFromGiftType("rose bouquet")).toBe("Flowers");

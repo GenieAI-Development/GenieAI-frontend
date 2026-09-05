@@ -87,8 +87,9 @@ export async function POST(request: Request) {
   const bodyRecord = asRecord(body);
   const task = getString(bodyRecord, "task") ?? "recommend";
   const mode = getString(bodyRecord, "mode") ?? "Smart Shopping";
+  const requestedSearchMode = getString(bodyRecord, "searchMode");
   const useHuggingFaceReranking =
-    getString(bodyRecord, "searchMode") === "extended";
+    requestedSearchMode === "thinking" || requestedSearchMode === "extended";
 
   if (!SUPPORTED_TASKS.has(task)) {
     return NextResponse.json(

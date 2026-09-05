@@ -52,8 +52,8 @@ export function Composer({ children, disabled, formRef, imageInputRef, inputRef,
 function SearchModeMenu({ disabled, onOpen, searchMode, setSearchMode }: Pick<Props, "disabled" | "searchMode" | "setSearchMode"> & { onOpen: () => void }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const modeLabel = searchMode === "extended" ? "Extended" : "Standard";
-  const helperText = searchMode === "extended" ? "Relevance +2–3s" : "Fast catalog ranking";
+  const modeLabel = searchMode === "thinking" ? "Thinking" : "Instant";
+  const helperText = searchMode === "thinking" ? "Deeper relevance ranking" : "Fast catalog ranking";
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
@@ -66,12 +66,12 @@ function SearchModeMenu({ disabled, onOpen, searchMode, setSearchMode }: Pick<Pr
 
   return <div ref={menuRef} className="relative shrink-0">
     <button type="button" disabled={disabled} onClick={() => { onOpen(); setOpen((current) => !current); }} aria-expanded={open} aria-haspopup="listbox" className="flex h-9 min-w-[58px] flex-col justify-center rounded-[11px] border border-[#D7E2EF] bg-[#FAF7F1] px-2 text-left leading-tight text-[#0A1F3A] transition hover:border-[#9EB7D2] hover:bg-[#F5F8FC] disabled:opacity-50 sm:h-10 sm:min-w-[94px] sm:rounded-[13px] sm:px-3">
-      <span className="flex items-center gap-1 text-[10px] font-semibold sm:text-xs"><span className="sm:hidden">{searchMode === "extended" ? "Ext" : "Std"}</span><span className="hidden sm:inline">{modeLabel}</span><svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m2.5 4.5 3.5 3 3.5-3" /></svg></span>
+      <span className="flex items-center gap-1 text-[10px] font-semibold sm:text-xs"><span className="sm:hidden">{searchMode === "thinking" ? "Think" : "Now"}</span><span className="hidden sm:inline">{modeLabel}</span><svg aria-hidden="true" viewBox="0 0 12 12" className={`h-3 w-3 transition ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m2.5 4.5 3.5 3 3.5-3" /></svg></span>
       <span className="mt-0.5 hidden text-[9px] font-medium text-[#5B6B7A] sm:block">{helperText}</span>
     </button>
     {open ? <div role="listbox" aria-label="Search mode" className="absolute bottom-full right-0 z-30 mb-2 w-56 overflow-hidden rounded-[20px] border border-[#E4E1D8] bg-[#FFFCF7] p-2 shadow-[0_16px_32px_-12px_rgba(10,31,58,.24)]">
-      <ModeOption active={searchMode === "standard"} description="Fast catalog ranking" label="Standard" onClick={() => { setSearchMode("standard"); setOpen(false); }} />
-      <ModeOption active={searchMode === "extended"} description="Relevance ranking +2–3s" label="Extended" onClick={() => { setSearchMode("extended"); setOpen(false); }} />
+      <ModeOption active={searchMode === "instant"} description="Fast catalog ranking" label="Instant" onClick={() => { setSearchMode("instant"); setOpen(false); }} />
+      <ModeOption active={searchMode === "thinking"} description="Deeper relevance ranking" label="Thinking" onClick={() => { setSearchMode("thinking"); setOpen(false); }} />
     </div> : null}
   </div>;
 }

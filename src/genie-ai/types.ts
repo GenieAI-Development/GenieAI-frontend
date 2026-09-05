@@ -157,7 +157,7 @@ export type ContextField =
 export type ContextDraft = Record<ContextField, string>;
 
 export type Language = "English" | "Sinhala" | "Singlish";
-export type SearchMode = "standard" | "extended";
+export type SearchMode = "instant" | "thinking";
 
 export type ShoppingProfile = {
   budget: string;
@@ -183,6 +183,7 @@ export type ContextAnalysisResponse = {
   category?: string | null;
   detectedLanguage?: Language;
   error?: string;
+  isGiftRequest?: boolean;
   missingFields?: RequiredField[];
   occasion?: string | null;
   recipient?: string | null;

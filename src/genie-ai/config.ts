@@ -78,8 +78,7 @@ export const modeIcons: Record<string, IconName> = {
 };
 
 export const budgetOptions = [
-  "Under Rs. 2,500",
-  "Rs. 2,500 - 5,000",
+  "Below Rs. 5,000",
   "Rs. 5,000 - 10,000",
   "Above Rs. 10,000",
   "Other",
@@ -558,7 +557,7 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
   English: [
     {
       action: "fill",
-      text: "Show me chocolate cakes between Rs. 2500 - 5000 for my girlfriend's birthday.",
+      text: "Show me chocolate cakes between Rs. 5,000 - 10,000 for my girlfriend's birthday.",
     },
     {
       action: "fill",
@@ -568,7 +567,7 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
   Sinhala: [
     {
       action: "fill",
-      text: "මගේ පෙම්වතියගේ උපන්දිනයට Rs. 2500 - 5000 අතර රතු රෝස මල් පෙන්නන්න.",
+      text: "මගේ පෙම්වතියගේ උපන්දිනයට Rs. 5,000 - 10,000 අතර රතු රෝස මල් පෙන්නන්න.",
     },
     {
       action: "fill",
@@ -578,7 +577,7 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
   Singlish: [
     {
       action: "fill",
-      text: "Mage pemwathiyage upandinayata Rs. 2500 - 5000 athara rathu rosa mal pennanna.",
+      text: "Mage pemwathiyage upandinayata Rs. 5,000 - 10,000 athara rathu rosa mal pennanna.",
     },
     {
       action: "fill",
@@ -630,6 +629,7 @@ export const optionLabels: Record<Language, Record<string, string>> = {
   Sinhala: {
     "Above Rs. 20,000": "Rs. 20,000 ට වැඩි",
     "Above Rs. 10,000": "Rs. 10,000 ට වැඩි",
+    "Below Rs. 5,000": "Rs. 5,000 ට අඩු",
     Anniversary: "\u0dc3\u0d82\u0dc0\u0dad\u0dca\u0dc3\u0dbb\u0dba",
     Birthday: "\u0d8b\u0db4\u0db1\u0dca\u0daf\u0dd2\u0db1\u0dba",
     Child: "ළමයෙක්",
@@ -655,6 +655,7 @@ export const optionLabels: Record<Language, Record<string, string>> = {
   Singlish: {
     "Above Rs. 20,000": "Rs. 20,000 ta wedi",
     "Above Rs. 10,000": "Rs. 10,000 ta wedi",
+    "Below Rs. 5,000": "Rs. 5,000 ta adu",
     Anniversary: "Sanwathsare",
     Birthday: "Upandinaya",
     Child: "Child",

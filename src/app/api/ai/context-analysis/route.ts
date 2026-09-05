@@ -12,8 +12,7 @@ export const runtime = "nodejs";
 const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const requiredFields = ["budget", "recipient", "occasion"] as const;
 const budgetOptions = [
-  "Under Rs. 2,500",
-  "Rs. 2,500 - 5,000",
+  "Below Rs. 5,000",
   "Rs. 5,000 - 10,000",
   "Above Rs. 10,000",
   "Other",
@@ -42,6 +41,7 @@ type LocalAnalysis = {
   budget: string | null;
   category: string | null;
   detectedLanguage: DetectedLanguage | null;
+  isGiftRequest: boolean | null;
   occasion: string | null;
   recipient: string | null;
   requestedGiftType: string | null;
@@ -105,16 +105,9 @@ function inferBudget(message: string) {
 
   if (
     amounts.length >= 2 &&
-    (minAmount === 2500 && maxAmount === 5000)
-  ) {
-    return budgetOptions[1];
-  }
-
-  if (
-    amounts.length >= 2 &&
     (minAmount === 5000 && maxAmount === 10000)
   ) {
-    return budgetOptions[2];
+    return budgetOptions[1];
   }
 
   if (
@@ -122,14 +115,14 @@ function inferBudget(message: string) {
       normalized,
     )
   ) {
-    return maxAmount === 2500 ? budgetOptions[0] : budgetOptions[4];
+    return maxAmount === 5000 ? budgetOptions[0] : budgetOptions[3];
   }
 
   if (/\b(over|above|more than|minimum|min)\b/.test(normalized)) {
-    return maxAmount === 10000 ? budgetOptions[3] : budgetOptions[4];
+    return maxAmount === 10000 ? budgetOptions[2] : budgetOptions[3];
   }
 
-  return budgetOptions[4];
+  return budgetOptions[3];
 }
 
 function normalizeBudget(value: string | null) {
@@ -261,6 +254,37 @@ function inferGiftType(message: string) {
   return null;
 }
 
+export function isLikelyGiftRequest(message: string) {
+  const normalized = normalizeText(message);
+  const hasExplicitGiftLanguage =
+    /\b(gift|gifts|present|presents|surprise|gift box|hamper)\b/.test(
+      normalized,
+    ) ||
+    /(?:තෑග්ග|තෑගි|ත්‍යාග|gift|thagga|thegga|thagi)/iu.test(normalized);
+  const hasGiftContext = Boolean(
+    inferRecipient(message) || inferOccasion(message),
+  );
+  const hasProductIntent = Boolean(
+    inferGiftType(message) ||
+      /\b(find|show|recommend|suggest|buy|order|looking for|need|want)\b/.test(
+        normalized,
+      ),
+  );
+  const detectedGiftType = inferGiftType(message);
+  const hasKnownGiftProductIntent =
+    detectedGiftType !== null &&
+    detectedGiftType !== "Other" &&
+    /\b(find|show|recommend|suggest|buy|order|looking for|need|want)\b/.test(
+      normalized,
+    );
+
+  return (
+    hasExplicitGiftLanguage ||
+    (hasGiftContext && hasProductIntent) ||
+    hasKnownGiftProductIntent
+  );
+}
+
 function inferLocalAnalysis(
   message: string,
   selectedLanguage: DetectedLanguage,
@@ -269,6 +293,7 @@ function inferLocalAnalysis(
     budget: inferBudget(message),
     category: inferGiftType(message),
     detectedLanguage: selectedLanguage,
+    isGiftRequest: isLikelyGiftRequest(message) ? true : null,
     occasion: inferOccasion(message),
     recipient: inferRecipient(message),
     requestedGiftType: null,
@@ -290,6 +315,8 @@ function getKnownContext(
       analysis.category ??
       getString(context, "category"),
     detectedLanguage: localAnalysis.detectedLanguage ?? "English",
+    isGiftRequest:
+      localAnalysis.isGiftRequest ?? analysis.isGiftRequest ?? false,
     occasion:
       localAnalysis.occasion ??
       analysis.occasion ??
@@ -339,6 +366,7 @@ function parseAnalysis(text: string) {
       budget: null,
       category: null,
       detectedLanguage: null,
+      isGiftRequest: null,
       missingFields: [...requiredFields],
       occasion: null,
       recipient: null,
@@ -354,6 +382,10 @@ function parseAnalysis(text: string) {
       detectedLanguage: normalizeDetectedLanguage(
         getString(parsed, "detectedLanguage"),
       ),
+      isGiftRequest:
+        typeof parsed?.isGiftRequest === "boolean"
+          ? parsed.isGiftRequest
+          : null,
       missingFields: parseRequiredFieldArray(parsed?.missingFields),
       occasion: normalizeOccasion(getString(parsed, "occasion")),
       recipient: normalizeRecipient(getString(parsed, "recipient")),
@@ -364,6 +396,7 @@ function parseAnalysis(text: string) {
       budget: null,
       category: null,
       detectedLanguage: null,
+      isGiftRequest: null,
       missingFields: [...requiredFields],
       occasion: null,
       recipient: null,
@@ -397,6 +430,7 @@ export async function POST(request: Request) {
         budget: null,
         category: null,
         detectedLanguage: null,
+        isGiftRequest: null,
         occasion: null,
         recipient: null,
         requestedGiftType: null,
@@ -407,7 +441,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ...knownContext,
-      missingFields: requiredFields.filter((field) => !knownContext[field]),
+      missingFields: knownContext.isGiftRequest
+        ? requiredFields.filter((field) => !knownContext[field])
+        : [],
       warning: getMissingGroqKeyMessage(),
     });
   }
@@ -421,7 +457,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "You analyze the latest GenieAI shopping message. Do not detect or infer the user's language. selectedLanguage is authoritative. Singlish means Sinhala meaning written informally with Latin letters, not English; understand spelling variations and common words such as mata, oyata, ona, hoyanna, denna, puluwanda, keeyada, and adu as natural Sinhala. Extract budget, recipient, occasion, and gift type only when explicitly present in the current message. Return null for any absent preference; never use Other as a default. Normalize only the four exact preset budget ranges to their matching option, and return budget Other only for an explicitly requested non-preset numeric budget. Return occasion Other only for an explicitly requested occasion outside Birthday, Anniversary, Wedding, or Graduation. Return recipient Other only for an explicitly requested recipient outside Male, Female, Child, or Couple. Values stated in the current message replace conflicting existing context; existing context only fills details omitted from the message. Normalize known gift types to Flowers, Cakes, Chocolate, Perfumes, or Fashion. For any other specific gift or product type, return category Other and preserve its short English name in requestedGiftType. Return JSON only.",
+            "You analyze the latest GenieAI message. Classify isGiftRequest from the current message only. It is true when the user asks for a gift, present, surprise, hamper, or a product for another person or gifting occasion. It is false for general conversation, factual questions, support requests, delivery questions without a gift request, and ordinary self-shopping. Do not detect or infer the user's language. selectedLanguage is authoritative. Singlish means Sinhala meaning written informally with Latin letters, not English; understand spelling variations and common words such as mata, oyata, ona, hoyanna, denna, puluwanda, keeyada, and adu as natural Sinhala. Extract budget, recipient, occasion, and gift type only when explicitly present in the current message. Return null for every preference absent from the current message, even when existingContext contains a value; never use Other as a default. Normalize only the exact preset budget ranges to their matching option, and return budget Other only for an explicitly requested non-preset numeric budget. Return occasion Other only for an explicitly requested occasion outside Birthday, Anniversary, Wedding, or Graduation. Return recipient Other only for an explicitly requested recipient outside Male, Female, Child, or Couple. Normalize known gift types to Flowers, Cakes, Chocolate, Perfumes, or Fashion. For any other specific gift or product type, return category Other and preserve its short English name in requestedGiftType. Return JSON only.",
         },
         {
           role: "user",
@@ -434,10 +470,11 @@ export async function POST(request: Request) {
             },
             expectedSchema: {
               budget:
-                "Under Rs. 2,500 | Rs. 2,500 - 5,000 | Rs. 5,000 - 10,000 | Above Rs. 10,000 | Other | null",
+                "Below Rs. 5,000 | Rs. 5,000 - 10,000 | Above Rs. 10,000 | Other | null",
               category:
                 "Flowers | Cakes | Chocolate | Perfumes | Fashion | Other | null",
               detectedLanguage: "English | Sinhala | Singlish",
+              isGiftRequest: "boolean based on the current message only",
               missingFields: ["budget", "recipient", "occasion"],
               occasion:
                 "Birthday | Anniversary | Wedding | Graduation | Other | null",
@@ -448,8 +485,7 @@ export async function POST(request: Request) {
             selectedLanguage,
             normalizedOptions: {
               budget: [
-                "Under Rs. 2,500",
-                "Rs. 2,500 - 5,000",
+                "Below Rs. 5,000",
                 "Rs. 5,000 - 10,000",
                 "Above Rs. 10,000",
                 "Other",
@@ -502,6 +538,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ...knownContext,
-    missingFields: requiredFields.filter((field) => !knownContext[field]),
+    missingFields: knownContext.isGiftRequest
+      ? requiredFields.filter((field) => !knownContext[field])
+      : [],
   });
 }
