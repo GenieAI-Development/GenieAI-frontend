@@ -3,6 +3,18 @@
 This documents the current code defaults. Environment-variable overrides can
 replace these defaults in a deployment.
 
+## Python recommendation backend models
+
+The separate Python recommendation backend uses OpenAI models for planning and dense retrieval:
+
+| Model | Role |
+| --- | --- |
+| `gpt-4.1-mini` | Primary structured LLM for query understanding and recommendation planning. It identifies category, price limits, stock requirements, search constraints, and the category/index search plan. |
+| `gpt-5-mini` | Fallback model when `gpt-4.1-mini` fails validation or API execution after retries. |
+| `text-embedding-3-small` | Converts the complete user search message into the vector used for Qdrant dense retrieval. |
+
+These backend models are distinct from the Next.js application's Groq, Qwen, Hugging Face, and Qoder usage documented below.
+
 ## Shared Groq fallback behavior
 
 Most text calls use this candidate order:

@@ -15,6 +15,7 @@ export function getLocalDateString(date = new Date()) {
 export function removeEmojiForSpeech(value: string) {
   return value
     .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[\uFE0E\uFE0F]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
 }
