@@ -35,7 +35,7 @@ Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq r
 - Gift Box Builder with LLM-generated contents and total-budget allocation.
 - CLIP visual RAG that finds catalog products visually similar to an uploaded image.
 - Parallel Groq Vision analysis that describes uploaded images alongside visual-search results.
-- Optional Hugging Face CrossEncoder relevance ranking for Extended searches.
+- Optional Hugging Face CrossEncoder relevance ranking for Thinking searches.
 - Rule-based session personalization using category, price, recency, Favorites, Wishlist, and purchase signals.
 - Browser-local Profile tab with Favorites, Wishlist, and up to 25 completed orders.
 - Product comparison, delivery prediction, and checkout preparation.
@@ -159,8 +159,8 @@ sequenceDiagram
   B->>B: Clear successfully sent events
 ```
 
-- Context analysis decides whether the latest message requires product search.
-- Product requests continue through the search API and personalization pipeline. Extended searches also use HF reranking.
+- Context analysis distinguishes ordinary requests from gift requests. Gift requests open the preference setter only when required details are missing and no saved preferences are available; a previously skipped setter is respected.
+- Product requests continue through the search API and personalization pipeline. Thinking searches also use HF reranking.
 - Greetings, identity or capability questions, general conversation, and delivery-only checks use a text-only Next.js reply.
 - Text-only replies skip Python and HF, return an empty product list, and hide existing product cards.
 
@@ -170,10 +170,10 @@ Users can choose a search mode from the compact selector beside the chat **Send*
 
 | Mode | What it does | Expected time |
 | --- | --- | --- |
-| **Standard** | Returns the Python backend's catalog-ranked products with local personalization. It does not call the Hugging Face reranker. | Fastest option |
-| **Extended** | Sends the eligible product candidates to the Hugging Face CrossEncoder, then combines relevance with local personalization. | Usually adds 2–3 seconds |
+| **Instant** | Returns the Python backend's catalog-ranked products with local personalization. It does not call the Hugging Face reranker. | Fastest option |
+| **Thinking** | Sends the eligible product candidates to the Hugging Face CrossEncoder, then combines deeper relevance ranking with local personalization. | May take longer |
 
-If Hugging Face is unavailable during an Extended search, GenieAI preserves the catalog order so results remain available.
+If Hugging Face is unavailable during a Thinking search, GenieAI preserves the catalog order so results remain available.
 
 ## Image search RAG
 
@@ -231,7 +231,7 @@ For the CrossEncoder request format, fallback behavior, and model details, see [
 
 - Uses the fine-tuned CrossEncoder model `ramitha2002/genieai-product-reranker`.
 - Uses the HF Space `ramitha2002/product-reranker-model-api` API.
-- Runs only when the user selects **Extended** search mode; Standard mode makes no HF reranking request.
+- Runs only when the user selects **Thinking** search mode; Instant mode makes no HF reranking request.
 - Sends every product candidate with `top_n` equal to the candidate count.
 - Uses product name/title, description, and category as model text inputs.
 - Treats `rerankerScore` as a raw score that is comparable only within one query.
@@ -383,6 +383,8 @@ npm install
 npm run build
 npm start
 ```
+
+For local verification, run `npm run lint`, `npx tsc --noEmit`, and `npm test` from `src`. GitHub Actions runs the same lint, type-check, and test steps for frontend changes.
 
 - Open [http://localhost:3000](http://localhost:3000).
 - Restart the server after changing `.env.local`.

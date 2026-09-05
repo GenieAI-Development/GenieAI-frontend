@@ -33,10 +33,10 @@ export function V3Icon({ name, className = "h-5 w-5" }: { name: string; classNam
   );
 }
 
-export function GenieMark({ className = "h-9 w-9" }: { className?: string }) {
+export function GenieMark({ className = "h-9 w-9", iconClassName = "h-[18px] w-[18px]" }: { className?: string; iconClassName?: string }) {
   return (
     <span className={`grid place-items-center rounded-[10px] bg-[linear-gradient(155deg,#1E4D8C,#0A1F3A)] text-[#F6ECD3] shadow-[0_8px_24px_-12px_rgba(10,31,58,.5)] ${className}`}>
-      <V3Icon name="sparkles" className="h-[18px] w-[18px]" />
+      <V3Icon name="sparkles" className={iconClassName} />
     </span>
   );
 }

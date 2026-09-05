@@ -1812,7 +1812,7 @@ export function GenieAIController() {
       .filter((item): item is string => item !== null);
 
     return selectedContext.length > 0
-      ? `Context selected: ${selectedContext.join(", ")}`
+      ? `Preferences selected: ${selectedContext.join(", ")}`
       : "Continue without context";
   }
 

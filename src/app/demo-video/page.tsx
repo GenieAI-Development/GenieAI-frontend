@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GenieMark } from "@/genie-ai/v3/Icon";
 
 function getDriveEmbedUrl(value: string) {
   const trimmed = value.trim();
@@ -7,12 +8,15 @@ function getDriveEmbedUrl(value: string) {
   return id ? `https://drive.google.com/file/d/${id}/preview` : trimmed;
 }
 
-const demoVideoUrl = getDriveEmbedUrl(process.env.NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL ?? "");
+const placeholderDemoVideoUrl = "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE";
+const demoVideoUrl =
+  getDriveEmbedUrl(process.env.NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL ?? "") ||
+  placeholderDemoVideoUrl;
 
 export default function DemoVideoPage() {
   return (
     <main className="min-h-screen bg-[#FAF7F1] text-[#16202B] dark:bg-[#071A30] dark:text-[#EEF4FB]">
-      <header className="border-b border-[#E4E1D8] bg-white dark:border-[#294967] dark:bg-[#102D4D]"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8"><Link href="/" className="genie-wordmark text-[#0B2748] dark:text-white">Genie<span className="text-[#B3872F]">AI</span></Link><div className="flex gap-2"><Link href="/features" className="grid h-9 place-items-center rounded-full border border-[#D7E2EF] px-4 text-xs font-semibold text-[#31577F] dark:border-[#446583] dark:text-[#AFC8E5]">Features</Link><Link href="/" className="grid h-9 place-items-center rounded-full bg-[#0B2748] px-4 text-xs font-semibold text-white dark:bg-[#D6A936] dark:text-[#071A30]">Open GenieAI</Link></div></div></header>
+      <header className="border-b border-[#E4E1D8] bg-white dark:border-[#294967] dark:bg-[#102D4D]"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8"><Link href="/" className="flex items-center gap-2 text-[#0B2748] dark:text-white"><GenieMark className="h-8 w-8 shrink-0 rounded-[9px]" /><span className="genie-wordmark">Genie<span className="text-[#B3872F]">AI</span></span></Link><div className="flex gap-2"><Link href="/features" className="grid h-9 place-items-center rounded-full border border-[#D7E2EF] px-4 text-xs font-semibold text-[#31577F] dark:border-[#446583] dark:text-[#AFC8E5]">Features</Link><Link href="/" className="grid h-9 place-items-center rounded-full bg-[#0B2748] px-4 text-xs font-semibold text-white dark:bg-[#D6A936] dark:text-[#071A30]">Open GenieAI</Link></div></div></header>
       <section className="mx-auto grid max-w-6xl gap-7 px-5 py-10 md:px-8 md:py-16">
         <div><p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#B3872F]">Product walkthrough</p><h1 className="mt-3 text-4xl font-semibold tracking-[-.04em] text-[#0B2748] dark:text-white md:text-6xl">Watch GenieAI in action.</h1><p className="mt-4 max-w-2xl text-base leading-7 text-[#5B6B7A] dark:text-[#AFC8E5]">See a shopping request become preference context, four product cards, comparison insights, a personalized gift message, and checkout preparation.</p></div>
         <section className="overflow-hidden rounded-[24px] border border-[#D7E2EF] bg-white shadow-[0_24px_60px_-30px_rgba(10,31,58,.45)] dark:border-[#294967] dark:bg-[#102D4D]">
