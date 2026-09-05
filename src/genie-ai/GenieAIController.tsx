@@ -2594,20 +2594,34 @@ export function GenieAIController() {
     );
 
     try {
-      const response = await fetch("/api/ai/gift-card", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          preferences: giftCardPreferences,
-          product: {
-            description: product.description,
-            id: product.id,
-            imageUrl: product.imageUrl,
-            name: product.name,
-          },
-        }),
-      });
-      const data = (await response.json()) as GiftCardResponse;
+      const requestCard = async () => {
+        const response = await fetch("/api/ai/gift-card", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            preferences: giftCardPreferences,
+            product: {
+              description: product.description,
+              id: product.id,
+              imageUrl: product.imageUrl,
+              name: product.name,
+            },
+          }),
+        });
+        const data = (await response.json().catch(() => ({}))) as GiftCardResponse;
+        return { data, response };
+      };
+
+      let { data, response } = await requestCard();
+      const shouldRetry =
+        !response.ok && [502, 503, 504].includes(response.status);
+      if (shouldRetry || (response.ok && !data.imageDataUrl)) {
+        // The first vision request can race a cold model or return malformed
+        // structured output. This endpoint is safe to retry once.
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        ({ data, response } = await requestCard());
+      }
+
       if (!response.ok) {
         throw new Error(data.error ?? "Gift card generation failed.");
       }

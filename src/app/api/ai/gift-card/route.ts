@@ -10,6 +10,7 @@ import {
 } from "@/lib/groqHosted";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const DEFAULT_GIFT_CARD_MODEL = "qwen/qwen3.6-27b";
 const DEFAULT_GIFT_CARD_BACKUP_MODEL = "qwen/qwen3.8-27b";
