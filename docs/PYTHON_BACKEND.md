@@ -1,4 +1,4 @@
-# GenieAI Recommendation Service — V2 Runtime
+# GenieAI Recommendation Service
 
 GenieAI is a FastAPI backend for Kapruka-style product recommendations. This document describes the **current runtime path** after simplifying the original pipeline for speed and reliability.
 

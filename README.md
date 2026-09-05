@@ -4,6 +4,12 @@ GenieAI is a multilingual AI shopping assistant for product discovery, gift plan
 
 Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq reasoning, Hugging Face CrossEncoder reranking, session personalization, and CLIP/pgvector visual search. Live recommendations come from catalog services, while chats, Favorites, Wishlist, and order history are stored locally in the user's browser.
 
+// add python service tech stacks to above paragraph
+
+// connect backend repo and ml repo
+https://github.com/GenieAI-Development/GenieAI-backend
+https://github.com/GenieAI-Development/GenieAI-ML
+
 ## Contents
 
 - [Features](#features)
@@ -31,17 +37,20 @@ Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq r
 
 ## Features
 
-- Smart Shopping with preference collection and recent user-message context.
+- Smart Shopping with an initial centered welcome experience, starter chips, and direct natural-language search.
+- The preference setter is intentional and chip-driven: custom typed, voice, and image requests go straight to search without an automatic follow-up form.
 - Gift Box Builder with LLM-generated contents and total-budget allocation.
 - CLIP visual RAG that finds catalog products visually similar to an uploaded image.
 - Parallel Groq Vision analysis that describes uploaded images alongside visual-search results.
 - Optional Hugging Face CrossEncoder relevance ranking for Thinking searches.
+- Product results are revealed in four-product batches through the Suggest more control.
 - Rule-based session personalization using category, price, recency, Favorites, Wishlist, and purchase signals.
 - Browser-local Profile tab with Favorites, Wishlist, and up to 25 completed orders.
-- Product comparison, delivery prediction, and checkout preparation.
+- Product comparison with price-derived Value, description-derived Quality, and contextual AI fit insights.
+- Delivery prediction and checkout preparation.
 - AI cart product analysis that scores the complete bundle and gives improvement suggestions.
 - English voice search with Groq transcription.
-- Gift messages and downloadable SVG gift cards generation.
+- Gift messages and downloadable SVG gift cards generation, including one automatic retry for transient first-generation failures.
 - Per-mode persisted chats, preferences, plans, products, and paging state.
 
 ## Technology stack
@@ -53,8 +62,8 @@ Built with Next.js and TypeScript, GenieAI coordinates catalog retrieval, Groq r
 | Browser persistence | IndexedDB, `localStorage`, `sessionStorage` | Persists chat state, Favorites, Wishlist, previous orders, and queued personalization events. |
 | AI reasoning | Groq, Qwen 3.6/3.8, GPT-OSS | Produces commerce replies, extracts context, analyzes images, transcribes voice, and creates gift-card content. |
 | Python API | FastAPI, Uvicorn, Pydantic | Serves the recommendation endpoint, validates requests, and returns product cards. |
-| Python query planning | OpenAI `gpt-4.1-mini` with `gpt-5-mini` fallback | Interprets recommendation requests, identifies category/price/stock constraints, and selects the category/index search plan. |
-| Python query embeddings | OpenAI `text-embedding-3-small` | Converts the full search message into the vector used by Qdrant dense retrieval. |
+| Query planning | OpenAI `gpt-4.1-mini` with `gpt-5-mini` fallback | Interprets recommendation requests, identifies category/price/stock constraints, and selects the category/index search plan. |
+| Query embeddings | OpenAI `text-embedding-3-small` | Converts the full search message into the vector used by Qdrant dense retrieval. |
 | Candidate retrieval | Qdrant, BM25, reciprocal-rank fusion | Combines dense and lexical product retrieval before filtering. |
 | Catalog cache and filtering | Supabase, canonical catalog JSON | Applies stock, price, and image filters and supplies product-card data. |
 | Relevance ranking | Hugging Face CrossEncoder | Scores candidate products against the user's query in the Next.js layer. |
@@ -113,7 +122,6 @@ flowchart LR
   HF[Hugging Face CrossEncoder Space]
   Groq[Groq]
   Visual[CLIP + Supabase pgvector]
-  MCP[Commerce MCP]
 
   UI --> Commerce
   UI <--> Events
@@ -126,7 +134,6 @@ flowchart LR
   Commerce --> Groq
   Tools --> Groq
   Tools --> Visual
-  Commerce --> MCP
   Commerce -->|final products + reply| UI
 ```
 
@@ -159,7 +166,7 @@ sequenceDiagram
   B->>B: Clear successfully sent events
 ```
 
-- Context analysis distinguishes ordinary requests from gift requests. Gift requests open the preference setter only when required details are missing and no saved preferences are available; a previously skipped setter is respected.
+- The initial gift-category chips open the prefilled preference setter. Typed custom messages, voice input, and image search do not open a preference follow-up; they go directly to the relevant search or conversation flow.
 - Product requests continue through the search API and personalization pipeline. Thinking searches also use HF reranking.
 - Greetings, identity or capability questions, general conversation, and delivery-only checks use a text-only Next.js reply.
 - Text-only replies skip Python and HF, return an empty product list, and hide existing product cards.
@@ -190,6 +197,8 @@ flowchart LR
 ```
 
 For the complete visual-search data flow, storage model, confidence threshold, and failure behavior, see [Image Search RAG](docs/IMAGE_SEARCH_RAG.md).
+
+On application load, GenieAI makes a best-effort background request to warm the CLIP image-search route. The route caches model files in a writable temporary directory in serverless deployments and explicitly includes the Linux ONNX runtime artifacts in its deployment trace. This reduces first-upload latency and avoids read-only deployment-cache failures, although a serverless platform can still start a new cold instance.
 
 ## Shopping and Gift Box flows
 
@@ -316,7 +325,7 @@ finalScore = 0.75 × relevance + 0.25 × preferenceScore
 | `/api/ai/context-analysis` | POST | Preference and language extraction |
 | `/api/ai/chatbot` | POST | Standalone multilingual chatbot |
 | `/api/ai/image-analysis` | POST | Image shopping hints |
-| `/api/ai/image-search` | POST | CLIP visual product retrieval from Supabase pgvector |
+| `/api/ai/image-search` | GET, POST | Best-effort CLIP warm-up and visual product retrieval from Supabase pgvector |
 | `/api/ai/gift-card` | POST | Safe SVG gift-card generation |
 | `/api/ai/voice-messages` | POST | English voice transcription |
 | `/api/delivery-prediction` | POST | Delivery prediction support |
@@ -398,6 +407,7 @@ For local verification, run `npm run lint`, `npx tsc --noEmit`, and `npm test` f
 | `HF_TOKEN` | Recommended | Hosted HF reranker and HF Inference access; `HUGGINGFACE_TOKEN` also works |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes for image search | Supabase project URL |
 | `SUPABASE_SECRET_KEY` | Yes for image search | Server-only key used for the pgvector RPC |
+| `TRANSFORMERS_CACHE_DIR` | Optional | Writable model-cache directory for server-side CLIP; defaults to `/tmp/genieai-transformers` on serverless hosts |
 | `QODER_PAT` | Yes for Qoder features | Server-side Qoder Cloud personal access token |
 | `QODER_ENV_ID` | Yes for Qoder features | Qoder Cloud environment ID |
 | `QODER_PRODUCT_MATCHING_AGENT_ID` | Yes for cart matching | ID of the `genie-product-matching` agent; falls back to `QODER_AGENT_ID` |
