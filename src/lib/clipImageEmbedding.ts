@@ -1,5 +1,8 @@
+import { mkdir } from "node:fs/promises";
+
 const DEFAULT_MODEL = "Xenova/clip-vit-base-patch32";
 const EXPECTED_DIMENSIONS = 512;
+const DEFAULT_CACHE_DIRECTORY = "/tmp/genieai-transformers";
 
 type FeatureTensor = {
   data: ArrayLike<number>;
@@ -17,7 +20,13 @@ export function getClipImageModel() {
 }
 
 async function loadExtractor(): Promise<ImageFeatureExtractor> {
-  const { pipeline } = await import("@huggingface/transformers");
+  const { env, pipeline } = await import("@huggingface/transformers");
+  // Serverless deployment packages are read-only. Keep downloaded model files
+  // in the writable temporary filesystem instead of node_modules/.cache.
+  const cacheDirectory =
+    process.env.TRANSFORMERS_CACHE_DIR?.trim() || DEFAULT_CACHE_DIRECTORY;
+  await mkdir(cacheDirectory, { recursive: true });
+  env.cacheDir = cacheDirectory;
   const extractor = await pipeline(
     "image-feature-extraction",
     getClipImageModel(),
