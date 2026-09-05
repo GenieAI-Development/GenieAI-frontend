@@ -71,8 +71,10 @@ Successful responses return `recommendation` when 12 products are available, or 
 Each product card contains:
 
 ```text
-product_id, name, price_lkr, image_url, vendor, reason
+product_id, name, description, price_lkr, image_url, vendor, reason
 ```
+
+`description` must be the catalog's actual product description or summary. `reason` is a recommendation explanation and is not used as a product description.
 
 ## Search and filtering behaviour
 

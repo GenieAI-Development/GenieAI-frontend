@@ -564,10 +564,6 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
       action: "fill",
       text: "Can you deliver to Colombo tomorrow?",
     },
-    {
-      action: "custom",
-      text: "Or enter your custom message.",
-    },
   ],
   Sinhala: [
     {
@@ -578,10 +574,6 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
       action: "fill",
       text: "හෙට Colombo වලට delivery කරන්න පුළුවන්ද?",
     },
-    {
-      action: "custom",
-      text: "නැත්නම් ඔබගේ custom message එක type කරන්න.",
-    },
   ],
   Singlish: [
     {
@@ -591,10 +583,6 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
     {
       action: "fill",
       text: "Heta Colombo walata delivery karanna puluwanda?",
-    },
-    {
-      action: "custom",
-      text: "Nathnam oyage custom message eka type karanna.",
     },
   ],
 };
@@ -796,6 +784,7 @@ export const commonChipLabels: Record<Language, Record<string, string>> = {
 };
 
 export const iconPaths: Record<IconName, string> = {
+  ai: "M5 5h14v10H9l-4 4V5Zm7-1 .9 2.6 2.6.9-2.6.9L12 11l-.9-2.6-2.6-.9 2.6-.9L12 4Z",
   box: "M4 7l8-4 8 4-8 4-8-4Zm0 0v10l8 4m0-10v10m8-14v10l-8 4",
   camera: "M4 7h3l1.5-2h7L17 7h3v12H4V7Zm8 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
   cart: "M3 4h2l2 11h10l2-7H6m2 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm9 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z",

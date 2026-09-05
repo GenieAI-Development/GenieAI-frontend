@@ -11,6 +11,7 @@ export type ChatMessage = {
 };
 
 export type IconName =
+  | "ai"
   | "box"
   | "camera"
   | "cart"
@@ -156,6 +157,7 @@ export type ContextField =
 export type ContextDraft = Record<ContextField, string>;
 
 export type Language = "English" | "Sinhala" | "Singlish";
+export type SearchMode = "standard" | "extended";
 
 export type ShoppingProfile = {
   budget: string;
@@ -211,6 +213,7 @@ export type StoredChatState = {
   wishlistProducts?: Product[];
   previousOrders?: PreviousOrder[];
   recommendedProducts?: Product[];
+  searchMode?: SearchMode;
   initialCatalogVersion?: string;
   activeMode?: string;
   modeSessions?: Record<string, ModeSession>;
@@ -237,6 +240,7 @@ export type ModeSession = {
   productBatchIndex?: number;
   recommendedProducts?: Product[];
   recommendationSessionId?: string | null;
+  searchMode?: SearchMode;
 };
 
 export type PreviousOrder = {

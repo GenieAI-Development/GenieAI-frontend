@@ -9,10 +9,17 @@ Concise HTTP reference for the public API routes.
 | `POST` | `/api/ai/chatbot` | Multilingual shopping chat |
 | `POST` | `/api/ai/context-analysis` | Extract shopping preferences from text |
 | `POST` | `/api/ai/image-analysis` | Analyze an image for product-search hints |
+| `POST` | `/api/ai/image-search` | Find catalog products visually similar to an uploaded image |
 | `POST` | `/api/ai/gift-card` | Generate a product-matched Gift Card image |
+| `POST` | `/api/ai/gift-card-details` | Extract Gift Card preferences from a voice transcript |
 | `POST` | `/api/ai/voice-messages` | Transcribe English audio |
 | `POST` | `/api/ai/checkout-details` | Extract checkout form fields from a voice transcript |
+| `POST` | `/api/ai/rerank` | Rerank supplied product candidates with HF and personalization |
 | `POST` | `/api/ai/commerce` | Search, compare, plan, generate gift messages, and check out |
+| `POST` | `/api/product-matching` | Analyze cart-level product compatibility |
+| `POST` | `/api/delivery-prediction` | Generate a delivery preparation and travel estimate |
+| `GET` | `/api/personalization/session` | Create or return the anonymous personalization session |
+| `GET` | `/api/backend-warmup` | Best-effort server-side wake-up for the Python backend |
 
 Use your deployed application origin as the base URL:
 
@@ -252,6 +259,7 @@ A task-based endpoint for the live GenieAI catalog.
 | `compare` | Compare live products and generate scored AI insights | `productIds` |
 | `checkout` | Create a guest-checkout link | `cartIds`, `profile`, `checkout` |
 | `giftMessage` | Generate a gift-card message | `giftMessagePreferences` |
+| `reply` | Generate a text-only commerce reply | `query`, `userMessage` |
 
 `task` defaults to `recommend`.
 
@@ -263,6 +271,7 @@ Delivery prediction has been removed. Sending `"task": "track"` or any other uns
 {
   "task": "recommend",
   "mode": "Smart Shopping",
+  "searchMode": "standard",
   "language": "English",
   "query": "birthday flowers",
   "userMessage": "Find flowers for my wife under Rs. 5000",
@@ -290,6 +299,7 @@ Delivery prediction has been removed. Sending `"task": "track"` or any other uns
 |---|---|---|
 | `task` | string | Defaults to `recommend`. |
 | `mode` | string | Common values: `Smart Shopping`, `Event Planner`, `Gift Box Builder`, `Product Compare`, `Gift Message`. |
+| `searchMode` | `standard` or `extended` | Defaults to `standard`. Standard skips HF reranking; Extended runs the HF CrossEncoder and may add 2–3 seconds. Applies to recommendation searches, including Gift Box item searches. |
 | `language` | string | Defaults to `English`. |
 | `query` | string | Search text or task input. |
 | `userMessage` | string | Exact conversational message; defaults to `query`. |
@@ -297,7 +307,7 @@ Delivery prediction has been removed. Sending `"task": "track"` or any other uns
 | `extendedPreferences` | object | `budget`, `giftType`, `occasion`, `recipient`. |
 | `eventUserPreference` | object | Preferences for Event Planner. |
 | `giftUserPreference` | object | Preferences for Gift Box Builder. |
-| `events` | array | Buffered interaction events attached only to recommendation requests. Accepted events are `search`, `impression`, `view`, `compare`, `add_to_cart`, `remove_from_cart`, and `purchase`; at most 100 are forwarded. |
+| `events` | array | Buffered interaction events attached only to recommendation requests. Accepted events are `search`, `impression`, `view`, `compare`, `favorite`, `unfavorite`, `wishlist`, `remove_from_wishlist`, `add_to_cart`, `remove_from_cart`, and `purchase`; at most 100 are forwarded. |
 | `cartIds` | string[] | Up to 30 product IDs; required for checkout. |
 | `productIds` | string[] | Two IDs are required by the current UI comparison flow. The API parses up to 3 IDs. |
 | `conversationHistory` | array | Final 3 valid user/assistant messages. |
@@ -534,6 +544,9 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `COMMERCE_CREATE_ORDER_TOOL` | Commerce MCP order-creation tool name. |
 | `GROQ_REPLY_MODEL` | Optional chatbot model override. |
 | `GROQ_CHECKOUT_DETAILS_MODEL` | Optional checkout voice-detail extraction model; defaults to `openai/gpt-oss-20b`. |
+| `GROQ_GIFT_CARD_DETAILS_MODEL` | Optional Gift Card voice-detail extraction model; defaults to `openai/gpt-oss-20b`. |
+| `GROQ_PRODUCT_MATCHING_MODEL` | Optional cart product-matching model; defaults to `openai/gpt-oss-120b`. |
+| `GROQ_DELIVERY_MODEL` | Optional delivery-prediction model; defaults to `qwen/qwen3.6-27b`. |
 | `GROQ_ENGLISH_CHAT_MODEL` | Optional English commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_CHAT_MODEL` | Optional Sinhala commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |

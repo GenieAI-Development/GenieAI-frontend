@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GenieLanguage, GenieProduct } from "./types";
 import { V3Icon } from "./Icon";
 
@@ -71,6 +71,7 @@ export function GiftCardTool(props: Props) {
 
       <form onSubmit={props.onSubmit} className="grid min-w-0 content-start gap-3 overflow-y-auto rounded-2xl border border-[#D7E2EF] bg-white p-4 shadow-[0_12px_32px_-24px_rgba(10,31,58,.35)]">
         <div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#B3872F]">Customize</p><h3 className="mt-1 text-base font-semibold text-[#0B2748]">Card preferences</h3></div>
+        <VoiceGiftCardInput preferences={props.preferences} onPreferences={props.onPreferences} />
 
         <div className="relative grid min-w-0 gap-1 text-xs font-semibold text-[#5B6B7A]">Match a cart product
           <button type="button" aria-haspopup="listbox" aria-expanded={productMenuOpen} onClick={() => setProductMenuOpen((open) => !open)} className="flex h-12 min-w-0 items-center gap-2 rounded-[10px] border border-[#D7E2EF] bg-[#FAF7F1] px-2 text-left text-sm font-medium text-[#16202B] outline-none focus:border-[#3D74B8]">
@@ -97,4 +98,74 @@ export function GiftCardTool(props: Props) {
       </form>
     </div>
   );
+}
+
+function VoiceGiftCardInput({ onPreferences, preferences }: Pick<Props, "onPreferences" | "preferences">) {
+  const [state, setState] = useState<"idle" | "recording" | "processing">("idle");
+  const [message, setMessage] = useState("");
+  const chunks = useRef<Blob[]>([]);
+  const recorder = useRef<MediaRecorder | null>(null);
+
+  function apply(extraction: Record<string, unknown>) {
+    const fields = ["instructions", "language", "occasion", "receiverName", "recipient", "senderName", "style", "theme"] as const;
+    const updates = Object.fromEntries(fields.flatMap((field) => {
+      const value = extraction[field];
+      return typeof value === "string" && value.trim() ? [[field, value.trim()]] : [];
+    }));
+    const count = Object.keys(updates).length;
+    if (count) onPreferences({ ...preferences, ...updates } as GiftCardPreferences);
+    setMessage(count ? `Filled ${count} card preference${count === 1 ? "" : "s"}. Review them before generating.` : "No card details were recognized. Please try again.");
+  }
+
+  async function analyze(file: File) {
+    setState("processing");
+    setMessage("Transcribing your card details…");
+    try {
+      const form = new FormData();
+      form.append("audio", file);
+      form.append("language", "en");
+      const transcriptionResponse = await fetch("/api/ai/voice-messages", { method: "POST", body: form });
+      const transcription = await transcriptionResponse.json().catch(() => null) as { error?: string; transcript?: string } | null;
+      if (!transcriptionResponse.ok || !transcription?.transcript) throw new Error(transcription?.error ?? "Voice transcription failed.");
+      setMessage("Filling card preferences…");
+      const detailsResponse = await fetch("/api/ai/gift-card-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcript: transcription.transcript }) });
+      const data = await detailsResponse.json().catch(() => null) as { error?: string; extraction?: Record<string, unknown> } | null;
+      if (!detailsResponse.ok || !data?.extraction) throw new Error(data?.error ?? "Gift-card detail analysis failed.");
+      apply(data.extraction);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Voice card input failed.");
+    } finally {
+      setState("idle");
+    }
+  }
+
+  async function start() {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setMessage("Audio recording is not available in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const nextRecorder = new MediaRecorder(stream);
+      chunks.current = [];
+      recorder.current = nextRecorder;
+      nextRecorder.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
+      nextRecorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        recorder.current = null;
+        const type = nextRecorder.mimeType || "audio/webm";
+        const blob = new Blob(chunks.current, { type });
+        chunks.current = [];
+        if (blob.size) void analyze(new File([blob], "gift-card-details.webm", { type }));
+        else { setState("idle"); setMessage("No audio was recorded. Please try again."); }
+      };
+      nextRecorder.start();
+      setState("recording");
+      setMessage("Recording… say the recipient, occasion, style, theme, names, or card message.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Microphone access was not available.");
+    }
+  }
+
+  return <div className="rounded-[12px] border border-[#D8E6F6] bg-[#F5F9FE] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold text-[#0A1F3A]">Fill card details by voice</p><p className="mt-0.5 text-xs text-[#5B6B7A]">English voice input only. You can review every field before generating.</p></div><button type="button" onClick={state === "recording" ? () => recorder.current?.stop() : start} disabled={state === "processing"} className={`inline-flex h-10 items-center gap-2 rounded-[9px] px-3 text-xs font-bold disabled:opacity-55 ${state === "recording" ? "bg-[#B25A2E] text-white" : "bg-[#0A1F3A] text-white"}`}><V3Icon name="mic" className="h-4 w-4" />{state === "recording" ? "Stop & fill" : state === "processing" ? "Processing…" : "Use voice"}</button></div>{message ? <p aria-live="polite" className="mt-2 text-xs leading-5 text-[#35516E]">{message}</p> : null}</div>;
 }

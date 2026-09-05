@@ -63,6 +63,7 @@ import {
   type Language,
   type ModeSession,
   type PreviousOrder,
+  type SearchMode,
   type ShoppingProfile,
   type SuggestedPrompt,
   type VoiceResponse,
@@ -152,6 +153,7 @@ export function GenieAIController() {
   const lastPersonalizationImpressionKeyRef = useRef("");
 
   const [activeMode, setActiveMode] = useState("Smart Shopping");
+  const [searchMode, setSearchMode] = useState<SearchMode>("standard");
   const [language, setLanguage] = useState<Language>("English");
   const [messages, setMessages] = useState<ChatMessage[]>(starterMessages);
   const [input, setInput] = useState("");
@@ -1052,6 +1054,7 @@ export function GenieAIController() {
             : restoredSessions;
 
           setActiveMode(restoredMode);
+          setSearchMode(storedState.searchMode === "extended" ? "extended" : "standard");
           if (storedMode === "Gift Card") setGiftMessageToolTab("card");
           setLanguage(storedState.language);
           setModeSessions(nextRestoredSessions);
@@ -1125,6 +1128,7 @@ export function GenieAIController() {
       profile,
       productBatchIndex,
       recommendedProducts,
+      searchMode,
       modeSessions: {
         ...modeSessions,
         [activeMode]: {
@@ -1175,6 +1179,7 @@ export function GenieAIController() {
     productBatchIndex,
     recommendedProducts,
     recommendationSessionId,
+    searchMode,
   ]);
 
   useEffect(() => {
@@ -1589,6 +1594,7 @@ export function GenieAIController() {
       preserveProfile,
       query,
       recommendationSessionId: requestRecommendationSessionId,
+      searchMode,
       task: requestTask,
       userMessage,
       ...getPreferencePayloadForMode(mode, extendedPreferencesOverride),
@@ -3259,20 +3265,24 @@ export function GenieAIController() {
             imageInputRef={imageInputRef}
             inputRef={composerInputRef}
             isRecording={isRecording}
+            onDismissSuggestedPrompts={() => setIsPromptPopupOpen(false)}
             onFocus={() => {
-              if (!input.trim()) setIsPromptPopupOpen(true);
+              setIsPromptPopupOpen(false);
             }}
             onImage={(event) => void handleImageChange(event)}
             onInput={(value) => {
               setInput(value);
               setIsPromptPopupOpen(false);
             }}
+            onSuggestedPrompts={() => setIsPromptPopupOpen((current) => !current)}
             onSubmit={(event) => void handleSubmit(event)}
             onVoice={() => {
               if (!isRecording) void startRecording();
             }}
             placeholder={text.askPlaceholder}
+            searchMode={searchMode}
             sendLabel={isSending ? text.sending : text.send}
+            setSearchMode={setSearchMode}
             value={input}
           >
             {isPromptPopupOpen ? (
@@ -3334,6 +3344,8 @@ export function GenieAIController() {
             open={isLeftPanelOpen}
             profile={profile}
             recipients={recipientOptions}
+            searchMode={searchMode}
+            setSearchMode={setSearchMode}
             setProfile={setProfile}
           />
           <CheckoutDialog

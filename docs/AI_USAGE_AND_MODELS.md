@@ -1,7 +1,7 @@
 # AI models and fallbacks
 
-This documents the current code defaults. `src/.env.local` has no model
-overrides, so these are also the active models in this workspace.
+This documents the current code defaults. Environment-variable overrides can
+replace these defaults in a deployment.
 
 ## Shared Groq fallback behavior
 
@@ -26,12 +26,15 @@ Fallbacks run for timeouts, network errors, or HTTP 429/502/503/504.
 | Sinhala commerce replies | `openai/gpt-oss-120b` | Same as English; eligible requests prefer a valid Novita reply |
 | Singlish commerce replies | `openai/gpt-oss-120b` | `qwen/qwen3.6-27b` → `openai/gpt-oss-20b`; eligible requests prefer Novita |
 | Product comparison | `openai/gpt-oss-20b` | `openai/gpt-oss-120b` only |
+| Cart product matching | `openai/gpt-oss-120b` | Shared Groq fallback chain |
+| Delivery prediction | `qwen/qwen3.6-27b` | Shared Groq fallback chain |
 | English gift message | `openai/gpt-oss-20b` | `openai/gpt-oss-120b` only |
 | Sinhala gift message | Novita, then `openai/gpt-oss-120b` | Shared Groq chain after Novita |
 | Singlish gift message | Novita, then `openai/gpt-oss-120b` | Shared Groq chain after Novita |
 | Standalone chatbot | `openai/gpt-oss-120b` | Shared chain |
 | Image analysis | `qwen/qwen3.6-27b` | No distinct default backup; JSON-mode failures retry without JSON mode |
 | Gift Card analysis | `qwen/qwen3.6-27b` | `qwen/qwen3.8-27b`; may retry without JSON mode and then text-only |
+| Gift Card voice-detail extraction | `openai/gpt-oss-20b` | Shared Groq fallback chain |
 | Voice transcription | `whisper-large-v3-turbo` | None |
 
 ## Novita
@@ -47,7 +50,9 @@ Fallbacks run for timeouts, network errors, or HTTP 429/502/503/504.
 - Training base: `cross-encoder/ms-marco-MiniLM-L6-v2`
 - Local evaluation artifact: `models/genieai-product-reranker/final`
 - Published example: `ramitha2002/genieai-product-reranker`
-- Service failure preserves the original retrieval order.
+- **Standard search mode:** skips the Hugging Face call and uses the Python retrieval order with local personalization.
+- **Extended search mode:** calls the hosted HF Space, then combines CrossEncoder relevance with local personalization. It usually adds 2–3 seconds.
+- Service failure during Extended mode preserves the original retrieval order.
 
 ## No-model paths
 

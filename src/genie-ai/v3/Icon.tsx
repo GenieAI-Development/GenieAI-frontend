@@ -14,6 +14,7 @@ const paths: Record<string, React.ReactNode> = {
   bookmark: <path d="M6 3.5h12v17L12 17l-6 3.5z"/>,
   mic: <><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></>,
   person: <><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1.2-4 4-5.8 7-5.8s5.8 1.8 7 5.8"/></>,
+  plus: <path d="M12 5v14M5 12h14"/>,
   send: <path d="M4 12h15M13 6l6 6-6 6"/>,
   settings: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.3"/><circle cx="7" cy="17" r="2.3"/></>,
   shopping: <><path d="M4 4h2l1.5 9.5A2 2 0 0 0 9.5 15h7a2 2 0 0 0 2-1.6L20 7H6"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></>,

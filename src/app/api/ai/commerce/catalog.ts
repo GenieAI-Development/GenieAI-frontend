@@ -54,6 +54,15 @@ export function normalizePythonProduct(value: unknown): Product | null {
     getString(asRecord(categoryValue), "name")?.trim() ||
     getString(record, "vendor")?.trim() ||
     "General";
+  const productDetails = asRecord(record?.product);
+  const description =
+    getString(record, "description")?.trim() ||
+    getString(record, "product_description")?.trim() ||
+    getString(record, "summary")?.trim() ||
+    getString(record, "product_summary")?.trim() ||
+    getString(productDetails, "description")?.trim() ||
+    getString(productDetails, "summary")?.trim() ||
+    "Product description is unavailable.";
   const hasStockSignal =
     typeof record?.inStock === "boolean" ||
     typeof record?.in_stock === "boolean" ||
@@ -87,10 +96,7 @@ export function normalizePythonProduct(value: unknown): Product | null {
     stockLabel: inStock ? "In stock" : "Out of stock",
     eta: "Delivery availability is confirmed during checkout",
     description: cleanProductDescription(
-      getString(record, "description")?.trim() ||
-      getString(record, "summary")?.trim() ||
-      getString(record, "reason")?.trim() ||
-      "Product matched by GenieAI.",
+      description,
     ),
     url: getString(record, "url")?.trim() || "#",
   };

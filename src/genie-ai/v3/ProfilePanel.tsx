@@ -41,18 +41,17 @@ export function ProfilePanel(props: Props) {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 pb-8">
-      <header className="overflow-hidden rounded-[22px] border border-[#D7E2EF] bg-[linear-gradient(120deg,#F7F3E8,#E7EEF7_60%,#F8FBFF)] p-5 shadow-[0_12px_28px_-20px_rgba(10,31,58,.45)] sm:p-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="grid h-12 w-12 place-items-center rounded-[16px] bg-[#0B2748] text-[#F6ECD3] shadow-sm"><V3Icon name="person" className="h-6 w-6" /></span>
+      <header className="overflow-hidden rounded-[22px] border border-[#D7E2EF] bg-[linear-gradient(120deg,#F7F3E8,#E7EEF7_60%,#F8FBFF)] p-4 shadow-[0_12px_28px_-20px_rgba(10,31,58,.45)] sm:p-6">
+        <div className="flex flex-wrap items-start gap-3 sm:items-center sm:gap-4">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] bg-[#0B2748] text-[#F6ECD3] shadow-sm sm:h-12 sm:w-12 sm:rounded-[16px]"><V3Icon name="person" className="h-5 w-5 sm:h-6 sm:w-6" /></span>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-bold uppercase tracking-[1.2px] text-[#B3872F]">Your profile</p>
-            <h1 className="mt-1 text-2xl font-bold text-[#0A1F3A]">Saved products & orders</h1>
-            <p className="mt-1 text-sm text-[#5B6B7A]">Your saved items help GenieAI make more relevant recommendations.</p>
+            <h1 className="mt-1 text-xl font-bold leading-tight text-[#0A1F3A] sm:text-2xl">Saved products & orders</h1>
           </div>
-          <div className="flex gap-2 text-center text-xs font-semibold text-[#123661]">
-            <span className="rounded-xl border border-white bg-white/80 px-3 py-2"><strong className="block text-base">{props.favorites.length}</strong>Favorites</span>
-            <span className="rounded-xl border border-white bg-white/80 px-3 py-2"><strong className="block text-base">{props.wishlist.length}</strong>Wishlist</span>
-            <span className="rounded-xl border border-white bg-white/80 px-3 py-2"><strong className="block text-base">{props.previousOrders.length}</strong>Orders</span>
+          <div className="grid w-full grid-cols-3 gap-2 text-center text-[11px] font-semibold text-[#123661] sm:flex sm:w-auto sm:text-xs">
+            <span className="min-w-0 rounded-xl border border-white bg-white/80 px-2 py-2 sm:px-3"><strong className="block text-base">{props.favorites.length}</strong><span className="block truncate">Favorites</span></span>
+            <span className="min-w-0 rounded-xl border border-white bg-white/80 px-2 py-2 sm:px-3"><strong className="block text-base">{props.wishlist.length}</strong><span className="block truncate">Wishlist</span></span>
+            <span className="min-w-0 rounded-xl border border-white bg-white/80 px-2 py-2 sm:px-3"><strong className="block text-base">{props.previousOrders.length}</strong><span className="block truncate">Orders</span></span>
           </div>
         </div>
       </header>

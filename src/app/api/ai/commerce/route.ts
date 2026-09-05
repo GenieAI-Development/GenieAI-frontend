@@ -12,6 +12,8 @@ import {
 } from "@/lib/commerceMcp";
 import { type Product, toProduct } from "@/lib/productCatalog";
 import { getRandomInitialProducts } from "@/lib/initialProductCatalog";
+import { getOrCreatePersonalizationSessionId } from "@/lib/personalization/identity";
+import { rerankProducts } from "@/lib/reranking/service";
 import {
   getGroqQueryAnalysis,
 } from "./analysis";
@@ -72,17 +74,21 @@ import {
   isDeliveryRequested,
   parseConversationHistory,
   parseProfile,
+  parseRankingEvents,
   parseStringArray,
 } from "./request";
 import type { MessageAnalysis } from "./types";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as unknown;
   const bodyRecord = asRecord(body);
   const task = getString(bodyRecord, "task") ?? "recommend";
   const mode = getString(bodyRecord, "mode") ?? "Smart Shopping";
+  const useHuggingFaceReranking =
+    getString(bodyRecord, "searchMode") === "extended";
 
   if (!SUPPORTED_TASKS.has(task)) {
     return NextResponse.json(
@@ -470,7 +476,17 @@ export async function POST(request: Request) {
         message: pythonMessage,
         sessionId: recommendationSessionId,
       });
-      const products = pythonResponse.products;
+      const rerankResult = await rerankProducts({
+        events: parseRankingEvents(bodyRecord?.events).map((event) => ({
+          ...event,
+          timestamp: event.timestamp ?? new Date().toISOString(),
+        })),
+        products: pythonResponse.products,
+        query: pythonQuery,
+        sessionId: await getOrCreatePersonalizationSessionId(),
+        useHuggingFace: useHuggingFaceReranking,
+      });
+      const products = rerankResult.products;
 
       if (!apiKey) {
         return NextResponse.json(
