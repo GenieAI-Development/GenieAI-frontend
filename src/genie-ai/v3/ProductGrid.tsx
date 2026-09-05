@@ -8,6 +8,7 @@ type Props = {
   compareIds: string[];
   emptyLabel: string;
   formatPrice: (price: number, currency: string) => string;
+  horizontal?: boolean;
   isLoading: boolean;
   onAdd: (product: GenieProduct) => void;
   onCompare: (id: string) => void;
@@ -22,13 +23,13 @@ export function ProductGrid(props: Props) {
   );
 
   if (props.isLoading && props.products.length === 0) {
-    return <div className="grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 md:grid-flow-row md:grid-cols-4">{[0,1,2,3].map((item) => <div key={item} className="h-[250px] animate-pulse rounded-[14px] border border-[#E4E1D8] bg-white"><div className="h-28 bg-[#E7EEF7] sm:h-32" /><div className="space-y-2 p-3"><div className="h-3.5 w-3/4 rounded bg-[#E4E1D8]"/><div className="h-3 rounded bg-[#F6ECD3]"/><div className="h-8 rounded bg-[#E4E1D8]"/></div></div>)}</div>;
+    return <div className={`grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 ${props.horizontal ? "md:auto-cols-[calc((100%-1.875rem)/4)]" : "md:grid-flow-row md:grid-cols-4"}`}>{[0,1,2,3].map((item) => <div key={item} className="h-[250px] animate-pulse rounded-[14px] border border-[#E4E1D8] bg-white"><div className="h-28 bg-[#E7EEF7] sm:h-32" /><div className="space-y-2 p-3"><div className="h-3.5 w-3/4 rounded bg-[#E4E1D8]"/><div className="h-3 rounded bg-[#F6ECD3]"/><div className="h-8 rounded bg-[#E4E1D8]"/></div></div>)}</div>;
   }
   if (uniqueProducts.length === 0) return <div className="rounded-[18px] border border-dashed border-[#E4E1D8] bg-white p-5 text-sm leading-6 text-[#5B6B7A]">{props.emptyLabel}</div>;
   return (
     <section aria-label="Recommended products">
       <p className="mb-2 text-[10px] font-bold uppercase tracking-[1.1px] text-[#B3872F]">Recommended products</p>
-      <div className="grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 snap-x snap-mandatory md:grid-flow-row md:auto-cols-auto md:grid-cols-4 md:overflow-visible">
+      <div className={`grid auto-cols-[68%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 snap-x snap-mandatory ${props.horizontal ? "md:auto-cols-[calc((100%-1.875rem)/4)]" : "md:grid-flow-row md:auto-cols-auto md:grid-cols-4 md:overflow-visible"}`}>
         {uniqueProducts.map((product) => {
           const selected = props.compareIds.includes(product.id);
           const full = props.compareIds.length >= 2 && !selected;

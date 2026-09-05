@@ -57,6 +57,7 @@ import {
   type ExtendedPreferences,
   type GiftCardResponse,
   type GuidedPlanItem,
+  type ImageResponse,
   type ImageSearchResponse,
   type Language,
   type ModeSession,
@@ -287,10 +288,14 @@ export function GenieAIController() {
     ...copyOverrides[language],
   } as Required<(typeof copy)["English"]>;
   const minimumDeliveryDate = getLocalDateString();
+  const isGuidedMode =
+    activeMode.includes("Event") || activeMode.includes("Gift Box");
   const visibleProducts = useMemo(() => {
+    if (isGuidedMode) return recommendedProducts;
+
     const start = productBatchIndex * PRODUCT_BATCH_SIZE;
     return recommendedProducts.slice(start, start + PRODUCT_BATCH_SIZE);
-  }, [productBatchIndex, recommendedProducts]);
+  }, [isGuidedMode, productBatchIndex, recommendedProducts]);
   const hasMoreRecommendedProducts =
     (productBatchIndex + 1) * PRODUCT_BATCH_SIZE <
     recommendedProducts.length;
@@ -303,11 +308,11 @@ export function GenieAIController() {
   const shouldShowProductSuggestions =
     conversationStage !== "collecting-context";
   const hasUserMessages = messages.some((message) => message.role === "user");
-  const isGuidedMode =
-    activeMode.includes("Event") || activeMode.includes("Gift Box");
   const visibleReplyChips =
     isGuidedMode && isSending
       ? []
+      : isGuidedMode
+        ? chips.filter((chip) => chip !== "Suggest more")
       : activeMode === "Smart Shopping" && hasUserMessages
         ? chips.filter(
             (chip) =>
@@ -419,8 +424,14 @@ export function GenieAIController() {
     return localizedLabel.trim().split(/\s+/u).slice(0, 3).join(" ");
   }
 
-  function getGuidedReplyChips() {
-    return ["Previous item", "Next item", "Suggest more"];
+  function getGuidedReplyChips(items = guidedPlanItems) {
+    return [
+      ...new Set(
+        items
+          .map((item) => item.label.trim())
+          .filter(Boolean),
+      ),
+    ];
   }
 
   function isRemovedGenericReplyChip(chip: string) {
@@ -778,14 +789,14 @@ export function GenieAIController() {
       .join("\n");
 
     if (replyLanguage === "Sinhala") {
-      return `යෝජිත අයිතම ලැයිස්තුව:\n${itemList}\n\nමුලින්ම ${nextItem} සඳහා options පෙන්වන්නම්. ඊළඟ අයිතමයට යන්න Next item ඔබන්න.`;
+      return `යෝජිත අයිතම ලැයිස්තුව:\n${itemList}\n\nමුලින්ම ${nextItem} සඳහා options පෙන්වන්නම්. පහළ ඇති item එකක් තෝරා ඒ සඳහා options බලන්න.`;
     }
 
     if (replyLanguage === "Singlish") {
-      return `Yojitha item list eka:\n${itemList}\n\nMulinnama ${nextItem} walata options pennannam. Ilanga item ekata yanna Next item obanna.`;
+      return `Yojitha item list eka:\n${itemList}\n\nMulinnama ${nextItem} walata options pennannam. Pahala thiyena item ekak thora eeta options balanna.`;
     }
 
-    return `Suggested item list:\n${itemList}\n\nI will start by showing options for ${nextItem}. Use Next item to move through the list.`;
+    return `Suggested item list:\n${itemList}\n\nI will start by showing options for ${nextItem}. Select an item below to see options for that exact item.`;
   }
 
   function handleLanguageChange(nextLanguage: Language) {
@@ -1444,7 +1455,11 @@ export function GenieAIController() {
       setRecommendationSessionId(data.recommendationSessionId);
     }
     if (data.products) {
-      setRecommendedProducts(data.products.slice(0, MAX_RANKED_PRODUCTS));
+      setRecommendedProducts(
+        activeMode.includes("Event") || activeMode.includes("Gift Box")
+          ? data.products
+          : data.products.slice(0, MAX_RANKED_PRODUCTS),
+      );
       setProductBatchIndex(0);
     }
 
@@ -1841,7 +1856,7 @@ export function GenieAIController() {
         requestExtendedPreferences,
       );
       appendAssistantMessage(getGuidedPlanReply(planItems, 0, language));
-      setChips(getGuidedReplyChips());
+      setChips(getGuidedReplyChips(planItems));
       setStatus("Guided suggestions ready.");
       return;
     }
@@ -2051,6 +2066,31 @@ export function GenieAIController() {
     );
   }
 
+  async function handleGuidedPlanItem(item: GuidedPlanItem, index: number) {
+    if (isSending) {
+      return;
+    }
+
+    setIsSending(true);
+    setActivityMessage(text.processing);
+    setGuidedPlanIndex(index);
+
+    try {
+      setRecommendedProducts([]);
+      setFitReasons({});
+      // Search the plan label itself rather than a broad category, so a chip
+      // such as "chocolate truffle cake" remains an exact product query.
+      await runGuidedItemCommerce(item.label);
+      setChips(getGuidedReplyChips());
+      setStatus(`Options for ${item.label} loaded.`);
+    } catch (error) {
+      setStatus(getErrorMessage(error));
+    } finally {
+      setActivityMessage("");
+      setIsSending(false);
+    }
+  }
+
   async function handleNextGuidedItem() {
     if (isSending || guidedPlanItems.length === 0) {
       return;
@@ -2173,6 +2213,16 @@ export function GenieAIController() {
   }
 
   function handleChipClick(chip: string) {
+    if (isGuidedMode) {
+      const itemIndex = guidedPlanItems.findIndex(
+        (item) => item.label === chip,
+      );
+      if (itemIndex >= 0) {
+        void handleGuidedPlanItem(guidedPlanItems[itemIndex], itemIndex);
+        return;
+      }
+    }
+
     if (chip === "Previous item") {
       void handlePreviousGuidedItem();
       return;
@@ -2703,15 +2753,52 @@ export function GenieAIController() {
     try {
       const searchFormData = new FormData();
       searchFormData.append("image", file);
-      const searchResponse = await fetch("/api/ai/image-search", {
+      const analysisFormData = new FormData();
+      analysisFormData.append("image", file);
+
+      // Visual retrieval and Groq's description are deliberately independent:
+      // a vision-model failure must not prevent catalog RAG results from showing.
+      const searchRequest = fetch("/api/ai/image-search", {
         method: "POST",
         body: searchFormData,
       });
+      const analysisRequest = fetch("/api/ai/image-analysis", {
+        method: "POST",
+        body: analysisFormData,
+      });
+
+      const [searchResult, analysisResult] = await Promise.allSettled([
+        searchRequest,
+        analysisRequest,
+      ]);
+
+      if (searchResult.status === "rejected") {
+        throw searchResult.reason;
+      }
+
+      const searchResponse = searchResult.value;
       const searchData = (await searchResponse.json()) as ImageSearchResponse;
 
       if (!searchResponse.ok) {
         throw new Error(searchData.error ?? "Image vector search failed.");
       }
+
+      let imageDetails = "";
+      if (analysisResult.status === "fulfilled") {
+        const analysisResponse = analysisResult.value;
+        const analysisData = (await analysisResponse.json()) as ImageResponse;
+        if (
+          analysisResponse.ok &&
+          !analysisData.fallback &&
+          analysisData.summary?.trim()
+        ) {
+          imageDetails = analysisData.summary.trim();
+        }
+      }
+
+      const imageDescription = imageDetails
+        ? `${text.imageLooksLike}: ${imageDetails.replace(/[.!?]+$/u, "")}. `
+        : "";
 
       if (!searchData.lowConfidence && searchData.products.length > 0) {
         setRecommendedProducts(
@@ -2722,7 +2809,7 @@ export function GenieAIController() {
         addMessage({
           role: "assistant",
           content:
-            "I found these gifts by visual similarity to your image. Note: your selected preferences are not applied to visual search.",
+            `${imageDescription}I found these gifts by visual similarity to your image. Note: your selected preferences are not applied to visual search.`,
         });
         setStatus("Visual product search complete. GenieAI products updated.");
       } else {
@@ -2732,7 +2819,7 @@ export function GenieAIController() {
         addMessage({
           role: "assistant",
           content:
-            "No matching products were found in our system. Try searching for cakes, flowers, chocolates, perfumes, or another gift category.",
+            `${imageDescription}No matching products were found in our system. Try searching for cakes, flowers, chocolates, perfumes, or another gift category.`,
         });
         setStatus("No matching products were found in our system.");
       }
@@ -3055,6 +3142,7 @@ export function GenieAIController() {
         onAdd={addToBuyBox}
         onCompare={toggleCompareSelection}
         onView={viewProduct}
+        horizontal={isGuidedMode}
         products={visibleProducts}
         viewLabel={text.productView}
       />
@@ -3066,6 +3154,7 @@ export function GenieAIController() {
       chips={visibleReplyChips}
       getLabel={getChipLabel}
       onSelect={handleChipClick}
+      underMessage={isGuidedMode}
     />
   );
 
@@ -3243,12 +3332,12 @@ export function GenieAIController() {
             ) : undefined
           }
           contextPanel={renderContextPanel}
+          assistantFooter={isGuidedMode ? replyChipSection : undefined}
           conversationStage={conversationStage}
           footer={
             <>
               {!isGuidedMode ? replyChipSection : null}
               {productSection}
-              {isGuidedMode ? replyChipSection : null}
             </>
           }
           isSending={isSending}
