@@ -1,17 +1,22 @@
 import Link from "next/link";
 import { GenieMark } from "@/genie-ai/v3/Icon";
 
-function getDriveEmbedUrl(value: string) {
+function getEmbedUrl(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   const id = trimmed.match(/\/file\/d\/([^/]+)/)?.[1] ?? trimmed.match(/[?&]id=([^&]+)/)?.[1];
-  return id ? `https://drive.google.com/file/d/${id}/preview` : trimmed;
+  if (id) return `https://drive.google.com/file/d/${id}/preview`;
+
+  const youtubeId =
+    trimmed.match(/youtu\.be\/([^?&#/]+)/)?.[1] ??
+    trimmed.match(/youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)([^?&#/]+)/)?.[1];
+  return youtubeId ? `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0` : trimmed;
 }
 
-const placeholderDemoVideoUrl = "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE";
+const demoVideoPageUrl = "https://youtu.be/n0x_uYhJLwg";
 const demoVideoUrl =
-  getDriveEmbedUrl(process.env.NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL ?? "") ||
-  placeholderDemoVideoUrl;
+  getEmbedUrl(process.env.NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL ?? "") ||
+  getEmbedUrl(demoVideoPageUrl);
 
 export default function DemoVideoPage() {
   return (
@@ -20,7 +25,7 @@ export default function DemoVideoPage() {
       <section className="mx-auto grid max-w-6xl gap-7 px-5 py-10 md:px-8 md:py-16">
         <div><p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#B3872F]">Product walkthrough</p><h1 className="mt-3 text-4xl font-semibold tracking-[-.04em] text-[#0B2748] dark:text-white md:text-6xl">Watch GenieAI in action.</h1><p className="mt-4 max-w-2xl text-base leading-7 text-[#5B6B7A] dark:text-[#AFC8E5]">See a shopping request become preference context, four product cards, comparison insights, a personalized gift message, and checkout preparation.</p></div>
         <section className="overflow-hidden rounded-[24px] border border-[#D7E2EF] bg-white shadow-[0_24px_60px_-30px_rgba(10,31,58,.45)] dark:border-[#294967] dark:bg-[#102D4D]">
-          <div className="flex items-center justify-between border-b border-[#E4E1D8] px-4 py-3 dark:border-[#294967]"><div><p className="text-xs font-semibold text-[#0B2748] dark:text-white">GenieAI demo</p><p className="mt-0.5 text-[11px] text-[#5B6B7A] dark:text-[#AFC8E5]">Shopping workflow overview</p></div>{demoVideoUrl ? <Link href={demoVideoUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#D6A936] px-4 py-2 text-xs font-semibold text-[#071A30]">Open preview</Link> : null}</div>
+          <div className="flex items-center justify-between border-b border-[#E4E1D8] px-4 py-3 dark:border-[#294967]"><div><p className="text-xs font-semibold text-[#0B2748] dark:text-white">GenieAI demo</p><p className="mt-0.5 text-[11px] text-[#5B6B7A] dark:text-[#AFC8E5]">Shopping workflow overview</p></div>{demoVideoUrl ? <Link href={demoVideoPageUrl} target="_blank" rel="noreferrer" className="rounded-full bg-[#D6A936] px-4 py-2 text-xs font-semibold text-[#071A30]">Open on YouTube</Link> : null}</div>
           <div className="aspect-video bg-[linear-gradient(135deg,#071A30,#1E4D8C_60%,#D6A936)] p-1.5">{demoVideoUrl ? <iframe src={demoVideoUrl} title="GenieAI demo video" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen className="h-full w-full rounded-[18px] border-0 bg-black" /> : <div className="grid h-full place-items-center rounded-[18px] bg-[#FAF7F1] p-8 text-center dark:bg-[#0B2340]"><div><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#D6A936] text-xl text-[#071A30]">▶</span><h2 className="mt-4 text-xl font-semibold text-[#0B2748] dark:text-white">Demo video is ready for your source</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#5B6B7A] dark:text-[#AFC8E5]">Set <code className="rounded bg-[#E7EEF7] px-1.5 py-1 text-xs dark:bg-[#163A60]">NEXT_PUBLIC_DEMO_VIDEO_EMBED_URL</code> to a Google Drive preview or embeddable video URL.</p></div></div>}</div>
         </section>
       </section>
