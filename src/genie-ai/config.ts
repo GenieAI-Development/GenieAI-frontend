@@ -20,7 +20,7 @@ export const starterMessages: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Hello! ආයුබෝවන්! Ayubowan! I am GenieAI. 💫 Tell me what you are looking for, and I will guide the gift details. 😊",
+      "Hello! ආයුබෝවන්! Ayubowan! I am GenieAI. 💫\nTell me what you are looking for, and I will guide the gift details. 😊",
   },
 ];
 

@@ -106,6 +106,7 @@ import {
   getResponsePreferenceForMode,
   getTaskForMode,
   getValidatedPhoneNumber,
+  hasSkippedPreferenceSetter,
   initialShoppingProfile,
   mergeExtendedPreferencesWithProfile,
   normalizeExtendedPreferences,
@@ -206,6 +207,7 @@ export function GenieAIController() {
   );
   const [activityMessage, setActivityMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isComposerSettling, setIsComposerSettling] = useState(false);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
@@ -315,6 +317,10 @@ export function GenieAIController() {
   const shouldShowProductSuggestions =
     conversationStage !== "collecting-context";
   const hasUserMessages = messages.some((message) => message.role === "user");
+  const isSmartShoppingInitialView =
+    activeMode === "Smart Shopping" &&
+    !hasUserMessages &&
+    conversationStage === "first-message";
   const visibleReplyChips =
     isGuidedMode && isSending
       ? []
@@ -347,6 +353,10 @@ export function GenieAIController() {
   const isProfileMode = activeMode === "Profile";
   const isFormToolMode = isCompareMode || isGiftMessageMode || isDeliveryPredictionMode || isProfileMode;
   const suggestedPrompts = suggestedPromptsByLanguage[language];
+  const suggestedPromptTexts = useMemo(
+    () => suggestedPrompts.map((prompt) => prompt.text),
+    [suggestedPrompts],
+  );
 
   useEffect(() => {
     void initializePersonalizationSession();
@@ -411,6 +421,18 @@ export function GenieAIController() {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isPromptPopupOpen]);
+
+  useEffect(() => {
+    if (!isComposerSettling) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(
+      () => setIsComposerSettling(false),
+      620,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [isComposerSettling]);
 
   function closeIntroPanel() {
     setIsIntroPanelVisible(false);
@@ -947,7 +969,7 @@ export function GenieAIController() {
     const latestMessage = messages.at(-1);
     const canFocusComposer =
       latestMessage?.role === "assistant" &&
-      conversationStage === "ready" &&
+      (conversationStage === "ready" || isSmartShoppingInitialView) &&
       !isSending &&
       !isImageProcessing &&
       !isVoiceProcessing &&
@@ -968,6 +990,7 @@ export function GenieAIController() {
     isRecording,
     isSending,
     isVoiceProcessing,
+    isSmartShoppingInitialView,
     messages,
   ]);
 
@@ -1868,7 +1891,14 @@ export function GenieAIController() {
     setChips([]);
     addMessage({
       role: "assistant",
-      content: getModeIntroMessage(activeMode, detectedLanguage),
+      content: {
+        English:
+          "I still need a few gift preferences. Could you choose the missing details below?",
+        Sinhala:
+          "Gift එක හොඳින් තෝරන්න තවත් preferences කිහිපයක් අවශ්‍යයි. පහළින් අඩු details තෝරන්න පුළුවන්ද?",
+        Singlish:
+          "Gift eka hondin thoranna thawa preferences tikak ona. Pahalin missing details thoranna puluwanda?",
+      }[detectedLanguage],
       variant: "context-panel",
     });
     setStatus("Choose context chips or continue without context.");
@@ -2013,6 +2043,17 @@ export function GenieAIController() {
       missingGiftPreferences.length === 0;
 
     if (hasAllRequiredGiftPreferences) {
+      setConversationStage("ready");
+      await handleReadyMessage(
+        content,
+        nextProfile,
+        nextExtendedPreferences,
+        true,
+      );
+      return;
+    }
+
+    if (hasSkippedPreferenceSetter(messages)) {
       setConversationStage("ready");
       await handleReadyMessage(
         content,
@@ -2410,6 +2451,9 @@ export function GenieAIController() {
       { role: "user", content },
     ];
 
+    if (isSmartShoppingInitialView) {
+      setIsComposerSettling(true);
+    }
     setMessages(nextMessages);
     playChatSound("send");
     setInput("");
@@ -2431,7 +2475,10 @@ export function GenieAIController() {
         const hasAllRequiredGiftPreferences = Boolean(
           nextProfile.budget && nextProfile.occasion && nextProfile.recipient,
         );
-        if (hasAllRequiredGiftPreferences) {
+        if (
+          hasAllRequiredGiftPreferences ||
+          hasSkippedPreferenceSetter(messages)
+        ) {
           setConversationStage("ready");
           await handleReadyMessage(
             content,
@@ -3312,6 +3359,50 @@ export function GenieAIController() {
     />
   );
 
+  const composerSection = !isFormToolMode && !isGuidedMode ? (
+    <Composer
+      animatedPlaceholders={suggestedPromptTexts}
+      animatePlaceholder={isSmartShoppingInitialView}
+      disabled={isSending || isVoiceProcessing || isImageProcessing}
+      formRef={composerRef}
+      imageInputRef={imageInputRef}
+      inputRef={composerInputRef}
+      isRecording={isRecording}
+      onDismissSuggestedPrompts={() => setIsPromptPopupOpen(false)}
+      onFocus={() => {
+        setIsPromptPopupOpen(false);
+      }}
+      onImage={(event) => void handleImageChange(event)}
+      onInput={(value) => {
+        setInput(value);
+        setIsPromptPopupOpen(false);
+      }}
+      onSuggestedPrompts={() => setIsPromptPopupOpen((current) => !current)}
+      onSubmit={(event) => void handleSubmit(event)}
+      onVoice={() => {
+        if (!isRecording) void startRecording();
+      }}
+      placeholder={text.askPlaceholder}
+      searchMode={searchMode}
+      sendLabel={isSending ? text.sending : text.send}
+      setSearchMode={setSearchMode}
+      value={input}
+    >
+      {isPromptPopupOpen ? (
+        <SuggestedPromptsPopover
+          onSelect={handleSuggestedPromptClick}
+          prompts={suggestedPrompts}
+        />
+      ) : null}
+    </Composer>
+  ) : (
+    <div />
+  );
+
+  const initialAssistantMessage = messages.find(
+    (message) => message.role === "assistant",
+  );
+
   return (
     <GenieShell
       header={
@@ -3338,42 +3429,16 @@ export function GenieAIController() {
         />
       }
       composer={
-        !isFormToolMode && !isGuidedMode ? (
-          <Composer
-            disabled={isSending || isVoiceProcessing || isImageProcessing}
-            formRef={composerRef}
-            imageInputRef={imageInputRef}
-            inputRef={composerInputRef}
-            isRecording={isRecording}
-            onDismissSuggestedPrompts={() => setIsPromptPopupOpen(false)}
-            onFocus={() => {
-              setIsPromptPopupOpen(false);
-            }}
-            onImage={(event) => void handleImageChange(event)}
-            onInput={(value) => {
-              setInput(value);
-              setIsPromptPopupOpen(false);
-            }}
-            onSuggestedPrompts={() => setIsPromptPopupOpen((current) => !current)}
-            onSubmit={(event) => void handleSubmit(event)}
-            onVoice={() => {
-              if (!isRecording) void startRecording();
-            }}
-            placeholder={text.askPlaceholder}
-            searchMode={searchMode}
-            sendLabel={isSending ? text.sending : text.send}
-            setSearchMode={setSearchMode}
-            value={input}
-          >
-            {isPromptPopupOpen ? (
-              <SuggestedPromptsPopover
-                onSelect={handleSuggestedPromptClick}
-                prompts={suggestedPrompts}
-              />
-            ) : null}
-          </Composer>
-        ) : (
+        isSmartShoppingInitialView ? (
           <div />
+        ) : (
+          <div
+            className={
+              isComposerSettling ? "genie-composer-settle" : undefined
+            }
+          >
+            {composerSection}
+          </div>
         )
       }
       overlays={
@@ -3458,7 +3523,52 @@ export function GenieAIController() {
           activityMessage={activityMessage}
           chatRef={chatScrollContainerRef}
           contentOverride={
-            isCompareMode ? (
+            isSmartShoppingInitialView ? (
+              <div className="flex min-h-[calc(100dvh-128px)] items-center justify-center px-4 py-10 sm:px-8">
+                <div className="w-full max-w-6xl -translate-y-[4vh]">
+                  <div className="mx-auto max-w-3xl">
+                    {initialAssistantMessage ? (
+                      <div className="mb-5 text-center">
+                        <div className="mx-auto max-w-2xl text-base leading-7 text-[#3E4A56] sm:text-lg">
+                          {renderChatMessage(initialAssistantMessage.content)}
+                        </div>
+                      </div>
+                    ) : null}
+                    {composerSection}
+                    <div className="px-4 sm:px-7">
+                      <ReplyChips
+                        chips={chips}
+                        centered
+                        getLabel={getChipLabel}
+                        onSelect={handleChipClick}
+                        underMessage
+                      />
+                    </div>
+                  </div>
+                  {recommendedProducts.length > 0 ? (
+                    <div className="mt-7">
+                      <ProductGrid
+                        addLabel={text.addToBuyBox}
+                        cartIds={new Set(buyBox.map((product) => product.id))}
+                        compareIds={compareSelectionIds}
+                        emptyLabel={text.initialEmpty}
+                        favoriteIds={new Set(favoriteProducts.map((product) => product.id))}
+                        formatPrice={formatPrice}
+                        isLoading={false}
+                        onAdd={addToBuyBox}
+                        onCompare={toggleCompareSelection}
+                        onFavorite={toggleFavorite}
+                        onView={viewProduct}
+                        onWishlist={toggleWishlist}
+                        products={recommendedProducts.slice(0, PRODUCT_BATCH_SIZE)}
+                        viewLabel={text.productView}
+                        wishlistIds={new Set(wishlistProducts.map((product) => product.id))}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : isCompareMode ? (
               <div className="mx-auto w-full max-w-6xl">
                 {renderCompareTool()}
               </div>

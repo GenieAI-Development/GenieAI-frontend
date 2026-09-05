@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyExtendedPreferenceUpdates, buildBudgetRangeValue, divideBudgetAcrossItems,
   getPreferencePayloadForMode, getPreferenceStateForMode, getTaskForMode,
-  getValidatedPhoneNumber, havePreferenceValuesChanged, normalizeExtendedPreferences,
+  getValidatedPhoneNumber, hasSkippedPreferenceSetter, havePreferenceValuesChanged, normalizeExtendedPreferences,
   parseBudgetAmount, parseBudgetRangeValue, removeEmojiForSpeech,
 } from "@/genie-ai/utils";
 
@@ -34,5 +34,17 @@ describe("Genie client utilities", () => {
     expect(getPreferencePayloadForMode("Gift Box Builder", prefs)).toEqual({ giftUserPreference: prefs });
     expect(getTaskForMode("Compare Products")).toBe("compare");
     expect(getTaskForMode("Shopping")).toBe("recommend");
+  });
+
+  it("remembers when the preference setter was skipped", () => {
+    expect(
+      hasSkippedPreferenceSetter([
+        { role: "assistant", content: "Choose preferences" },
+        { role: "user", content: "Continue without context" },
+      ]),
+    ).toBe(true);
+    expect(
+      hasSkippedPreferenceSetter([{ role: "user", content: "Find a gift" }]),
+    ).toBe(false);
   });
 });

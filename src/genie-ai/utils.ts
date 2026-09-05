@@ -1,11 +1,19 @@
 import { MAX_RANKED_PRODUCTS, PRODUCT_BATCH_SIZE } from "./config";
 import type {
+  ChatMessage,
   CommerceResponse,
   ExtendedPreferences,
   ModePreferencePayload,
   ModeSession,
   ShoppingProfile,
 } from "./types";
+
+export function hasSkippedPreferenceSetter(messages: ChatMessage[]) {
+  return messages.some(
+    (message) =>
+      message.role === "user" && message.content === "Continue without context",
+  );
+}
 
 export function getLocalDateString(date = new Date()) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);

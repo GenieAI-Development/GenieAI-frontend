@@ -69,8 +69,27 @@ pre,
   animation: genie-welcome-slide-down 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes genie-composer-settle {
+  from {
+    transform: translateY(-32vh);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.genie-composer-settle {
+  animation: genie-composer-settle 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  position: relative;
+  z-index: 40;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .genie-welcome-panel {
+    animation: none;
+  }
+
+  .genie-composer-settle {
     animation: none;
   }
 }
