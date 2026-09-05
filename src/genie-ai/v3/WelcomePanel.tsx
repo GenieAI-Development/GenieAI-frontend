@@ -7,11 +7,9 @@ const highlights = [
 ];
 
 export function WelcomePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[95] bg-[#071A30]/45 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="welcome-title" className="genie-welcome-panel relative w-full overflow-hidden rounded-b-[28px] border-b border-[#D6A936] bg-[#FAF7F1] shadow-[0_24px_70px_rgba(7,26,48,.38)] dark:bg-[#071A30]">
+    <div className={`fixed inset-0 z-[95] bg-[#071A30]/45 backdrop-blur-sm transition-opacity duration-[400ms] ${open ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+      <section role="dialog" aria-modal="true" aria-hidden={!open} aria-labelledby="welcome-title" className={`genie-welcome-panel relative w-full overflow-hidden rounded-b-[28px] border-b border-[#D6A936] bg-[#FAF7F1] shadow-[0_24px_70px_rgba(7,26,48,.38)] transition-transform duration-[400ms] ease-out dark:bg-[#071A30] ${open ? "translate-y-0" : "-translate-y-full"}`}>
         <div className="pointer-events-none absolute -right-24 -top-36 h-80 w-80 rounded-full bg-[#D6A936]/20 blur-3xl" />
         <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-[#3D74B8]/15 blur-3xl" />
         <button type="button" onClick={onClose} className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full border border-[#D7E2EF] bg-white text-[#31577F] shadow-sm transition hover:bg-[#E7EEF7] dark:border-[#294967] dark:bg-[#102D4D] dark:text-[#AFC8E5]" aria-label="Close welcome panel"><V3Icon name="x" className="h-4 w-4" /></button>

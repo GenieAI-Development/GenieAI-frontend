@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { GenieProduct } from "./types";
 import { V3Icon } from "./Icon";
 
@@ -39,7 +40,7 @@ export function ProductMatchDialog({ items }: { items: GenieProduct[] }) {
     <button type="button" disabled={items.length < 2 || checking} onClick={() => void checkMatch()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-[11px] border border-[#C89B3C] px-4 py-3 text-sm font-bold text-[#F2D58A] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"><V3Icon name="sparkles" className="h-4 w-4" />{checking ? "Checking your products…" : "Check product match"}</button>
     {items.length < 2 ? <p className="mt-2 text-center text-xs leading-5 text-white/70">Add at least two products to check how well they match.</p> : null}
 
-    {open ? <div className="fixed inset-0 z-[100] grid place-items-center p-4">
+    {open && typeof document !== "undefined" ? createPortal(<div className="fixed inset-0 z-[100] grid place-items-center p-4">
       <button type="button" aria-label="Close product matching insights" onClick={() => !checking && setOpen(false)} className="absolute inset-0 bg-[#0A1F3A]/55 backdrop-blur-[2px]" />
       <section role="dialog" aria-modal="true" aria-labelledby="match-insights-title" className="relative z-10 max-h-[85vh] w-full max-w-[620px] overflow-y-auto rounded-[22px] bg-white p-5 text-[#0A1F3A] shadow-[0_24px_70px_rgba(10,31,58,.35)] sm:p-7">
         <header className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[1.5px] text-[#B3872F]">AI cart analysis</p><h2 id="match-insights-title" className="mt-1 font-serif text-2xl font-bold">Product matching insights</h2></div><button type="button" disabled={checking} onClick={() => setOpen(false)} className="grid h-9 w-9 shrink-0 place-items-center rounded-[9px] border border-[#E4E1D8] text-[#3E4A56] disabled:opacity-40" aria-label="Close"><V3Icon name="x" className="h-4 w-4" /></button></header>
@@ -50,6 +51,6 @@ export function ProductMatchDialog({ items }: { items: GenieProduct[] }) {
           {result.recommendations.length ? <div className="rounded-xl bg-[#FFF8E7] p-4"><h3 className="flex items-center gap-2 text-xs font-bold text-[#7A5A18]"><V3Icon name="sparkles" className="h-4 w-4" />Ways to improve the bundle</h3><ul className="mt-2 space-y-1.5 text-xs leading-5 text-[#715F3B]">{result.recommendations.map((item) => <li key={item}>• {item}</li>)}</ul></div> : null}
         </div> : null}
       </section>
-    </div> : null}
+    </div>, document.body) : null}
   </>;
 }

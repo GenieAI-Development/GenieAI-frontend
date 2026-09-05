@@ -21,11 +21,12 @@ type Props = {
   onStopSpeaking: () => void;
   readAloudTitle: string;
   renderMessage: (content: string) => ReactNode;
+  showReadAloud?: boolean;
   switchEnglishLabel: string;
   tryAgainLabel: string;
 };
 
-export function ChatThread({ activityMessage, assistantFooter, chatRef, contextPanel, contentOverride, conversationStage, isSending, isSpeaking, language, latestAssistantIndex, messages, footer, onLanguageEnglish, onRetry, onSpeak, onStopSpeaking, readAloudTitle, renderMessage, switchEnglishLabel, tryAgainLabel }: Props) {
+export function ChatThread({ activityMessage, assistantFooter, chatRef, contextPanel, contentOverride, conversationStage, isSending, isSpeaking, language, latestAssistantIndex, messages, footer, onLanguageEnglish, onRetry, onSpeak, onStopSpeaking, readAloudTitle, renderMessage, showReadAloud = true, switchEnglishLabel, tryAgainLabel }: Props) {
   return (
     <div ref={chatRef} className="relative h-full overflow-y-auto px-4 py-4 sm:px-7 sm:py-5">
       <div className="relative">
@@ -51,7 +52,7 @@ export function ChatThread({ activityMessage, assistantFooter, chatRef, contextP
                   ) : null}
                 </div>
                 {latestAssistant && !isContext ? assistantFooter : null}
-                {latestAssistant && !isContext && language === "English" ? isSpeaking ? <button type="button" onClick={onStopSpeaking} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#B25A2E] bg-[#F7E9DF] text-[#B25A2E] shadow-sm" title="Stop reading" aria-label="Stop reading"><V3Icon name="x" className="h-4 w-4" /></button> : <button type="button" onClick={() => onSpeak(message.content)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#E4E1D8] bg-white text-[#1E4D8C] shadow-sm" title={readAloudTitle} aria-label={readAloudTitle}><V3Icon name="speaker" className="h-4 w-4" /></button> : null}
+                {showReadAloud && latestAssistant && !isContext && language === "English" ? isSpeaking ? <button type="button" onClick={onStopSpeaking} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#B25A2E] bg-[#F7E9DF] text-[#B25A2E] shadow-sm" title="Stop reading" aria-label="Stop reading"><V3Icon name="x" className="h-4 w-4" /></button> : <button type="button" onClick={() => onSpeak(message.content)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#E4E1D8] bg-white text-[#1E4D8C] shadow-sm" title={readAloudTitle} aria-label={readAloudTitle}><V3Icon name="speaker" className="h-4 w-4" /></button> : null}
               </div>
               {user ? <span className="relative z-10 hidden h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-[#3D74B8] bg-[#E7EEF7] text-[#1E4D8C] md:grid"><V3Icon name="person" className="h-4 w-4" /></span> : null}
             </article>

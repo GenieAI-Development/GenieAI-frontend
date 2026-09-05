@@ -127,7 +127,8 @@ export const participantOptions = [
 
 export const venueOptions = ["Home", "Office", "Hotel", "Outdoor"];
 
-export const itemCountOptions = ["2 items", "3 items", "4 items", "5+ items"];
+export const itemCountOptions = ["2 items", "3 items", "4 items"];
+export const eventItemCountOptions = [...itemCountOptions, "5+ items"];
 
 export const shoppingContextFields: ContextField[] = [
   "budget",
@@ -138,7 +139,7 @@ export const shoppingContextFields: ContextField[] = [
 
 export function getContextFieldsForMode(mode: string): ContextField[] {
   if (mode.includes("Event")) {
-    return ["eventType", "participants", "venue", "budget"];
+    return ["eventType", "participants", "venue", "itemCount", "budget"];
   }
 
   if (mode.includes("Gift Box")) {
@@ -225,7 +226,15 @@ export const contextFieldOptions: Record<ContextField, string[]> = {
 export function getContextFieldOptionsForMode(
   mode: string,
 ): Record<ContextField, string[]> {
-  if (mode.includes("Event") || mode.includes("Gift Box")) {
+  if (mode.includes("Event")) {
+    return {
+      ...contextFieldOptions,
+      budget: guidedModeBudgetOptions,
+      itemCount: eventItemCountOptions,
+    };
+  }
+
+  if (mode.includes("Gift Box")) {
     return { ...contextFieldOptions, budget: guidedModeBudgetOptions };
   }
 
