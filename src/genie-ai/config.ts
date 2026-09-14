@@ -53,14 +53,14 @@ export const starterMessagesByLanguage: Record<Language, ChatMessage[]> = {
     {
       role: "assistant",
       content:
-        "Ayubowan! මම GenieAI. 💫 ඔබට අවශ්‍ය gift එක කියන්න, මම ඔයාව guide කරන්නම්. 😊",
+        "Ayubowan! මම GenieAI. 💫\nඔබට අවශ්‍ය gift එක කියන්න, මම ඔයාව guide කරන්නම්. 😊",
     },
   ],
   Singlish: [
     {
       role: "assistant",
       content:
-        "Ayubowan! Mama GenieAI. 💫 Oyata ona gift eka kiyanna, mama oyawa guide karannam. 😊",
+        "Ayubowan! Mama GenieAI. 💫\nOyata ona gift eka kiyanna, mama oyawa guide karannam. 😊",
     },
   ],
 };
@@ -87,6 +87,12 @@ export const guidedModeBudgetOptions = [
   "Rs. 10,000 - 20,000",
   "Above Rs. 20,000",
   "Other",
+];
+
+export const giftBoxBudgetOptions = [
+  "Rs. 10,000 - 15,000",
+  "Rs. 15,000 - 20,000",
+  "Above Rs. 20,000",
 ];
 
 export const recipientOptions = ["Male", "Female", "Child", "Couple", "Other"];
@@ -230,7 +236,7 @@ export function getContextFieldOptionsForMode(
   }
 
   if (mode.includes("Gift Box")) {
-    return { ...contextFieldOptions, budget: guidedModeBudgetOptions };
+    return { ...contextFieldOptions, budget: giftBoxBudgetOptions };
   }
 
   return contextFieldOptions;
@@ -637,6 +643,8 @@ export const optionLabels: Record<Language, Record<string, string>> = {
       "\u0dc3\u0dd4\u0dc0\u0db3 \u0dc0\u0dd2\u0dbd\u0dc0\u0dd4\u0db1\u0dca",
     "Rs. 2,500 - 5,000": "Rs. 2,500 - 5,000",
     "Rs. 5,000 - 10,000": "Rs. 5,000 - 10,000",
+    "Rs. 10,000 - 15,000": "Rs. 10,000 - 15,000",
+    "Rs. 15,000 - 20,000": "Rs. 15,000 - 20,000",
     "Rs. 10,000 - 20,000": "Rs. 10,000 - 20,000",
     "Under Rs. 5,000": "Rs. 5,000 ට අඩු",
     "Under Rs. 2,500": "Rs. 2,500 ට අඩු",
@@ -661,6 +669,8 @@ export const optionLabels: Record<Language, Record<string, string>> = {
     Perfumes: "Perfume",
     "Rs. 2,500 - 5,000": "Rs. 2,500 - 5,000",
     "Rs. 5,000 - 10,000": "Rs. 5,000 - 10,000",
+    "Rs. 10,000 - 15,000": "Rs. 10,000 - 15,000",
+    "Rs. 15,000 - 20,000": "Rs. 15,000 - 20,000",
     "Rs. 10,000 - 20,000": "Rs. 10,000 - 20,000",
     "Under Rs. 5,000": "Rs. 5,000 ta adu",
     "Under Rs. 2,500": "Rs. 2,500 ta adu",
