@@ -561,11 +561,7 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
   English: [
     {
       action: "fill",
-      text: "Show me chocolate cakes between Rs. 5,000 - 10,000 for my girlfriend's birthday.",
-    },
-    {
-      action: "fill",
-      text: "Can you deliver to Colombo tomorrow?",
+      text: "Show me red roses between Rs. 5,000 - 10,000 for my girlfriend's birthday.",
     },
   ],
   Sinhala: [
@@ -573,19 +569,11 @@ export const suggestedPromptsByLanguage: Record<Language, SuggestedPrompt[]> = {
       action: "fill",
       text: "මගේ පෙම්වතියගේ උපන්දිනයට Rs. 5,000 - 10,000 අතර රතු රෝස මල් පෙන්නන්න.",
     },
-    {
-      action: "fill",
-      text: "හෙට Colombo වලට delivery කරන්න පුළුවන්ද?",
-    },
   ],
   Singlish: [
     {
       action: "fill",
       text: "Mage pemwathiyage upandinayata Rs. 5,000 - 10,000 athara rathu rosa mal pennanna.",
-    },
-    {
-      action: "fill",
-      text: "Heta Colombo walata delivery karanna puluwanda?",
     },
   ],
 };
