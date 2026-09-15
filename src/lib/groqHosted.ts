@@ -79,7 +79,7 @@ async function fetchOpenAiFallback(payload: GroqChatPayload) {
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), getRequestTimeoutMs());
-  const openAiPayload = { ...payload };
+  const openAiPayload: Record<string, unknown> = { ...payload };
   delete openAiPayload.model;
   delete openAiPayload.reasoning_effort;
   const model = process.env.OPENAI_FALLBACK_MODEL ?? DEFAULT_OPENAI_FALLBACK_MODEL;
