@@ -16,7 +16,6 @@ import {
 export const runtime = "nodejs";
 
 const DEFAULT_MODEL = "qwen/qwen3.8-27b";
-const DEFAULT_BACKUP_MODEL = "qwen/qwen3.6-27b";
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 type VisionAnalysis = {
@@ -240,10 +239,7 @@ export async function POST(request: Request) {
     "base64",
   )}`;
 
-  const backupModels = [
-    process.env.GROQ_VISION_BACKUP_MODEL,
-    DEFAULT_BACKUP_MODEL,
-  ];
+  const backupModels: string[] = [];
   let { model: resolvedModel, response } = await fetchGroqChatWithFallback(
     apiKey,
     buildVisionRequest(model, imageUrl, true),

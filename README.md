@@ -431,9 +431,9 @@ For local verification, run `npm run lint`, `npx tsc --noEmit`, and `npm test` f
 | Product comparison and English gift messages | Groq `openai/gpt-oss-20b` | Deterministic or generic fallback |
 | Sinhala and Singlish responses | Groq `openai/gpt-oss-120b` | HF Novita can assist selected language flows |
 | Novita language generation | HF Inference `google/gemma-4-31B-it:novita` | Groq fallback where configured |
-| Image analysis | Groq `qwen/qwen3.6-27b` | Concise visual description shown beside visual-RAG results |
+| Image analysis | Groq `qwen/qwen3.8-27b` | OpenAI `gpt-4.1-mini` fallback; concise visual description shown beside visual-RAG results |
 | Image search | Transformers.js CLIP + Supabase pgvector | Visual-only; max four products; no reranking or personalization |
-| Gift-card art direction | Groq `qwen/qwen3.6-27b` | Backup `qwen/qwen3.8-27b` |
+| Gift-card art direction | Groq `qwen/qwen3.8-27b` | OpenAI `gpt-4.1-mini` fallback |
 | Voice transcription | Groq `whisper-large-v3-turbo` | Retry response |
 | Default showcase, details, delivery, checkout | Commerce MCP | Feature-specific error behavior |
 | Read aloud | Browser Speech Synthesis API | No server model |

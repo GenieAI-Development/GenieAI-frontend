@@ -6,11 +6,14 @@ export const GROQ_CHAT_COMPLETIONS_URL =
 export const GROQ_TRANSCRIPTIONS_URL =
   "https://api.groq.com/openai/v1/audio/transcriptions";
 
+export const OPENAI_CHAT_COMPLETIONS_URL =
+  "https://api.openai.com/v1/chat/completions";
+
 const DEFAULT_TEXT_BACKUP_MODELS = [
-  "qwen/qwen3.6-27b",
   "openai/gpt-oss-120b",
   "openai/gpt-oss-20b",
 ];
+const DEFAULT_OPENAI_FALLBACK_MODEL = "gpt-4.1-mini";
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 const DEFAULT_TOTAL_TIMEOUT_MS = 10000;
 const MAX_MODEL_ATTEMPTS = 4;
@@ -26,6 +29,10 @@ type GroqChatFallbackResult = {
 
 export function getGroqApiKey() {
   return process.env.GROQ_API_KEY ?? process.env.GROQ_TOKEN;
+}
+
+export function getOpenAiApiKey() {
+  return process.env.OPENAI_API_KEY;
 }
 
 export function getMissingGroqKeyMessage() {
@@ -66,6 +73,48 @@ function createGroqFailureResponse(status: number, message: string) {
   });
 }
 
+async function fetchOpenAiFallback(payload: GroqChatPayload) {
+  const apiKey = getOpenAiApiKey();
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), getRequestTimeoutMs());
+  const openAiPayload = { ...payload };
+  delete openAiPayload.model;
+  delete openAiPayload.reasoning_effort;
+  const model = process.env.OPENAI_FALLBACK_MODEL ?? DEFAULT_OPENAI_FALLBACK_MODEL;
+
+  try {
+    const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...openAiPayload,
+        model,
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    return {
+      model,
+      response,
+    };
+  } catch (error) {
+    return {
+      model,
+      response: createGroqFailureResponse(
+        error instanceof Error && error.name === "AbortError" ? 504 : 503,
+        "OpenAI fallback model could not be reached.",
+      ),
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function fetchGroqChatWithFallback(
   apiKey: string,
   payload: GroqChatPayload,
@@ -87,7 +136,7 @@ export async function fetchGroqChatWithFallback(
   let latestRetryableFailure: GroqChatFallbackResult | null = null;
   const startedAt = Date.now();
 
-  for (const [index, model] of models.entries()) {
+  for (const model of models) {
     const remainingTime = getTotalTimeoutMs() - (Date.now() - startedAt);
     if (remainingTime <= 0) {
       break;
@@ -136,10 +185,11 @@ export async function fetchGroqChatWithFallback(
       continue;
     }
 
-    if (index === 0) {
-      return { model, response };
-    }
+    latestRetryableFailure = { model, response };
   }
+
+  const openAiFallback = await fetchOpenAiFallback(payload);
+  if (openAiFallback) return openAiFallback;
 
   if (latestRetryableFailure) {
     return {

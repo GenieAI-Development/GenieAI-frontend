@@ -13,7 +13,6 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const DEFAULT_GIFT_CARD_MODEL = "qwen/qwen3.8-27b";
-const DEFAULT_GIFT_CARD_BACKUP_MODEL = "qwen/qwen3.6-27b";
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 type GiftCardDesign = {
@@ -238,7 +237,7 @@ export async function POST(request: Request) {
       max_completion_tokens: 700,
       response_format: { type: "json_object" },
     },
-    [process.env.GROQ_GIFT_CARD_BACKUP_MODEL, process.env.GROQ_VISION_BACKUP_MODEL, DEFAULT_GIFT_CARD_BACKUP_MODEL],
+    [],
   );
 
   if (response.status === 400) {
@@ -250,7 +249,7 @@ export async function POST(request: Request) {
         temperature: 0.55,
         max_completion_tokens: 700,
       },
-      [process.env.GROQ_GIFT_CARD_BACKUP_MODEL, process.env.GROQ_VISION_BACKUP_MODEL, DEFAULT_GIFT_CARD_BACKUP_MODEL],
+      [],
     ));
   }
 
@@ -263,7 +262,7 @@ export async function POST(request: Request) {
         temperature: 0.55,
         max_completion_tokens: 700,
       },
-      [process.env.GROQ_GIFT_CARD_BACKUP_MODEL, DEFAULT_GIFT_CARD_BACKUP_MODEL],
+      [],
     ));
   }
 

@@ -151,7 +151,7 @@ Send `multipart/form-data` with one field:
   "visibleText": [],
   "productHints": ["rose bouquet", "anniversary flowers"],
   "searchQuery": "red rose bouquet",
-  "model": "qwen/qwen3.6-27b"
+  "model": "qwen/qwen3.8-27b"
 }
 ```
 
@@ -197,7 +197,7 @@ Analyzes one cart product image with Groq and renders a safe SVG Gift Card in Ne
   "analysis": "Soft pink floral styling matches the bouquet and birthday mood.",
   "imageDataUrl": "data:image/svg+xml;base64,...",
   "message": "Wishing you a beautiful birthday filled with love.",
-  "model": "qwen/qwen3.6-27b",
+  "model": "qwen/qwen3.8-27b",
   "palette": ["#FFF8F4", "#5E2945", "#E8A4B8"]
 }
 ```
@@ -546,7 +546,7 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `GROQ_CHECKOUT_DETAILS_MODEL` | Optional checkout voice-detail extraction model; defaults to `openai/gpt-oss-20b`. |
 | `GROQ_GIFT_CARD_DETAILS_MODEL` | Optional Gift Card voice-detail extraction model; defaults to `openai/gpt-oss-20b`. |
 | `GROQ_PRODUCT_MATCHING_MODEL` | Optional cart product-matching model; defaults to `openai/gpt-oss-120b`. |
-| `GROQ_DELIVERY_MODEL` | Optional delivery-prediction model; defaults to `qwen/qwen3.6-27b`. |
+| `GROQ_DELIVERY_MODEL` | Optional delivery-prediction model; defaults to `qwen/qwen3.8-27b`. |
 | `GROQ_ENGLISH_CHAT_MODEL` | Optional English commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINHALA_CHAT_MODEL` | Optional Sinhala commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
 | `GROQ_SINGLISH_CHAT_MODEL` | Optional Singlish commerce-reply model override. Defaults to `openai/gpt-oss-120b`. |
@@ -555,9 +555,8 @@ curl -X POST "{BASE_URL}/api/ai/image-analysis" \
 | `GROQ_SINHALA_GIFT_MESSAGE_MODEL` | Groq fallback model for Sinhala gift messages. |
 | `GROQ_SINGLISH_GIFT_MESSAGE_MODEL` | Groq fallback model for Singlish gift messages. |
 | `GROQ_VISION_MODEL` | Optional image-analysis model override. |
-| `GROQ_VISION_BACKUP_MODEL` | Optional image-analysis fallback-model override. |
-| `GROQ_GIFT_CARD_MODEL` | Gift Card vision/art-direction model. Defaults to `qwen/qwen3.6-27b`. |
-| `GROQ_GIFT_CARD_BACKUP_MODEL` | Gift Card fallback model. Defaults to `qwen/qwen3.8-27b`. |
+| `OPENAI_FALLBACK_MODEL` | Optional OpenAI fallback for Groq failures; defaults to `gpt-4.1-mini`. |
+| `GROQ_GIFT_CARD_MODEL` | Gift Card vision/art-direction model. Defaults to `qwen/qwen3.8-27b`. |
 | `GROQ_BACKUP_MODEL` | Optional first general Groq text fallback model. |
 | `GROQ_BACKUP_MODELS` | Optional comma-separated general Groq text fallback models. |
 | `GROQ_REQUEST_TIMEOUT_MS` | Per-model Groq timeout; clamped to 3–30 seconds and defaults to 5 seconds. |

@@ -22,8 +22,9 @@ Most text calls use this candidate order:
 1. Route primary model
 2. `GROQ_BACKUP_MODEL`, if configured
 3. `GROQ_BACKUP_MODELS`, if configured
-4. `qwen/qwen3.6-27b`
-5. `openai/gpt-oss-120b`
+4. `openai/gpt-oss-120b`
+5. `openai/gpt-oss-20b`
+6. OpenAI `gpt-4.1-mini` when `OPENAI_API_KEY` is configured
 6. `openai/gpt-oss-20b`
 
 Duplicates are removed and only the first four distinct models are attempted.
@@ -34,18 +35,18 @@ Fallbacks run for timeouts, network errors, or HTTP 429/502/503/504.
 | Usage | Primary | Fallbacks |
 |---|---|---|
 | Commerce/context analysis | `openai/gpt-oss-120b` | Shared chain |
-| English commerce replies | `openai/gpt-oss-120b` | `qwen/qwen3.6-27b` → `openai/gpt-oss-20b` |
+| English commerce replies | `openai/gpt-oss-120b` | `openai/gpt-oss-20b` → OpenAI `gpt-4.1-mini` |
 | Sinhala commerce replies | `openai/gpt-oss-120b` | Same as English; eligible requests prefer a valid Novita reply |
-| Singlish commerce replies | `openai/gpt-oss-120b` | `qwen/qwen3.6-27b` → `openai/gpt-oss-20b`; eligible requests prefer Novita |
+| Singlish commerce replies | `openai/gpt-oss-120b` | `openai/gpt-oss-20b` → OpenAI `gpt-4.1-mini`; eligible requests prefer Novita |
 | Product comparison | `openai/gpt-oss-20b` | `openai/gpt-oss-120b` only |
 | Cart product matching | `openai/gpt-oss-120b` | Shared Groq fallback chain |
-| Delivery prediction | `qwen/qwen3.6-27b` | Shared Groq fallback chain |
+| Delivery prediction | `qwen/qwen3.8-27b` | Shared Groq chain, then OpenAI `gpt-4.1-mini` |
 | English gift message | `openai/gpt-oss-20b` | `openai/gpt-oss-120b` only |
 | Sinhala gift message | Novita, then `openai/gpt-oss-120b` | Shared Groq chain after Novita |
 | Singlish gift message | Novita, then `openai/gpt-oss-120b` | Shared Groq chain after Novita |
 | Standalone chatbot | `openai/gpt-oss-120b` | Shared chain |
-| Image analysis | `qwen/qwen3.6-27b` | No distinct default backup; JSON-mode failures retry without JSON mode |
-| Gift Card analysis | `qwen/qwen3.6-27b` | `qwen/qwen3.8-27b`; may retry without JSON mode and then text-only |
+| Image analysis | `qwen/qwen3.8-27b` | OpenAI `gpt-4.1-mini` fallback; JSON-mode failures retry without JSON mode |
+| Gift Card analysis | `qwen/qwen3.8-27b` | OpenAI `gpt-4.1-mini` fallback; may retry without JSON mode and then text-only |
 | Gift Card voice-detail extraction | `openai/gpt-oss-20b` | Shared Groq fallback chain |
 | Voice transcription | `whisper-large-v3-turbo` | None |
 
