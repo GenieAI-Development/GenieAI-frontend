@@ -179,7 +179,7 @@ function getTravelEstimate({
 async function getPreparationEstimate(items: string[], weather: WeatherSnapshot) {
   const apiKey = getGroqApiKey();
   if (!apiKey) throw new Error(getMissingGroqKeyMessage());
-  const primaryModel = process.env.GROQ_DELIVERY_MODEL || "qwen/qwen3.6-27b";
+  const primaryModel = process.env.GROQ_DELIVERY_MODEL || "qwen/qwen3.8-27b";
   const { model, response } = await fetchGroqChatWithFallback(apiKey, {
     model: primaryModel,
     temperature: 0.7,

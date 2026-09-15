@@ -15,7 +15,7 @@ import {
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "qwen/qwen3.6-27b";
+const DEFAULT_MODEL = "qwen/qwen3.8-27b";
 const DEFAULT_BACKUP_MODEL = "qwen/qwen3.6-27b";
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
